@@ -1,5 +1,6 @@
 import { resolveCut } from '../math/cut-resolver.js';
 import { applyCutResolution } from '../math/hydra-model.js';
+import { resolveRuleContext } from './modifiers.js';
 
 function assertAttackRequest(attack) {
   if (!attack || typeof attack !== 'object') {
@@ -41,6 +42,7 @@ export function createCombatSystem({ state, events, getRule } = {}) {
     for (let strikeIndex = 0; strikeIndex < strikeCount; strikeIndex += 1) {
       const snapshot = state.read();
       const rule = getRule(snapshot);
+      const ruleContext = resolveRuleContext(snapshot.modifiers.active, attack.timestamp);
 
       const resolution = resolveCut({
         rule,
@@ -52,6 +54,7 @@ export function createCombatSystem({ state, events, getRule } = {}) {
         },
         turn: snapshot.hydra.turn,
         nowMs: attack.timestamp,
+        ruleContext,
       });
 
       if (resolution.accepted) {
@@ -76,7 +79,15 @@ export function createCombatSystem({ state, events, getRule } = {}) {
         });
       }
 
-      if (!resolution.accepted) break;
+      if (resolution.killed) {
+        events.emit('hydra:killed', {
+          atMs: attack.timestamp,
+          generation: snapshot.hydra.generation,
+          turn: resolution.turnAfter,
+        });
+      }
+
+      if (!resolution.accepted || resolution.killed) break;
     }
 
     return resolutions;
