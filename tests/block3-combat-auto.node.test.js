@@ -141,19 +141,26 @@ test('high attack speed may batch strikes in one Attack Request but Combat resol
   h.destroy();
 });
 
-test('Combat rejects surplus strikes after Hydra is depleted without inventing extra cuts', () => {
+test('Combat stops a high-speed batch at the Hydra I terminal kill without inventing extra cuts', () => {
   const h = createHarness({ attacksPerSecond: 100 });
   h.core.state.update((draft) => {
     draft.master.commandSpells.autoSlash = true;
   });
+
+  const resolved = [];
+  const offResolved = h.core.events.on('attack:resolved', ({ payload }) => resolved.push(payload));
 
   h.core.advance(100);
   const snapshot = h.core.snapshot();
 
   assert.equal(snapshot.hydra.logicalHeadCount, 0n);
   assert.equal(snapshot.statistics.totalHeadsCut, 9n);
+  assert.equal(snapshot.statistics.totalHydrasKilled, 1n);
   assert.equal(snapshot.hydra.turn, 9n);
-  assert.equal(snapshot.hydra.pendingRegrowth.length, 9);
+  assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
+  assert.equal(resolved.length, 9);
+  assert.equal(resolved.at(-1).resolution.killed, true);
 
+  offResolved();
   h.destroy();
 });
