@@ -1,4 +1,4 @@
-# Hydra Clicker — Effect / Modifier Architecture v0.1
+# Hydra Clicker — Effect / Modifier Architecture v0.2
 
 > 積木編程 2.1：讓英靈支援、迦勒底科技、建設、研究與 Buff 都能使用同一套可擴充效果介面。
 
@@ -20,7 +20,7 @@
 
 ```text
 CONTENT SOURCE
-Support / Facility / Research / Command Spell
+Support / Facility / Research / Command Spell / Temporary Buff
                 ↓
           EFFECT DEFINITIONS
                 ↓
@@ -57,6 +57,7 @@ research
 upgrade
 command-spell
 temporary-buff
+np
 ```
 
 ### Effect
@@ -108,6 +109,8 @@ NP Gain ×1.5
 
 用途：合法修改 Hydra rule engine 的參數或行為開關。
 
+一般概念：
+
 ```js
 {
   id: 'effect-regrowth-delay',
@@ -118,16 +121,25 @@ NP Gain ×1.5
 }
 ```
 
-或：
+Block 7 已實作的第一個最小 rule modifier：
 
 ```js
 {
-  id: 'effect-disable-regrowth',
+  id: 'np-regeneration-window-0',
   type: 'rule-modifier',
-  target: 'hydra.regrowthEnabled',
-  operation: 'override',
-  value: false,
-  durationMs: 5000
+  target: 'hydra.regrowth',
+  effect: 'disable',
+  startsAt: 10000,
+  endsAt: 13000,
+  source: 'np'
+}
+```
+
+這個 source 是 NP，但 Hydra Rule 只會收到已解析後的：
+
+```js
+{
+  regrowthEnabled: false
 }
 ```
 
@@ -240,7 +252,7 @@ tree complexity → analyzer points
 
 所有有效 effects 先集中整理，再提供給各 system。
 
-概念 API：
+長期概念 API：
 
 ```js
 modifierAggregator.build({
@@ -266,6 +278,22 @@ modifierAggregator.build({
 ```
 
 各 system 只問 aggregator 結果，不自己遍歷所有角色／科技。
+
+### Phase 3 Block 7 的最小實作
+
+目前沒有提前建完整 aggregator；只有：
+
+```text
+state.modifiers.active
+        ↓
+getActiveModifiers()
+        ↓
+resolveRuleContext()
+        ↓
+Hydra Rule
+```
+
+這是刻意的小接口。等 Support / Facility 真正進場後再把 source collection、stacking、condition evaluator 補齊。
 
 ---
 
@@ -297,6 +325,8 @@ base attack speed = 4
 ```
 
 不要讓 UI 購買順序改變計算順序。
+
+Block 7 的 `hydra.regrowth / disable` 還沒有 stacking 問題；未來同 target 出現多個 source 時再正式啟用這套排序。
 
 ---
 
@@ -408,7 +438,9 @@ CHALDEA
 }
 ```
 
-到期由 Game Clock / scheduler 移除。
+Block 7 的 NP regeneration window 就是第一個真正使用 Game Clock 的 temporary rule modifier。
+
+到期由 Game Clock / modifier lifecycle 清理。
 
 不能由 View 的動畫結束事件決定 Buff 是否過期。
 
@@ -497,23 +529,31 @@ COMMAND SPELL III
 
 ---
 
-## 17. Phase 3 暫時實作多少？
+## 17. Phase 3 實作狀態
 
-不要因為有這份架構就把完整 Support 系統一次做完。
+原則仍然是：不要因為有這份架構就把完整 Support 系統一次做完。
 
-Phase 3 只需要實作最小 Modifier 基礎：
+目前已經因實際需求落地的最小能力：
+
+```text
+capability
+→ Auto Slash 狀態已有位置，Block 8 正式接令咒
+
+rule-modifier
+→ Block 7 NP regeneration window 已使用
+```
+
+下一步才會按需要加入：
 
 ```text
 stat-modifier
-capability
+→ Attack Speed / NP Gain 升級需要時
+
+policy
+→ Tree Targeting / support targeting 真正出現時
+
+conversion
+→ Hydra Farm / 人類惡經濟需要時
 ```
 
-足夠支援：
-
-- Attack Speed 升級。
-- Auto Slash 解鎖。
-- NP Gain 升級。
-
-`rule-modifier`, `policy`, `conversion` 等到 Hydra II / III 需要時再正式落地。
-
-**先保留共同接口，不提前建一座沒人用的框架。**
+**先保留共同接口，需要一種效果時才實作那一種；不提前建一座沒人用的框架。**
