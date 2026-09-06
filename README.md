@@ -54,11 +54,30 @@ Analyzer / Tree View
 - `js/game.js` — 目前最小遊戲循環
 - `js/hydra.js` — 目前最小 Hydra 邏輯
 - `js/heracles.js` — 目前最小攻擊者邏輯
+- `js/core/` — Phase 3 新核心；Clock / State / EventBus / Runtime
+- `tests/block1-core.html` — 不載 Babylon.js 的 Block 1 瀏覽器測試頁
 - `docs/` — 第二階段設計與工程規格
 - `AGENTS.md` — AI / contributor 架構守則
 - `assets/` — 未來模型、圖片、音效、字型
 
-舊的三個 JS 檔暫時不急著搬家。第三階段才會逐步重構成 `core/`, `math/`, `systems/`, `view/`, `data/`，避免為了目錄漂亮而先做無效重寫。
+舊的三個 JS 檔暫時不急著搬家；新積木先與舊 prototype 並行，等對應功能有測試後再逐步替換。
+
+## Phase 3 — Implementation Status
+
+- [x] **Block 1 — Core Clock + State**
+  - fixed-step `GameClock`
+  - logical `GameStateStore`
+  - semantic `EventBus`
+  - thin `createCoreRuntime()` orchestrator
+  - browser-only core test page（不依賴 Babylon.js）
+- [ ] **Block 2 — Hydra I pure logic**
+- [ ] **Block 3 — Combat / Auto Slash**
+- [ ] **Block 4 — Babylon battle stage**
+- [ ] **Block 5 — 9-head Hydra visual pool**
+- [ ] **Block 6 — Placeholder Berserker animation**
+- [ ] **Block 7 — NP / regen stop window**
+- [ ] **Block 8 — 人類惡 + Command Spell I**
+- [ ] **Block 9 — Save**
 
 ## Phase 3 Goal
 
