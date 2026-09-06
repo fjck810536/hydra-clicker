@@ -21,6 +21,10 @@ export function applyCutResolution(draft, resolution) {
   draft.hydra.logicalHeadCount -= resolution.headsRemoved;
   draft.hydra.turn = resolution.turnAfter;
 
+  if (resolution.cancelPendingRegrowth) {
+    draft.hydra.pendingRegrowth = [];
+  }
+
   resolution.regrowth.forEach((event, index) => {
     draft.hydra.pendingRegrowth.push({
       id: makeRegrowthId(resolution.turnAfter, index),
@@ -35,6 +39,9 @@ export function applyCutResolution(draft, resolution) {
   });
 
   draft.statistics.totalHeadsCut += resolution.headsRemoved;
+  if (resolution.killed) {
+    draft.statistics.totalHydrasKilled += 1n;
+  }
   return draft;
 }
 
