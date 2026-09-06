@@ -28,42 +28,21 @@ export function createHydraView({
   root.parent = anchor;
   root.position.set(0, -0.18, 0);
 
-  const bodyMaterial = new babylon.StandardMaterial('hydra-body-material', scene);
-  bodyMaterial.diffuseColor = new babylon.Color3(0.12, 0.17, 0.12);
-  bodyMaterial.specularColor = new babylon.Color3(0.025, 0.025, 0.025);
+  const rootMaterial = new babylon.StandardMaterial('hydra-root-material', scene);
+  rootMaterial.diffuseColor = new babylon.Color3(0.12, 0.17, 0.12);
+  rootMaterial.specularColor = new babylon.Color3(0.025, 0.025, 0.025);
 
-  const body = babylon.MeshBuilder.CreatePolyhedron('hydra-body', {
-    type: 2,
-    size: 0.82,
-  }, scene);
-  body.parent = root;
-  body.position.set(0.06, 0.42, 0.18);
-  body.scaling.set(1.25, 0.88, 0.90);
-  body.rotation.z = -0.08;
-  body.material = bodyMaterial;
-  body.isPickable = false;
-
-  const haunch = babylon.MeshBuilder.CreatePolyhedron('hydra-haunch', {
+  // Playtest 2 silhouette: no large torso/haunch/tail. Keep only a tiny visual
+  // root so the neck fan reads as one organism instead of floating heads.
+  const rootBase = babylon.MeshBuilder.CreatePolyhedron('hydra-root-base', {
     type: 1,
-    size: 0.56,
+    size: 0.36,
   }, scene);
-  haunch.parent = root;
-  haunch.position.set(0.44, 0.32, 0.22);
-  haunch.scaling.set(1.22, 0.74, 0.88);
-  haunch.material = bodyMaterial;
-  haunch.isPickable = false;
-
-  const tail = babylon.MeshBuilder.CreateCylinder('hydra-tail-placeholder', {
-    height: 1.15,
-    diameterTop: 0.08,
-    diameterBottom: 0.24,
-    tessellation: 5,
-  }, scene);
-  tail.parent = root;
-  tail.position.set(0.78, 0.24, 0.20);
-  tail.rotation.z = -1.18;
-  tail.material = bodyMaterial;
-  tail.isPickable = false;
+  rootBase.parent = root;
+  rootBase.position.set(0.02, 0.34, 0.16);
+  rootBase.scaling.set(1.05, 0.48, 0.82);
+  rootBase.material = rootMaterial;
+  rootBase.isPickable = false;
 
   const pool = createHydraHeadPool({
     scene,
@@ -90,7 +69,7 @@ export function createHydraView({
     render,
     destroy() {
       pool.destroy();
-      bodyMaterial.dispose();
+      rootMaterial.dispose();
       root.dispose(false);
     },
   };
