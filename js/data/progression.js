@@ -63,18 +63,32 @@ export function getHydraIRegenDelayMs(
   return Math.max(minDelayMs, Math.round(curvedDelay));
 }
 
+const COMMAND_SPELL_I_LEVELS = Object.freeze([
+  Object.freeze({ level: 1, requiredHydraKills: 9n, cost: 99n, attacksPerSecond: 1 }),
+  Object.freeze({ level: 2, requiredHydraKills: 12n, cost: 22n, attacksPerSecond: 2 }),
+  Object.freeze({ level: 3, requiredHydraKills: 16n, cost: 33n, attacksPerSecond: 4 }),
+  Object.freeze({ level: 4, requiredHydraKills: 22n, cost: 44n, attacksPerSecond: 8 }),
+  Object.freeze({ level: 5, requiredHydraKills: 30n, cost: 66n, attacksPerSecond: 16 }),
+  Object.freeze({ level: 6, requiredHydraKills: 40n, cost: 88n, attacksPerSecond: 32 }),
+  Object.freeze({ level: 7, requiredHydraKills: 52n, cost: 110n, attacksPerSecond: 64 }),
+  Object.freeze({ level: 8, requiredHydraKills: 66n, cost: 132n, attacksPerSecond: 128 }),
+]);
+
 export const HYDRA_I_PROGRESSION = Object.freeze({
   humanityEvilPerKill: 11n,
   respawnDelayMs: 300,
+  burstRespawnDelayMs: 100,
   regenCurve: HYDRA_I_REGEN_CURVE,
   commandSpellI: Object.freeze({
     id: 'command-spell-1',
     displayName: 'Command Spell I',
+    // Keep the original Level 1 fields available for old contracts/data readers.
     requiredHydraKills: 9n,
     cost: Object.freeze({
       currency: 'humanity-evil',
       amount: 99n,
     }),
     unlocks: Object.freeze(['combat.autoSlash']),
+    levels: COMMAND_SPELL_I_LEVELS,
   }),
 });
