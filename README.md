@@ -34,7 +34,7 @@ Analyzer / Tree View
 
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲層級、Hydra 世代、令咒、人類惡、Hydra Farm、Analyzer。
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Data 的工程分層。
-- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot 等積木插頭規格。
+- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot、Save 等積木插頭規格。
 - [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 英靈支援、迦勒底科技、設施、研究、Buff 共用的 Effect / Modifier 架構。
 - [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari 直立舞台、viewport、手勢鎖定、局部 scroll 與 Babylon render boundary。
 - [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來開發者看的積木施工守則。
@@ -52,13 +52,15 @@ Analyzer / Tree View
 9. **Animation 也是投影。** Combat 先完成 logical resolution，再用 semantic events 驅動 Berserker 動畫；動畫完成與否不能決定砍頭結果。
 10. **NP 以 Rule Modifier 實作。** NP 不直接改 Hydra；它只暫時關閉 `hydra.regrowth`，既有再生事件在窗口內暫停，新斬首不建立再生，真正歸零時由 Hydra Rule 宣告 kill。
 11. **Progression 不藏進 Combat。** `hydra:killed` 之後由 economy / progression systems 分別處理人類惡、周回重生與令咒資格；Command Spell I 只解鎖 capability，Auto Slash 自己讀 capability。
+12. **Save 只保存 logical state。** BigInt 以版本化格式序列化；Clock 從保存的 simulation time / tick 恢復。Block 9 不做 offline progress，關閉期間的現實時間不直接推進遊戲。
 
 ## Current Repository
 
 - `index.html` — Phase 3 Babylon portrait stage 入口
 - `css/style.css` — iOS `100dvh` / safe-area / gesture-lock / HUD layout
-- `js/app.js` — 把 headless Hydra I runtime 接到 View
-- `js/core/` — Clock / State / EventBus / Runtime
+- `js/app.js` — 把 headless Hydra I runtime 接到 View，並處理 browser save lifecycle
+- `js/core/` — Clock / State / EventBus / Runtime / versioned Save
+- `js/core/save.js` — BigInt-safe save envelope、Storage adapter、格式版本
 - `js/math/` — Hydra 純邏輯 Rule / Cut Resolution / logical model helpers
 - `js/input/manual-attack.js` — 手動輸入轉成標準 Attack Request
 - `js/data/progression.js` — Hydra I 周回、人類惡、Command Spell I 的可調 prototype 數值
@@ -75,7 +77,7 @@ Analyzer / Tree View
 - `js/view/hydra-view.js` — 低模 Hydra 身體與 logical snapshot → visual projection
 - `js/view/head-pool.js` — 初始 9-slot、按需擴張、99 visible heads 硬上限
 - `js/view/berserker-view.js` — 低模 Berserker placeholder、idle bob、event-driven strike animation
-- `tests/*.node.test.js` — Node 原生核心與架構 contract 自動測試
+- `tests/*.node.test.js` — Node 原生核心、存檔與架構 contract 自動測試
 - `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
 - `docs/` — 設計、架構、平台與效果規格
 - `AGENTS.md` — AI / contributor 架構守則
@@ -152,9 +154,18 @@ Analyzer / Tree View
   - fractional accumulator boundary fixed so 1 attack/sec produces one attack in exactly one simulated second
   - portrait HUD displays KILLS / 人類惡 / Command Spell I without owning the rules
   - headless 9-round tests + UI/data boundary tests + GitHub Actions CI
-- [ ] **Block 9 — Save**
+- [x] **Block 9 — Save**
+  - versioned save envelope stored in browser `localStorage`
+  - nested BigInt values round-trip without precision loss
+  - logical Hydra state、pending regrowth、temporary modifiers、economy、statistics、capabilities persist
+  - GameClock resumes saved `simulationTimeMs` / tick instead of restarting at zero
+  - 5 s simulation autosave + progression events + `visibilitychange` / `pagehide`
+  - corrupted / unsupported save data is rejected and the game can fall back to a fresh session
+  - no Babylon mesh / scene / animation / visible head cache enters save data
+  - Block 9 intentionally pauses while closed; offline progress is a future system
+  - persistence / clock restore / app boundary tests + GitHub Actions CI
 
-## Phase 3 Goal
+## Phase 3 Goal — Complete
 
 Hydra I vertical slice 現在已具備：
 
@@ -165,5 +176,8 @@ Hydra I vertical slice 現在已具備：
 - NP 有效斬殺窗口。
 - 人類惡周回資源。
 - Command Spell I → Auto Slash。
+- Browser local save / restore。
 
-下一步只補 **Block 9 — Save**，再進第一次完整人工試玩 / Grill；Hydra II 仍不提前進場。
+**Block 1–9 已完成。下一步不是 Hydra II，而是第一次完整 iPhone 人工試玩 / Grill。**
+
+人工試玩確認 Hydra I 的操作感、畫面比例、斬擊回饋、再生節奏、NP 窗口、9-round progression、Auto Slash 解鎖與存檔恢復後，再決定下一階段的數值與 Hydra II 入口。
