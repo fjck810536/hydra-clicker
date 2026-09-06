@@ -167,7 +167,7 @@ Auto Slash 每個 simulation tick 只計算應產生多少 attack request。
 
 ## 7. Economy Event
 
-任何素材／人類惡性的獲得都由語義事件記錄：
+任何素材／人類惡的獲得都由語義事件記錄：
 
 ```js
 {
