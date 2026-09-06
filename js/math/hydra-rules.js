@@ -54,7 +54,8 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
           headsSpawned: 0n,
           materialsProduced: 0n,
           regrowth: [],
-          killed: true,
+          depleted: true,
+          killed: false,
           effects: [],
         };
       }
@@ -77,7 +78,8 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
             payload: { branchId: null },
           },
         ],
-        killed: remaining === 0n,
+        depleted: remaining === 0n,
+        killed: false,
         effects: ['slash-hit'],
       };
     },
