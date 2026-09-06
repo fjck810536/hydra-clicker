@@ -48,6 +48,7 @@ Analyzer / Tree View
 5. **Fate 梗與角色名隔離在 data/text 層。** 規則本身可以日後換成原創皮。
 6. **支援、科技、設施與研究優先輸出標準 Effect / Modifier。** 不直接跨層修改核心系統。
 7. **iOS portrait first。** Battle Stage 鎖頁面 scroll / zoom gesture；未來長面板只開自己的局部 scroll。
+8. **Head Pool 是投影。** Hydra I 初始只建 9 個 head slots；未來按需擴張，但可見 mesh 硬上限 99，永遠不能反推 logical head count。
 
 ## Current Repository
 
@@ -62,6 +63,8 @@ Analyzer / Tree View
 - `js/systems/hydra-regrowth.js` — Game Clock 驅動的 Hydra 再生處理
 - `js/view/battle-scene.js` — Babylon engine / orthographic camera / lights / stage anchors
 - `js/view/hud-view.js` — read-only logical HUD projection
+- `js/view/hydra-view.js` — 低模 Hydra 身體與 logical snapshot → visual projection
+- `js/view/head-pool.js` — 初始 9-slot、按需擴張、99 visible heads 硬上限
 - `tests/*.node.test.js` — Node 原生核心與架構 contract 自動測試
 - `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
 - `docs/` — 設計、架構、平台與效果規格
@@ -102,7 +105,15 @@ Analyzer / Tree View
   - landscape rotate guard for small screens
   - headless Hydra I runtime connected to Babylon View
   - stage contract tests + GitHub Actions CI
-- [ ] **Block 5 — 9-head Hydra visual pool**
+- [x] **Block 5 — 9-head Hydra visual pool**
+  - low-poly placeholder Hydra body / tail / nine heads
+  - initial 9-slot pooled head meshes
+  - cut/regrowth projected from logical snapshot
+  - slots disable / re-enable instead of new/dispose on every cut
+  - pool can expand on demand but never beyond 99 visible heads
+  - astronomical BigInt head counts safely saturate at 99 visible heads
+  - View never writes mesh count back into logical state
+  - projection contract tests + GitHub Actions CI
 - [ ] **Block 6 — Placeholder Berserker animation**
 - [ ] **Block 7 — NP / regen stop window**
 - [ ] **Block 8 — 人類惡 + Command Spell I**
