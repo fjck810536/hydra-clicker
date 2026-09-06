@@ -49,6 +49,7 @@ Analyzer / Tree View
 6. **支援、科技、設施與研究優先輸出標準 Effect / Modifier。** 不直接跨層修改核心系統。
 7. **iOS portrait first。** Battle Stage 鎖頁面 scroll / zoom gesture；未來長面板只開自己的局部 scroll。
 8. **Head Pool 是投影。** Hydra I 初始只建 9 個 head slots；未來按需擴張，但可見 mesh 硬上限 99，永遠不能反推 logical head count。
+9. **Animation 也是投影。** Combat 先完成 logical resolution，再用 semantic events 驅動 Berserker 動畫；動畫完成與否不能決定砍頭結果。
 
 ## Current Repository
 
@@ -65,6 +66,7 @@ Analyzer / Tree View
 - `js/view/hud-view.js` — read-only logical HUD projection
 - `js/view/hydra-view.js` — 低模 Hydra 身體與 logical snapshot → visual projection
 - `js/view/head-pool.js` — 初始 9-slot、按需擴張、99 visible heads 硬上限
+- `js/view/berserker-view.js` — 低模 Berserker placeholder、idle bob、event-driven strike animation
 - `tests/*.node.test.js` — Node 原生核心與架構 contract 自動測試
 - `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
 - `docs/` — 設計、架構、平台與效果規格
@@ -114,7 +116,14 @@ Analyzer / Tree View
   - astronomical BigInt head counts safely saturate at 99 visible heads
   - View never writes mesh count back into logical state
   - projection contract tests + GitHub Actions CI
-- [ ] **Block 6 — Placeholder Berserker animation**
+- [x] **Block 6 — Placeholder Berserker animation**
+  - low-poly primitive Berserker body / weapon
+  - lightweight idle bob
+  - `attack:resolved` → View-only `playAttack()`
+  - rejected attacks do not animate as successful strikes
+  - animation never triggers or gates logical head removal
+  - later GLB replacement can keep the same View-facing interface
+  - view-boundary contract tests + GitHub Actions CI
 - [ ] **Block 7 — NP / regen stop window**
 - [ ] **Block 8 — 人類惡 + Command Spell I**
 - [ ] **Block 9 — Save**
