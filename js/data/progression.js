@@ -1,6 +1,6 @@
 export const HYDRA_I_PROGRESSION = Object.freeze({
   humanityEvilPerKill: 11n,
-  respawnDelayMs: 1200,
+  respawnDelayMs: 300,
   commandSpellI: Object.freeze({
     id: 'command-spell-1',
     displayName: 'Command Spell I',
