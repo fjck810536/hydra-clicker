@@ -51,11 +51,15 @@ Analyzer / Tree View
 
 - `index.html` — 現有最小 prototype 入口
 - `css/style.css` — 現有畫面樣式
-- `js/game.js` — 目前最小遊戲循環
-- `js/hydra.js` — 目前最小 Hydra 邏輯
-- `js/heracles.js` — 目前最小攻擊者邏輯
-- `js/core/` — Phase 3 新核心；Clock / State / EventBus / Runtime
-- `tests/block1-core.html` — 不載 Babylon.js 的 Block 1 瀏覽器測試頁
+- `js/game.js` — 目前最小舊遊戲循環
+- `js/hydra.js` — 目前最小舊 Hydra 邏輯
+- `js/heracles.js` — 目前最小舊攻擊者邏輯
+- `js/core/` — Phase 3 Core：Clock / State / EventBus / Runtime
+- `js/math/` — Hydra 純邏輯 Rule / Cut Resolution / logical model helpers
+- `js/systems/hydra-regrowth.js` — 由 Game Clock 驅動的 Hydra 再生處理
+- `tests/*.node.test.js` — Node 原生核心自動測試
+- `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
+- `tests/block1-core.html` — 舊的 Block 1 瀏覽器測試頁
 - `docs/` — 第二階段設計與工程規格
 - `AGENTS.md` — AI / contributor 架構守則
 - `assets/` — 未來模型、圖片、音效、字型
@@ -69,8 +73,14 @@ Analyzer / Tree View
   - logical `GameStateStore`
   - semantic `EventBus`
   - thin `createCoreRuntime()` orchestrator
-  - browser-only core test page（不依賴 Babylon.js）
-- [ ] **Block 2 — Hydra I pure logic**
+  - Node CI regression tests
+- [x] **Block 2 — Hydra I pure logic**
+  - Hydra I rule: cut → delayed same-head regrowth
+  - pure Cut Resolution
+  - logical regrowth queue
+  - `depleted` 與真正 `killed` 分離
+  - Game Clock 驅動再生，不使用 gameplay `setTimeout`
+  - Node tests + GitHub Actions CI
 - [ ] **Block 3 — Combat / Auto Slash**
 - [ ] **Block 4 — Babylon battle stage**
 - [ ] **Block 5 — 9-head Hydra visual pool**
