@@ -60,7 +60,7 @@ export function createNpSystem({
       startsAt,
       endsAt,
       source: 'np',
-      scope: 'encounter',
+      scope: 'timed',
     };
 
     state.update((draft) => {
