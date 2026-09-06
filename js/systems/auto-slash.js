@@ -1,3 +1,5 @@
+const ACCUMULATOR_EPSILON = 1e-9;
+
 export function createAutoSlashSystem({
   state,
   events,
@@ -36,10 +38,10 @@ export function createAutoSlashSystem({
     }
 
     accumulator += attacksPerSecond * (tick.deltaMs / 1000);
-    const strikeCount = Math.floor(accumulator);
+    const strikeCount = Math.floor(accumulator + ACCUMULATOR_EPSILON);
     if (strikeCount < 1) return;
 
-    accumulator -= strikeCount;
+    accumulator = Math.max(0, accumulator - strikeCount);
 
     events.emit('attack:requested', {
       source: 'auto',
