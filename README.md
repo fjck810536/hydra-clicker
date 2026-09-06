@@ -51,6 +51,7 @@ Analyzer / Tree View
 8. **Head Pool 是投影。** Hydra I 初始只建 9 個 head slots；未來按需擴張，但可見 mesh 硬上限 99，永遠不能反推 logical head count。
 9. **Animation 也是投影。** Combat 先完成 logical resolution，再用 semantic events 驅動 Berserker 動畫；動畫完成與否不能決定砍頭結果。
 10. **NP 以 Rule Modifier 實作。** NP 不直接改 Hydra；它只暫時關閉 `hydra.regrowth`，既有再生事件在窗口內暫停，新斬首不建立再生，真正歸零時由 Hydra Rule 宣告 kill。
+11. **Progression 不藏進 Combat。** `hydra:killed` 之後由 economy / progression systems 分別處理人類惡、周回重生與令咒資格；Command Spell I 只解鎖 capability，Auto Slash 自己讀 capability。
 
 ## Current Repository
 
@@ -60,11 +61,15 @@ Analyzer / Tree View
 - `js/core/` — Clock / State / EventBus / Runtime
 - `js/math/` — Hydra 純邏輯 Rule / Cut Resolution / logical model helpers
 - `js/input/manual-attack.js` — 手動輸入轉成標準 Attack Request
+- `js/data/progression.js` — Hydra I 周回、人類惡、Command Spell I 的可調 prototype 數值
 - `js/systems/combat.js` — Attack Request → Hydra Rule → Cut Result
 - `js/systems/auto-slash.js` — Game Clock 驅動的自動斬擊 request generator
 - `js/systems/hydra-regrowth.js` — Game Clock 驅動的 Hydra 再生處理
 - `js/systems/modifiers.js` — 最小 timed rule-modifier resolver
 - `js/systems/np.js` — NP charge / release / regeneration-stop window
+- `js/systems/humanity-evil.js` — `hydra:killed` → 人類惡 economy event
+- `js/systems/command-spells.js` — Command Spell I 資格、消費與 Auto Slash capability unlock
+- `js/systems/progression.js` — defeated encounter → 下一隻 Hydra I 周回重生
 - `js/view/battle-scene.js` — Babylon engine / orthographic camera / lights / stage anchors
 - `js/view/hud-view.js` — read-only logical HUD projection
 - `js/view/hydra-view.js` — 低模 Hydra 身體與 logical snapshot → visual projection
@@ -136,18 +141,29 @@ Analyzer / Tree View
   - reaching zero during NP clears pending regrowth and becomes true `hydra:killed`
   - NP HUD / release button remains a runtime request, never direct Hydra mutation
   - headless NP tests + View boundary tests + GitHub Actions CI
-- [ ] **Block 8 — 人類惡 + Command Spell I**
+- [x] **Block 8 — 人類惡 + Command Spell I**
+  - true `hydra:killed` awards prototype `+11` 人類惡
+  - defeated Hydra waits 1.2 s, then a clean Hydra I encounter respawns
+  - encounter-scoped NP modifiers do not leak into the next round
+  - prototype tuning: `9 kills × 11 = 99 人類惡`
+  - Command Spell I requires 9 kills and costs 99 人類惡
+  - purchase emits semantic spend / unlock events and sets Auto Slash capability
+  - Auto Slash begins operating from capability state; Command Spell system never calls it directly
+  - fractional accumulator boundary fixed so 1 attack/sec produces one attack in exactly one simulated second
+  - portrait HUD displays KILLS / 人類惡 / Command Spell I without owning the rules
+  - headless 9-round tests + UI/data boundary tests + GitHub Actions CI
 - [ ] **Block 9 — Save**
 
 ## Phase 3 Goal
 
-下一個可玩里程碑只做 Hydra I：
+Hydra I vertical slice 現在已具備：
 
 - Babylon.js 固定側視舞台。
-- placeholder 低模 Berserker 循環攻擊。
-- 9-head Hydra 可被斬首並延遲長回。
-- 邏輯頭數和渲染頭數已分離。
-- NP 可產生短暫有效斬殺窗口。
-- Command Spell I 解鎖 Auto Slash。
+- placeholder 低模 Berserker attack animation。
+- 9-head Hydra 斬首、再生與真正討伐。
+- 邏輯頭數與渲染頭數分離。
+- NP 有效斬殺窗口。
+- 人類惡周回資源。
+- Command Spell I → Auto Slash。
 
-Hydra II 在這一輪穩定以前不進場。
+下一步只補 **Block 9 — Save**，再進第一次完整人工試玩 / Grill；Hydra II 仍不提前進場。
