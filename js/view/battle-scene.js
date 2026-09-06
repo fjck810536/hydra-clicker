@@ -124,6 +124,7 @@ export function createBattleStage({
 
   const backdropMaterial = new babylon.StandardMaterial('stage-backdrop-material', scene);
   backdropMaterial.diffuseColor = new babylon.Color3(0.055, 0.06, 0.075);
+  backdropMaterial.emissiveColor = new babylon.Color3(0, 0, 0);
   backdropMaterial.specularColor = babylon.Color3.Black();
   backdrop.material = backdropMaterial;
 
@@ -137,8 +138,28 @@ export function createBattleStage({
 
   const groundMaterial = new babylon.StandardMaterial('stage-ground-material', scene);
   groundMaterial.diffuseColor = new babylon.Color3(0.10, 0.10, 0.12);
+  groundMaterial.emissiveColor = new babylon.Color3(0, 0, 0);
   groundMaterial.specularColor = new babylon.Color3(0.05, 0.05, 0.05);
   ground.material = groundMaterial;
+
+  let npTintActive = false;
+  const setNpActive = (active) => {
+    const nextActive = Boolean(active);
+    if (nextActive === npTintActive) return;
+    npTintActive = nextActive;
+
+    if (npTintActive) {
+      scene.clearColor.copyFromFloats(0.075, 0.018, 0.022, 1);
+      backdropMaterial.diffuseColor.copyFromFloats(0.12, 0.028, 0.035);
+      backdropMaterial.emissiveColor.copyFromFloats(0.055, 0.006, 0.008);
+      groundMaterial.emissiveColor.copyFromFloats(0.035, 0.004, 0.005);
+    } else {
+      scene.clearColor.copyFromFloats(0.035, 0.035, 0.045, 1);
+      backdropMaterial.diffuseColor.copyFromFloats(0.055, 0.06, 0.075);
+      backdropMaterial.emissiveColor.copyFromFloats(0, 0, 0);
+      groundMaterial.emissiveColor.copyFromFloats(0, 0, 0);
+    }
+  };
 
   const berserkerAnchor = createAnchorMarker({
     babylon,
@@ -189,6 +210,7 @@ export function createBattleStage({
     engine,
     scene,
     camera,
+    setNpActive,
     anchors: Object.freeze({
       berserker: berserkerAnchor,
       hydra: hydraAnchor,
