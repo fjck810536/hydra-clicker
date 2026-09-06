@@ -1,16 +1,18 @@
 export const INITIAL_HYDRA_HEAD_POOL_SIZE = 9;
 export const MAX_VISIBLE_HEADS = 99;
 
+// Playtest 2 silhouette: a narrow root that opens into a wider upward fan.
+// Higher heads move farther from center instead of converging into a crown.
 const HYDRA_I_HEAD_POSES = Object.freeze([
-  Object.freeze({ x: -0.82, y: 1.18, z: 0.10, rotationZ: -0.42 }),
-  Object.freeze({ x: -0.66, y: 1.58, z: -0.10, rotationZ: -0.31 }),
-  Object.freeze({ x: -0.44, y: 1.86, z: 0.06, rotationZ: -0.20 }),
-  Object.freeze({ x: -0.20, y: 2.05, z: -0.06, rotationZ: -0.10 }),
-  Object.freeze({ x: 0.04, y: 2.12, z: 0.08, rotationZ: 0 }),
-  Object.freeze({ x: 0.28, y: 2.03, z: -0.08, rotationZ: 0.10 }),
-  Object.freeze({ x: 0.50, y: 1.82, z: 0.06, rotationZ: 0.20 }),
-  Object.freeze({ x: 0.68, y: 1.52, z: -0.10, rotationZ: 0.31 }),
-  Object.freeze({ x: 0.80, y: 1.14, z: 0.10, rotationZ: 0.42 }),
+  Object.freeze({ x: 0.00, y: 0.98, z: 0.08, rotationZ: 0.00 }),
+  Object.freeze({ x: -0.28, y: 1.22, z: -0.08, rotationZ: 0.08 }),
+  Object.freeze({ x: 0.32, y: 1.26, z: 0.10, rotationZ: -0.08 }),
+  Object.freeze({ x: -0.60, y: 1.50, z: 0.06, rotationZ: 0.15 }),
+  Object.freeze({ x: 0.66, y: 1.55, z: -0.10, rotationZ: -0.15 }),
+  Object.freeze({ x: -0.94, y: 1.78, z: -0.08, rotationZ: 0.22 }),
+  Object.freeze({ x: 1.02, y: 1.84, z: 0.08, rotationZ: -0.22 }),
+  Object.freeze({ x: -1.28, y: 2.08, z: 0.10, rotationZ: 0.30 }),
+  Object.freeze({ x: 1.36, y: 2.14, z: -0.06, rotationZ: -0.30 }),
 ]);
 
 function assertPoolLimit(maxVisibleHeads) {
@@ -43,17 +45,18 @@ export function getHeadSlotPose(index) {
   }
 
   const extraIndex = index - HYDRA_I_HEAD_POSES.length;
-  const ring = Math.floor(extraIndex / 18) + 1;
+  const tier = Math.floor(extraIndex / 18) + 1;
   const slot = extraIndex % 18;
-  const angle = (-Math.PI * 0.92) + (slot / 17) * Math.PI * 0.84;
-  const radiusX = 0.88 + ring * 0.16;
-  const radiusY = 1.05 + ring * 0.12;
+  const normalized = slot / 17;
+  const side = normalized * 2 - 1;
+  const spread = 1.42 + tier * 0.22;
+  const height = 1.08 + Math.abs(side) * 1.55 + tier * 0.20;
 
   return Object.freeze({
-    x: Math.cos(angle) * radiusX,
-    y: 1.08 + Math.sin(angle) * radiusY + ring * 0.16,
-    z: ((slot % 3) - 1) * 0.10 - ring * 0.012,
-    rotationZ: angle * 0.28,
+    x: side * spread,
+    y: height,
+    z: ((slot % 3) - 1) * 0.10 - tier * 0.012,
+    rotationZ: -side * 0.30,
   });
 }
 
