@@ -18,7 +18,12 @@ export function createCoreRuntime({
 } = {}) {
   const events = new EventBus();
   const state = new GameStateStore(initialState);
-  const clock = new GameClock({ fixedStepMs });
+  const initialSnapshot = state.read();
+  const clock = new GameClock({
+    fixedStepMs,
+    initialSimulationTimeMs: initialSnapshot.time.simulationTimeMs,
+    initialTickCount: initialSnapshot.time.tick,
+  });
 
   const unsubscribeClock = clock.onTick((tick) => {
     state.update((draft) => {
