@@ -104,7 +104,10 @@ test('Auto Slash preserves fractional rates: 2.5 attacks/sec becomes 5 cuts over
     draft.master.commandSpells.autoSlash = true;
   });
 
-  h.core.advance(2000);
+  // advance() represents one observed frame delta and intentionally clamps a single
+  // oversized frame to 1000ms. Two 1000ms advances are therefore two simulated seconds.
+  h.core.advance(1000);
+  h.core.advance(1000);
   const snapshot = h.core.snapshot();
 
   assert.equal(snapshot.statistics.totalHeadsCut, 5n);
