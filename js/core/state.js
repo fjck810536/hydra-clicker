@@ -73,6 +73,7 @@ export class GameStateStore {
 
   constructor(initialState = createInitialState()) {
     this.#state = clone(initialState);
+    this.#validate(this.#state);
   }
 
   read() {
@@ -120,6 +121,22 @@ export class GameStateStore {
 
     if (typeof state.hydra.turn !== 'bigint' || state.hydra.turn < 0n) {
       throw new TypeError('hydra.turn must be a non-negative BigInt.');
+    }
+
+    if (!Array.isArray(state.hydra.pendingRegrowth)) {
+      throw new TypeError('hydra.pendingRegrowth must be an array.');
+    }
+
+    for (const event of state.hydra.pendingRegrowth) {
+      if (!event || event.type !== 'hydra-regrow') {
+        throw new TypeError('Every pending regrowth event must be type hydra-regrow.');
+      }
+      if (!Number.isFinite(event.executeAt) || event.executeAt < 0) {
+        throw new RangeError('regrowth executeAt must be a finite number >= 0.');
+      }
+      if (typeof event.amount !== 'bigint' || event.amount < 1n) {
+        throw new TypeError('regrowth amount must be a positive BigInt.');
+      }
     }
 
     if (typeof state.berserker.headsPerStrike !== 'bigint' || state.berserker.headsPerStrike < 1n) {
