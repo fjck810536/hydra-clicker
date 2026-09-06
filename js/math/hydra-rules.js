@@ -44,6 +44,11 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
       const headsPerStrike = normalizeHeadsPerStrike(attack);
       const removable = minBigInt(headsPerStrike, hydraState.logicalHeadCount);
       const regrowthEnabled = ruleContext.regrowthEnabled !== false;
+      const effectiveRegenDelayMs = ruleContext.regrowthDelayMs ?? regenDelayMs;
+
+      if (!Number.isFinite(effectiveRegenDelayMs) || effectiveRegenDelayMs < 0) {
+        throw new RangeError('ruleContext.regrowthDelayMs must be a finite number >= 0.');
+      }
 
       if (removable === 0n) {
         return {
@@ -79,7 +84,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
         regrowth: regrowthEnabled && !killed
           ? [
               {
-                executeAt: nowMs + regenDelayMs,
+                executeAt: nowMs + effectiveRegenDelayMs,
                 amount: removable,
                 ruleId: 'regen-same-head',
                 payload: { branchId: null },
