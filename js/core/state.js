@@ -26,10 +26,13 @@ export function createInitialState() {
 
     hydra: {
       generation: 1,
+      encounter: 1n,
       logicalHeadCount: INITIAL_HEADS,
       startingHeadCount: INITIAL_HEADS,
       turn: 0n,
       pendingRegrowth: [],
+      defeated: false,
+      respawnAtMs: null,
     },
 
     berserker: {
@@ -115,12 +118,28 @@ export class GameStateStore {
       throw new RangeError('time.tick must be an integer >= 0.');
     }
 
+    if (typeof state.hydra.encounter !== 'bigint' || state.hydra.encounter < 1n) {
+      throw new TypeError('hydra.encounter must be a positive BigInt.');
+    }
+
     if (typeof state.hydra.logicalHeadCount !== 'bigint' || state.hydra.logicalHeadCount < 0n) {
       throw new TypeError('hydra.logicalHeadCount must be a non-negative BigInt.');
     }
 
+    if (typeof state.hydra.startingHeadCount !== 'bigint' || state.hydra.startingHeadCount < 1n) {
+      throw new TypeError('hydra.startingHeadCount must be a positive BigInt.');
+    }
+
     if (typeof state.hydra.turn !== 'bigint' || state.hydra.turn < 0n) {
       throw new TypeError('hydra.turn must be a non-negative BigInt.');
+    }
+
+    if (typeof state.hydra.defeated !== 'boolean') {
+      throw new TypeError('hydra.defeated must be a boolean.');
+    }
+
+    if (state.hydra.respawnAtMs != null && (!Number.isFinite(state.hydra.respawnAtMs) || state.hydra.respawnAtMs < 0)) {
+      throw new RangeError('hydra.respawnAtMs must be null or a finite number >= 0.');
     }
 
     if (!Array.isArray(state.hydra.pendingRegrowth)) {
