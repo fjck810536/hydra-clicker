@@ -1,7 +1,8 @@
 import { processDueRegrowth } from '../math/hydra-model.js';
+import { isRegrowthEnabled } from './modifiers.js';
 
 export function createHydraRegrowthSystem({ state, events } = {}) {
-  if (!state || typeof state.update !== 'function') {
+  if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Hydra regrowth system requires a state store.');
   }
   if (!events || typeof events.on !== 'function' || typeof events.emit !== 'function') {
@@ -9,6 +10,9 @@ export function createHydraRegrowthSystem({ state, events } = {}) {
   }
 
   const unsubscribe = events.on('clock:tick', ({ payload: tick }) => {
+    const snapshot = state.read();
+    if (!isRegrowthEnabled(snapshot.modifiers.active, tick.nowMs)) return;
+
     let result = null;
 
     state.update((draft) => {
