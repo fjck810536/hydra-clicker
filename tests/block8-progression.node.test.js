@@ -3,61 +3,54 @@ import assert from 'node:assert/strict';
 
 import { createHydraIGameRuntime } from '../js/core/game.js';
 
-function chargeAndKill(runtime) {
-  while (runtime.snapshot().berserker.np < 1) {
+function killHydra(runtime) {
+  while (!runtime.snapshot().hydra.defeated) {
     assert.ok(runtime.snapshot().hydra.logicalHeadCount > 0n);
     runtime.manualAttack();
   }
-
-  const release = runtime.releaseNp();
-  assert.equal(release.accepted, true);
-
-  while (!runtime.snapshot().hydra.defeated) {
-    runtime.manualAttack();
-  }
 }
 
-function advance1200(runtime) {
-  runtime.advance(1000);
-  runtime.advance(200);
+function advanceRespawn(runtime) {
+  runtime.advance(300);
 }
 
-test('Hydra kill awards Humanity Evil and encounter respawns cleanly', () => {
-  const runtime = createHydraIGameRuntime();
+test('ordinary Hydra kill awards Humanity Evil and respawns after 300ms', () => {
+  const runtime = createHydraIGameRuntime({ regenDelayMs: 10000 });
 
-  chargeAndKill(runtime);
+  killHydra(runtime);
   let snapshot = runtime.snapshot();
 
   assert.equal(snapshot.statistics.totalHydrasKilled, 1n);
   assert.equal(snapshot.master.humanityEvil, 11n);
   assert.equal(snapshot.hydra.logicalHeadCount, 0n);
   assert.equal(snapshot.hydra.defeated, true);
-  assert.equal(snapshot.modifiers.active.length, 1);
 
-  advance1200(runtime);
+  runtime.advance(200);
+  assert.equal(runtime.snapshot().hydra.defeated, true);
+
+  runtime.advance(100);
   snapshot = runtime.snapshot();
 
   assert.equal(snapshot.hydra.logicalHeadCount, 9n);
   assert.equal(snapshot.hydra.encounter, 2n);
   assert.equal(snapshot.hydra.defeated, false);
   assert.equal(snapshot.hydra.respawnAtMs, null);
-  assert.equal(snapshot.modifiers.active.length, 0);
 
   runtime.destroy();
 });
 
-test('Command Spell I requires 9 kills and 99 Humanity Evil, then unlocks Auto Slash', () => {
-  const runtime = createHydraIGameRuntime();
+test('Command Spell I requires 9 ordinary kills and 99 Humanity Evil, then unlocks Auto Slash', () => {
+  const runtime = createHydraIGameRuntime({ regenDelayMs: 10000 });
 
   const early = runtime.buyCommandSpellI();
   assert.equal(early.accepted, false);
   assert.equal(early.reason, 'kills-required');
 
   for (let kill = 1; kill <= 9; kill += 1) {
-    chargeAndKill(runtime);
+    killHydra(runtime);
     assert.equal(runtime.snapshot().statistics.totalHydrasKilled, BigInt(kill));
     assert.equal(runtime.snapshot().master.humanityEvil, BigInt(kill * 11));
-    advance1200(runtime);
+    advanceRespawn(runtime);
   }
 
   const status = runtime.commandSpellIStatus();
@@ -84,7 +77,7 @@ test('Command Spell I requires 9 kills and 99 Humanity Evil, then unlocks Auto S
 });
 
 test('Command Spell I purchase emits semantic unlock and spend events', () => {
-  const runtime = createHydraIGameRuntime();
+  const runtime = createHydraIGameRuntime({ regenDelayMs: 10000 });
   const unlocked = [];
   const spent = [];
 
@@ -92,8 +85,8 @@ test('Command Spell I purchase emits semantic unlock and spend events', () => {
   const offSpend = runtime.events.on('currency:spend', ({ payload }) => spent.push(payload));
 
   for (let kill = 0; kill < 9; kill += 1) {
-    chargeAndKill(runtime);
-    advance1200(runtime);
+    killHydra(runtime);
+    advanceRespawn(runtime);
   }
 
   runtime.buyCommandSpellI();
