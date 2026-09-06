@@ -33,7 +33,7 @@ Analyzer / Tree View
 ## Phase 2 — 積木編程規格
 
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲層級、Hydra 世代、令咒、人類惡、Hydra Farm、Analyzer。
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / View / Data 的工程分層。
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Data 的工程分層。
 - [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot 等積木插頭規格。
 - [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 英靈支援、迦勒底科技、設施、研究、Buff 共用的 Effect / Modifier 架構。
 - [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來開發者看的積木施工守則。
@@ -56,7 +56,10 @@ Analyzer / Tree View
 - `js/heracles.js` — 目前最小舊攻擊者邏輯
 - `js/core/` — Phase 3 Core：Clock / State / EventBus / Runtime
 - `js/math/` — Hydra 純邏輯 Rule / Cut Resolution / logical model helpers
-- `js/systems/hydra-regrowth.js` — 由 Game Clock 驅動的 Hydra 再生處理
+- `js/input/manual-attack.js` — 手動輸入轉成標準 Attack Request
+- `js/systems/combat.js` — Attack Request → Hydra Rule → Cut Result
+- `js/systems/auto-slash.js` — Game Clock 驅動的自動斬擊 request generator
+- `js/systems/hydra-regrowth.js` — Game Clock 驅動的 Hydra 再生處理
 - `tests/*.node.test.js` — Node 原生核心自動測試
 - `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
 - `tests/block1-core.html` — 舊的 Block 1 瀏覽器測試頁
@@ -81,7 +84,13 @@ Analyzer / Tree View
   - `depleted` 與真正 `killed` 分離
   - Game Clock 驅動再生，不使用 gameplay `setTimeout`
   - Node tests + GitHub Actions CI
-- [ ] **Block 3 — Combat / Auto Slash**
+- [x] **Block 3 — Combat / Auto Slash**
+  - manual input 與 Auto Slash 共用標準 Attack Request
+  - Combat 注入 active Hydra Rule，不用 generation `if`
+  - fractional attack-rate accumulator
+  - high-speed multi-strike batch request / sequential resolution
+  - `createHydraIGameRuntime()` headless gameplay composition
+  - Node tests + GitHub Actions CI
 - [ ] **Block 4 — Babylon battle stage**
 - [ ] **Block 5 — 9-head Hydra visual pool**
 - [ ] **Block 6 — Placeholder Berserker animation**
