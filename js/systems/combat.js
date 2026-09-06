@@ -24,7 +24,12 @@ function assertAttackRequest(attack) {
   return { strikeCount, headsPerStrike };
 }
 
-export function createCombatSystem({ state, events, getRule } = {}) {
+export function createCombatSystem({
+  state,
+  events,
+  getRule,
+  getRuleContext = () => ({}),
+} = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Combat system requires a state store.');
   }
@@ -34,6 +39,9 @@ export function createCombatSystem({ state, events, getRule } = {}) {
   if (typeof getRule !== 'function') {
     throw new TypeError('Combat system requires getRule().');
   }
+  if (typeof getRuleContext !== 'function') {
+    throw new TypeError('Combat system getRuleContext must be a function.');
+  }
 
   const unsubscribe = events.on('attack:requested', ({ payload: attack }) => {
     const { strikeCount, headsPerStrike } = assertAttackRequest(attack);
@@ -42,7 +50,16 @@ export function createCombatSystem({ state, events, getRule } = {}) {
     for (let strikeIndex = 0; strikeIndex < strikeCount; strikeIndex += 1) {
       const snapshot = state.read();
       const rule = getRule(snapshot);
-      const ruleContext = resolveRuleContext(snapshot.modifiers.active, attack.timestamp);
+      const baseRuleContext = getRuleContext(snapshot, attack) ?? {};
+      if (typeof baseRuleContext !== 'object') {
+        throw new TypeError('getRuleContext() must return an object.');
+      }
+
+      const modifierRuleContext = resolveRuleContext(snapshot.modifiers.active, attack.timestamp);
+      const ruleContext = Object.freeze({
+        ...baseRuleContext,
+        ...modifierRuleContext,
+      });
 
       const resolution = resolveCut({
         rule,
