@@ -10,6 +10,7 @@ function requireBabylon(babylon) {
   const required = [
     'Engine',
     'Scene',
+    'Camera',
     'Vector3',
     'Color3',
     'Color4',
