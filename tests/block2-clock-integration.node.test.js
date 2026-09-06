@@ -58,8 +58,8 @@ test('head:regrow emits semantic result after due regrowth is applied', () => {
 
   assert.equal(core.snapshot().hydra.logicalHeadCount, 9n);
   assert.equal(observed.length, 1);
-  assert.equal(observed[0].amount, 2n);
-  assert.equal(observed[0].atMs, 300);
+  assert.equal(observed[0].payload.amount, 2n);
+  assert.equal(observed[0].payload.atMs, 300);
 
   off();
   regrowth.destroy();
