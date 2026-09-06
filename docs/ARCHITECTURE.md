@@ -1,4 +1,4 @@
-# Hydra Clicker — Architecture v0.4
+# Hydra Clicker — Architecture v0.5
 
 > 目標：每一塊都可以單獨測試、替換、重寫，不讓「數學規則」「遊戲經濟」「玩家輸入」「Babylon.js 畫面」互相糾纏。
 
@@ -16,14 +16,14 @@ HYDRA RULE ENGINE
 CUT RESULT / REGROWTH EVENTS
         ↓
 GAME STATE
-   ┌────┼────────────┬───────────┐
-   ↓    ↓            ↓           ↓
-ECONOMY PROGRESSION  UI          VIEW
-   ↓        ↓                     ↓
-CAPABILITY / UNLOCK            Babylon.js
+   ┌────┼────────────┬───────────┬─────────────┐
+   ↓    ↓            ↓           ↓             ↓
+ECONOMY PROGRESSION  UI          VIEW       PERSISTENCE
+   ↓        ↓                     ↓             ↓
+CAPABILITY / UNLOCK            Babylon.js   versioned save
 ```
 
-View 永遠只讀取結果，不決定數學；Input 只描述玩家意圖，不直接修改遊戲狀態。Economy / Progression 只監聽語義事件，不得把周回與獎勵寫進 Combat。
+View 永遠只讀取結果，不決定數學；Input 只描述玩家意圖，不直接修改遊戲狀態。Economy / Progression 只監聽語義事件，不得把周回與獎勵寫進 Combat。Persistence 只保存 logical state，不保存 Babylon / DOM presentation objects。
 
 ## 2. 目標目錄
 
@@ -37,7 +37,8 @@ hydra-clicker/
 │   ├── ARCHITECTURE.md
 │   ├── BLOCK_CONTRACTS.md
 │   ├── EFFECT_MODIFIER_ARCHITECTURE.md
-│   └── PLATFORM_CONTRACT.md
+│   ├── PLATFORM_CONTRACT.md
+│   └── SAVE_CONTRACT.md
 ├── js/
 │   ├── core/
 │   │   ├── game.js
@@ -102,7 +103,7 @@ hydra-clicker/
 它可以：
 
 - 初始化 state。
-- 啟動 clock。
+- 啟動／恢復 clock。
 - 註冊 systems。
 - 注入目前 Hydra rule。
 - 注入 progression tuning data。
@@ -142,11 +143,23 @@ UI 只呼叫這些 application-facing API，不拿 state reference 直接修改�
 
 - simulation tick
 - animation frame 分離
-- offline progress（Block 9 之後再處理）
+- 從 Save 恢復 simulation time / tick
+- offline progress（未來獨立設計）
 
 遊戲邏輯不能依賴實際 FPS。
 
-單次實際 frame delta 有上限，避免頁籤背景化後突然一次補算過長的 frame；真正 offline progress 未來另外處理。
+單次實際 frame delta 有上限，避免頁籤背景化後突然一次補算過長的 frame。
+
+Block 9 載入時，Clock 從 saved logical state 的：
+
+```text
+time.simulationTimeMs
+time.tick
+```
+
+繼續，確保 pending regrowth / NP modifier / respawn deadline 保持同一條 simulation timeline。
+
+**Block 9 不使用 wall-clock elapsed time 推進遊戲；offline progress 尚未實作。**
 
 ### `event-bus.js`
 
@@ -177,6 +190,39 @@ hydra-generation:changed
   payload
 }
 ```
+
+### `save.js`
+
+Persistence 的核心接口，只處理 logical state serialization / storage adapter。
+
+Block 9 已實作：
+
+```text
+serializeGameSave()
+deserializeGameSave()
+createSaveStore(Storage-like object)
+```
+
+存檔 envelope：
+
+```js
+{
+  formatVersion: 1,
+  savedAtEpochMs,
+  state
+}
+```
+
+規則：
+
+- nested BigInt 必須精確 round trip，不轉成 Number。
+- serializer 不知道 `window`、DOM、Babylon.js 或 gameplay systems。
+- Browser application 目前以 `localStorage` 作為 adapter。
+- invalid / unsupported save 不可半套套用進 logical state。
+- View / mesh / animation / head pool cache 永遠不進 Save。
+- `savedAtEpochMs` 目前只是 metadata，不代表自動 offline simulation。
+
+完整規格見 `docs/SAVE_CONTRACT.md`。
 
 ## 4. 積木 B — Math / Hydra
 
@@ -563,7 +609,7 @@ input → injected state snapshot + event interface
 systems → math + data + injected core interfaces
 core/application → systems + math + input + data composition
 view/audio → snapshot + semantic events + application projections + data
-save → serializable logical state
+save → serializable logical state + Storage-like adapter
 ```
 
 禁止：
@@ -576,6 +622,7 @@ systems → Babylon.js mesh
 view → 修改 Hydra rule
 command spell → 直接呼叫 Auto Slash internals
 combat → 發人類惡 / respawn Hydra
+save → Babylon / DOM / combat / offline battle calculation
 ```
 
 Input / Systems 不需要直接 import Core 實作；由 `game.js` composition 時注入 `state` / `events` 等 interface，降低循環依賴。
@@ -615,7 +662,7 @@ Input / Systems 不需要直接 import Core 實作；由 `game.js` composition �
 
 View 不拿可修改的原始 state reference。
 
-UI formatter 要處理 BigInt 顯示；Block 9 Save 會另外處理 BigInt serialization。
+UI formatter 處理 BigInt 顯示；Save serializer 另外用 tagged representation 處理 BigInt persistence，兩者不可混用。
 
 ## 11. 第三階段實作順序
 
@@ -636,7 +683,21 @@ Block 7  NP / regen stop window                          ✅
 ↓
 Block 8  Humanity Evil / 人類惡 + Command Spell I       ✅
 ↓
-Block 9  Save                                            ← NEXT
+Block 9  Save                                            ✅
 ```
 
-Hydra II 暫時不准進場。Block 9 完成後先做第一次完整人工試玩 / Grill，再決定 Hydra I 的節奏、數值與下一個 generation。
+**Phase 3 Hydra I vertical slice 已完成。**
+
+Hydra II 暫時不進場。下一步先做第一次完整 iPhone 人工試玩 / Grill，確認：
+
+```text
+portrait 畫面比例
+手動斬擊感
+Hydra 再生節奏
+NP window 可讀性與壓力
+9-round progression
+Command Spell I / Auto Slash 解鎖爽感
+save / refresh / restore 行為
+```
+
+人工試玩後再決定 Hydra I tuning、視覺回饋與下一個 generation。
