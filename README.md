@@ -36,6 +36,7 @@ Analyzer / Tree View
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Data 的工程分層。
 - [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot 等積木插頭規格。
 - [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 英靈支援、迦勒底科技、設施、研究、Buff 共用的 Effect / Modifier 架構。
+- [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari 直立舞台、viewport、手勢鎖定、局部 scroll 與 Babylon render boundary。
 - [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來開發者看的積木施工守則。
 
 ## Engineering Principles
@@ -46,28 +47,28 @@ Analyzer / Tree View
 4. **View 只負責演出。** Mesh、animation、particle 不得反過來決定遊戲規則。
 5. **Fate 梗與角色名隔離在 data/text 層。** 規則本身可以日後換成原創皮。
 6. **支援、科技、設施與研究優先輸出標準 Effect / Modifier。** 不直接跨層修改核心系統。
+7. **iOS portrait first。** Battle Stage 鎖頁面 scroll / zoom gesture；未來長面板只開自己的局部 scroll。
 
 ## Current Repository
 
-- `index.html` — 現有最小 prototype 入口
-- `css/style.css` — 現有畫面樣式
-- `js/game.js` — 目前最小舊遊戲循環
-- `js/hydra.js` — 目前最小舊 Hydra 邏輯
-- `js/heracles.js` — 目前最小舊攻擊者邏輯
-- `js/core/` — Phase 3 Core：Clock / State / EventBus / Runtime
+- `index.html` — Phase 3 Babylon portrait stage 入口
+- `css/style.css` — iOS `100dvh` / safe-area / gesture-lock / HUD layout
+- `js/app.js` — 把 headless Hydra I runtime 接到 View
+- `js/core/` — Clock / State / EventBus / Runtime
 - `js/math/` — Hydra 純邏輯 Rule / Cut Resolution / logical model helpers
 - `js/input/manual-attack.js` — 手動輸入轉成標準 Attack Request
 - `js/systems/combat.js` — Attack Request → Hydra Rule → Cut Result
 - `js/systems/auto-slash.js` — Game Clock 驅動的自動斬擊 request generator
 - `js/systems/hydra-regrowth.js` — Game Clock 驅動的 Hydra 再生處理
-- `tests/*.node.test.js` — Node 原生核心自動測試
+- `js/view/battle-scene.js` — Babylon engine / orthographic camera / lights / stage anchors
+- `js/view/hud-view.js` — read-only logical HUD projection
+- `tests/*.node.test.js` — Node 原生核心與架構 contract 自動測試
 - `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
-- `tests/block1-core.html` — 舊的 Block 1 瀏覽器測試頁
-- `docs/` — 第二階段設計與工程規格
+- `docs/` — 設計、架構、平台與效果規格
 - `AGENTS.md` — AI / contributor 架構守則
 - `assets/` — 未來模型、圖片、音效、字型
 
-舊的三個 JS 檔暫時不急著搬家；新積木先與舊 prototype 並行，等對應功能有測試後再逐步替換。
+舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 暫時保留供回溯；新的 `index.html` 已改接 Phase 3 runtime / View。
 
 ## Phase 3 — Implementation Status
 
@@ -91,7 +92,16 @@ Analyzer / Tree View
   - high-speed multi-strike batch request / sequential resolution
   - `createHydraIGameRuntime()` headless gameplay composition
   - Node tests + GitHub Actions CI
-- [ ] **Block 4 — Babylon battle stage**
+- [x] **Block 4 — Babylon battle stage**
+  - iOS Safari portrait-first `100dvh` shell
+  - page scroll / double-tap / battle gesture lock
+  - safe-area aware HUD
+  - orthographic fixed-side camera
+  - backdrop / ground / lighting
+  - Berserker left anchor / Hydra right anchor
+  - landscape rotate guard for small screens
+  - headless Hydra I runtime connected to Babylon View
+  - stage contract tests + GitHub Actions CI
 - [ ] **Block 5 — 9-head Hydra visual pool**
 - [ ] **Block 6 — Placeholder Berserker animation**
 - [ ] **Block 7 — NP / regen stop window**
