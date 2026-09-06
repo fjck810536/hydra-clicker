@@ -23,17 +23,25 @@ test('index loads Babylon before the module app and locks viewport scaling', asy
   assert.match(html, /user-scalable=no/);
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /id="battle-canvas"/);
+  assert.match(html, /data-fixed-control/);
 });
 
-test('iOS portrait shell prevents page scroll and stage gestures', async () => {
+test('iOS portrait shell prevents page scroll and fixed battle-control zoom gestures', async () => {
   const css = await readFile(new URL('../css/style.css', import.meta.url), 'utf8');
+  const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
 
   assert.match(css, /height:\s*100dvh/);
   assert.match(css, /overflow:\s*hidden/);
   assert.match(css, /overscroll-behavior:\s*none/);
   assert.match(css, /\.battle-canvas[\s\S]*touch-action:\s*none/);
+  assert.match(css, /\.command-spell-button,[\s\S]*\.np-button[\s\S]*touch-action:\s*none/);
   assert.match(css, /safe-area-inset-top/);
   assert.match(css, /orientation:\s*landscape/);
+
+  assert.match(appSource, /bindFixedControl/);
+  assert.match(appSource, /addEventListener\('pointerup'/);
+  assert.match(appSource, /addEventListener\('dblclick'/);
+  assert.match(appSource, /event\.preventDefault\(\)/);
 });
 
 test('view layer does not import Hydra math or gameplay systems directly', async () => {
