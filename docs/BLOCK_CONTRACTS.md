@@ -1,4 +1,4 @@
-# Hydra Clicker — Block Contracts v0.3
+# Hydra Clicker — Block Contracts v0.4
 
 > 這份文件不是最終 API，而是積木之間的插頭規格。第三階段寫程式時，函式名稱可以變，但資料責任不要混掉。
 
@@ -18,7 +18,7 @@
   source: 'manual' | 'auto' | 'np' | 'tree-command',
   timestamp,
   strikeCount: 1,
-  headsPerStrike: 1,
+  headsPerStrike: 1n,
   target: null
 }
 ```
@@ -42,9 +42,10 @@
   materialsProduced: 0n,
   depleted: false,
   killed: false,
+  cancelPendingRegrowth: false,
   regrowth: [
     {
-      delayMs: 1500,
+      executeAt: 1500,
       amount: 1n,
       ruleId: 'regen-same-head'
     }
@@ -59,7 +60,8 @@
 - `effects` 只是語義事件，不是 Babylon particle object。
 - `depleted` 表示「這一刀之後當下頭數為 0」。
 - `killed` 只表示「已確認真正討伐完成，不會再由既有規則／排程復原」。
-- Hydra I 若頭數暫時歸零但仍有 regrowth，應為 `depleted: true, killed: false`，避免把短暫無頭誤記為討伐。
+- Hydra I 若頭數暫時歸零但仍有 regrowth，應為 `depleted: true, killed: false`。
+- `cancelPendingRegrowth` 只有 Rule 確認既有再生排程已失效時才可要求；NP system 本身不能直接清 Hydra queue。
 
 ## 3. Hydra Rule Interface
 
@@ -70,15 +72,32 @@ rule.resolveCut({
   hydraState,
   attack,
   turn,
-  now
+  nowMs,
+  ruleContext
 })
 ```
+
+`ruleContext` 是已經由 Modifier resolver 整理過的規則上下文，例如：
+
+```js
+{
+  regrowthEnabled: false
+}
+```
+
+Hydra Rule 不需要知道這個效果來自 NP、英靈、科技或其他 source。
 
 Hydra I：
 
 ```text
-remove 1
-schedule regrow 1
+regrowthEnabled = true
+→ remove 1
+→ schedule regrow 1
+
+regrowthEnabled = false
+→ remove 1
+→ no new regrowth
+→ reaching 0 can become a true kill
 ```
 
 Hydra II：
@@ -122,34 +141,51 @@ Core clock 統一處理到期事件。
 - 可以暫停。
 - 可以存檔。
 - 可以做 offline progress。
-- NP 可以統一修改／取消再生事件。
+- Rule Modifier 可以暫時阻止 queue 被執行。
 
-## 5. NP Activation
+## 5. NP Activation / Rule Modifier
 
-NP system 不直接改 Hydra model。
+NP system 不直接改 Hydra model，也不自己刪除 pending regrowth。
 
-它產生 buff / rule modifier：
+Block 7 的最小實作：
 
 ```js
 {
-  id: 'np-regeneration-window',
+  id: 'np-regeneration-window-0',
+  type: 'rule-modifier',
+  target: 'hydra.regrowth',
+  effect: 'disable',
   startsAt,
   endsAt,
-  modifiers: {
-    regrowthEnabled: false
-  }
+  source: 'np'
 }
 ```
 
-之後若要把 NP 改成「root priority」等更數學化效果，只換 modifier：
+Modifier resolver 把它整理成 Hydra Rule 看得懂的 context：
 
 ```js
 {
-  targetingMode: 'root-priority'
+  regrowthEnabled: false
 }
 ```
 
-不用改動畫或 UI。
+Hydra I 在 NP window 中的規則：
+
+```text
+既有 pending regrowth
+→ window 內暫停處理
+
+window 內的新 cut
+→ 不建立 regrowth event
+
+window 內 heads → 0
+→ killed = true
+→ Cut Resolution 要求 cancelPendingRegrowth
+```
+
+因此 NP 改的是「規則條件」，不是直接 `headCount = 0` 或 `pendingRegrowth = []`。
+
+之後若要把 NP 改成「root priority」等更數學化效果，只換 rule modifier／policy，不用改動畫或 UI。
 
 ## 6. Auto Slash Contract
 
@@ -299,6 +335,9 @@ Core snapshot 保存的是邏輯資料，不必保存 Babylon 專用的可見 me
       autoSlash: true,
       autoNp: false
     }
+  },
+  modifiers: {
+    active: []
   }
 }
 ```
@@ -391,6 +430,7 @@ command spell unlocks
 hydra generation
 logical Hydra state
 pending timed events
+active timed modifiers
 progression milestones
 lastSavedAt
 ```
@@ -431,9 +471,19 @@ attack request 數量符合攻速
 ### NP Test
 
 ```text
-NP modifier active
-cut head
-regrowth event 不產生或被正確修改
+8 accepted head cuts
+→ NP = 100%
+
+release NP
+→ timed hydra.regrowth disable modifier
+
+existing pending regrowth
+→ paused during window
+
+cut final head during window
+→ no new regrowth
+→ pending queue cleared by Cut Resolution
+→ killed = true
 ```
 
 ### Render Limit Test
