@@ -1,4 +1,4 @@
-# Hydra Clicker — Block Contracts v0.2
+# Hydra Clicker — Block Contracts v0.3
 
 > 這份文件不是最終 API，而是積木之間的插頭規格。第三階段寫程式時，函式名稱可以變，但資料責任不要混掉。
 
@@ -275,51 +275,85 @@ Hydra 世代切換由 progression system 發出：
 - 已購 upgrade 保留，除非未來明確加入真正 prestige。
 - Hydra state 依新 generation 初始化。
 
-## 11. Render Snapshot
+## 11. Logical Snapshot vs Render Projection
 
-Renderer 每幀只讀 snapshot：
+Core snapshot 保存的是邏輯資料，不必保存 Babylon 專用的可見 mesh 數量：
 
 ```js
 {
   hydra: {
     logicalHeadCount: 18472n,
-    visibleHeadCount: 99,
     generation: 3,
-    regenPerSecond: 812.4,
-    cutsPerSecond: 950.0
+    pendingRegrowth: [],
+    turn: 950n
   },
   berserker: {
-    state: 'attack',
-    attackSpeed: 8.0,
+    baseAttacksPerSecond: 8.0,
+    headsPerStrike: 1n,
     rage: 0.4,
     np: 0.82
   },
   master: {
     humanityEvil: 666n,
-    autoSlash: true,
-    autoNp: false
+    commandSpells: {
+      autoSlash: true,
+      autoNp: false
+    }
   }
+}
+```
+
+View 再從 snapshot 派生自己的 projection：
+
+```js
+{
+  logicalHeadCount: 18472n,
+  visibleHeadCount: 99
 }
 ```
 
 注意：snapshot 若直接送 UI，需要一層 formatter 處理 BigInt，避免 JSON serialization 問題。
 
-## 12. Visible Head Projection
+## 12. Visible Head Projection / Head Pool
 
-View 用一個純函式決定要畫幾顆：
-
-```js
-visibleHeads = projectVisibleHeads(logicalHeadCount)
-```
-
-基本規則：
+目前正式規則：
 
 ```text
-0–99  → 同數量
-100+  → 99
+logical 0–99  → visible 同數量
+logical 100+  → visible 99
 ```
 
-未來可以讓 99 顆 mesh 的姿勢、密度、尺度表現更大的 headCount，但永遠不能反過來把 mesh count 當遊戲真實資料。
+實作責任：
+
+```text
+logical snapshot
+      ↓
+computeVisibleHeadCount()
+      ↓
+Hydra Head Pool
+      ↓
+Babylon meshes
+```
+
+Block 5 的池規則：
+
+```text
+initial pool size = 9
+hard visible cap  = 99
+```
+
+Hydra I 初始只建立 9 個 head slots，斬首時停用 slot，再生時重新啟用 slot；不應每一刀都 new/dispose mesh。
+
+未來 logical count 超過既有 pool size 時，View 可以按需擴張 slots，但最多到 99。
+
+重要禁止：
+
+- 不可以把 `mesh count` 寫回 logical state。
+- 不可以因為只有 99 個 mesh 就把真實頭數截成 99。
+- 不可以把巨大 `BigInt` 先無條件轉成 `Number` 再比較；應先用 BigInt 與 99n 比較。
+- View 不決定哪一刀是否有效，也不決定 Hydra 是否再生。
+
+未來可以讓 99 顆 mesh 的姿勢、密度、尺度、shader 或 aggregate effects 表現更大的 logical count，但那只是視覺語言。
 
 ## 13. Analyzer Contract
 
@@ -369,6 +403,8 @@ particle
 DOM element
 animation object
 Babylon scene
+visibleHeadCount cache
+head pool slots
 ```
 
 ## 15. 最重要的測試邊界
@@ -408,4 +444,4 @@ visible = 99
 browser 不生成一兆 mesh
 ```
 
-只要這些測試能在沒有 Babylon.js 的環境下成立，積木分離就算成功。
+只要 Math / Systems 的核心規則與 View projection 可以在沒有 Babylon runtime 的 Node 測試中分別驗證，積木分離就算成功。
