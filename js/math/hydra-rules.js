@@ -30,7 +30,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
     generation: 1,
     regenDelayMs,
 
-    resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0 } = {}) {
+    resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0, ruleContext = {} } = {}) {
       assertHydraState(hydraState);
 
       if (typeof turn !== 'bigint' || turn < 0n) {
@@ -43,6 +43,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
 
       const headsPerStrike = normalizeHeadsPerStrike(attack);
       const removable = minBigInt(headsPerStrike, hydraState.logicalHeadCount);
+      const regrowthEnabled = ruleContext.regrowthEnabled !== false;
 
       if (removable === 0n) {
         return {
@@ -54,6 +55,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
           headsSpawned: 0n,
           materialsProduced: 0n,
           regrowth: [],
+          cancelPendingRegrowth: false,
           depleted: true,
           killed: false,
           effects: [],
@@ -61,6 +63,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
       }
 
       const remaining = hydraState.logicalHeadCount - removable;
+      const killed = !regrowthEnabled && remaining === 0n;
 
       return {
         accepted: true,
@@ -70,16 +73,19 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
         headsRemoved: removable,
         headsSpawned: 0n,
         materialsProduced: 0n,
-        regrowth: [
-          {
-            executeAt: nowMs + regenDelayMs,
-            amount: removable,
-            ruleId: 'regen-same-head',
-            payload: { branchId: null },
-          },
-        ],
+        regrowth: regrowthEnabled
+          ? [
+              {
+                executeAt: nowMs + regenDelayMs,
+                amount: removable,
+                ruleId: 'regen-same-head',
+                payload: { branchId: null },
+              },
+            ]
+          : [],
+        cancelPendingRegrowth: killed,
         depleted: remaining === 0n,
-        killed: false,
+        killed,
         effects: ['slash-hit'],
       };
     },
