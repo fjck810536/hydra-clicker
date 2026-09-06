@@ -1,6 +1,6 @@
-# Hydra Clicker — Game Design v0.2
+# Hydra Clicker — Game Design v0.3
 
-> 積木編程第二階段：先固定「遊戲如何逐層改變玩家對 Hydra 的理解」，再進入 Babylon.js 實作。
+> 積木編程第二階段：固定「遊戲如何逐層改變玩家對 Hydra 的理解」，並把第一次 iPhone 實機試玩後的 Hydra I tuning 明確記錄為 Playtest 2 實驗規則。
 
 ## 1. 核心一句話
 
@@ -21,6 +21,8 @@
 - 後期切換 Tree View / Analyzer 時，戰鬥仍可在旁持續運行。
 - 視覺最多同時渲染 99 顆頭；真正頭數與畫面頭數分離。
 
+Playtest 1 後，Hydra I 暫時移除大型胖 body，只保留小型 root / neck base；九頭排列改成「越高越向左右擴散」的扇形，以提高多頭輪廓辨識度。這只是 View tuning，不改 Hydra Math。
+
 ## 3. 主要進程不是 Prestige
 
 目前不把 Hydra I → II → III 稱作傳統 Prestige。
@@ -34,12 +36,12 @@
 
 ## 4. Hydra I — Regeneration Tutorial
 
-### 規則
+### 基本規則
 
 - 初始 9 heads。
 - 一次斬首只移除 1 head。
-- 被砍的 head 會在延遲後長回，因此總頭數不增值。
-- 隨著 Hydra 討伐數增加，再生延遲逐步縮短。
+- 非 terminal cut 的 head 會在延遲後長回，因此玩家仍會感受到「砍得不夠快就白砍」。
+- 隨著 Hydra 討伐數增加，再生延遲可逐步縮短；目前 prototype 還未正式套入這條曲線。
 
 例：
 
@@ -53,18 +55,77 @@ Hydra #99  regen nearly instant
 
 數值只是假定，之後平衡。
 
+### Playtest 2 實驗：0 Heads = Kill
+
+第一次實機試玩發現：如果「砍到 0」仍只能算 depleted、還必須等 NP 才能真正殺死 Hydra，前期容易變成只是在等寶解。
+
+因此 Hydra I 暫時改成：
+
+```text
+head count reaches 0
+→ depleted = true
+→ killed = true
+→ cancel all pending regrowth
+→ encounter clear
+```
+
+這是 **Hydra I 的目前實驗 rule**，不是刪除 `depleted != killed` 的架構區分。
+
+後續 Hydra II / III / Kirby–Paris 型規則仍可能再次出現：
+
+```text
+0 current/visible heads
+!= terminal mathematical death
+```
+
 ### 教學目的
 
-讓玩家形成第一個直覺：
+Playtest 2 想驗證兩個直覺能否同時成立：
 
-> Hydra = 會復原的敵人；我要讓攻擊速度跑贏再生速度。
+1. Hydra = 會復原的敵人；我要讓斬擊節奏跑贏再生。
+2. 即使沒有 NP，只要真的把九顆頭在再生前砍光，我就能完成一輪。
 
-### NP
+這讓 NP 不再是唯一推進鑰匙，而是爆發工具。
+
+### NP — Timed Farming Burst
 
 - 斬擊／戰鬥累積 NP。
-- NP 解放後進入短時間「有效斬殺窗口」。
-- 第一版可表現成再生暫停。
-- 後期若數學規則成熟，可重新解釋成「選到不再生的合法結構位置」，而非魔法封印。
+- NP 解放後進入短時間 regeneration suppression window。
+- 目前 prototype：3.0 秒。
+- 既有 pending regrowth 在 window 中暫停。
+- window 中的新 cut 不建立 regrowth。
+- **NP window 只看 Game Clock，不因一隻 Hydra 死掉而結束。**
+- 新 Hydra respawn 後，只要 `now < endsAt`，同一個 NP window 繼續有效。
+
+因此玩家可以：
+
+```text
+NP release
+↓
+kill Hydra A
+↓
+Hydra B respawn
+↓
+kill Hydra B
+↓
+Hydra C ...
+```
+
+NP 的體感目標從「單體王斬殺鑰匙」改成：
+
+> 短暫割草／無雙／高速 farming 窗口。
+
+後期若數學規則成熟，可重新解釋成合法結構操作，而不是魔法封印。
+
+### Encounter Respawn
+
+Playtest 1 的 1.2 秒空場主觀過久，Playtest 2 暫時改成：
+
+```text
+respawnDelayMs = 300
+```
+
+先只測單一 300ms，不為了 NP 另外硬寫 100ms 特例。若 Playtest 2 仍覺得 NP farming 被空場打斷，再設計正式 encounter-speed modifier。
 
 ### Milestone（暫定）
 
@@ -89,6 +150,15 @@ HUMANITY EVIL / 人類惡
 - 長時間自動周回。
 - 觸發特定「過度 Farming」行為。
 
+目前 prototype 實際已使用：
+
+```text
+Hydra I kill → +11 人類惡
+9 kills → 99 人類惡
+```
+
+這只是方便測完整周回的 tuning，不是最終經濟。
+
 它不是 Fate 正史上的正式能量，而是 Riyo 咕噠子式 meta 梗：
 
 > 從「拯救人理」逐漸滑向「發現可以無限刷素材」。
@@ -101,6 +171,13 @@ HUMANITY EVIL / 人類惡
 
 ```text
 AUTO SLASH
+```
+
+目前 prototype：
+
+```text
+requires 9 Hydra kills
+cost 99 人類惡
 ```
 
 解鎖後，Berserker 不再依賴玩家點擊，可自動攻擊。
@@ -134,11 +211,13 @@ GROW 2
 
 此階段仍然不必直接進入完整 Kirby–Paris Hydra。
 
-目的：讓玩家在 30 秒左右發現：
+目的：讓玩家在短時間內發現：
 
 > 頭數不是 HP；我越砍，它可能越多。
 
 Hydra II 解鎖第二令咒購買權。
+
+**但 Playtest 2 完成前仍不進 Hydra II。**
 
 ## 8. Command Spell II — Auto NP
 
@@ -280,22 +359,23 @@ VISUAL HYDRA
 ## 14. 目前刻意不決定的事
 
 - Hydra I 主線究竟打 9、30、99 隻。
+- Playtest 2 的「0 heads = kill」是否成為正式 Hydra I 規則。
+- respawn 300ms 是否太快／剛好／仍太慢。
+- NP 3.0s multi-encounter burst 是否需要特殊 respawn 加速。
 - 真正 Kirby–Paris 規則在哪一代完整登場。
 - 是否存在傳統 prestige/reset。
 - 第三令咒最終是否確定為 Tree Targeting。
 - Fate fan-game 皮是否保留到公開版本。
 - 後期巨大整數／序數使用哪個 notation。
 
-這些都應該等核心 loop 可玩後再決定。
+## 15. 下一個成功條件 — Playtest 2
 
-## 15. 下一階段成功條件
+目前 Block 1–9 已完成；下一步不是增加大系統，而是確認這五件 tuning：
 
-第三階段原型只需要證明五件事：
+1. iPhone Safari 快速連點固定 HUD control 不再 double-tap zoom。
+2. 普通攻擊砍到 0 就 kill，是否明顯比較不無聊。
+3. NP 能跨 encounter 連殺多隻後，是否形成值得期待的爆發期。
+4. 300ms respawn 是否合適。
+5. 移除胖 body、頭向上外擴後，Hydra silhouette 是否更清楚。
 
-1. Babylon.js 固定側視角舞台能運行。
-2. 一個低模 placeholder Berserker 能循環 attack animation。
-3. Hydra I 的 9 heads 可被斬、延遲長回。
-4. 邏輯頭數和渲染頭數已分離。
-5. Auto Slash 可以完全不碰 3D 模組地被開關。
-
-做到這五件，才開始加 Hydra II。
+這五點大致成立後，再 Grill 是否進 Hydra II。
