@@ -36,25 +36,28 @@ Hydra I → II → III 暫時不是傳統 prestige/reset；已購買的自動化
 Phase 3 Blocks 1–9      ✅
 iPhone Playtest 1       ✅
 Hydra I Tuning A–E      ✅
+Playtest 2.1 Tools      ✅
 Core CI                  ✅
-iPhone Playtest 2       ← NEXT
+iPhone Playtest 2.1     ← NEXT
 Hydra II                 ⛔ not yet
 ```
 
-第一次實機試玩後的 Playtest 2 tuning：
+目前 Playtest 2.1 tuning：
 
-- **iOS fixed controls**：NP / Command Spell 改用 scoped gesture lock，針對 Safari double-tap smart zoom。
+- **iOS fixed controls**：NP / Command Spell / TEST controls 使用 scoped gesture lock，針對 Safari double-tap smart zoom。
 - **Hydra I**：目前實驗規則為 `0 heads → killed`，terminal cut 清除 pending regrowth。
-- **NP**：3.0 秒 regeneration suppression 改成 `scope: timed`，可跨多個 Hydra encounter 連續收割。
-- **Respawn**：`1200ms → 300ms`；暫時不加 NP 專用 100ms 特例。
-- **Hydra View**：移除胖 torso / haunch / tail，只留小 root base；九頭改成越高越向左右外擴的 fan。
+- **NP**：3.0 秒 regeneration suppression 為 `scope: timed`，可跨多個 Hydra encounter；active 時 Babylon 背景與地面轉成暗紅提示。
+- **Respawn**：`300ms`；暫時不加 NP 專用 100ms 特例。
+- **Regen Curve**：依累積 Hydra kills 平滑加速，約 `0→1500ms / 9→1154ms / 30→750ms / 99→350ms floor`。
+- **TEST panel**：顯示目前 `REGEN xxx ms`，並提供 `RESET SAVE`；reset 會先停用 autosave/pagehide persistence 再清 storage，避免舊存檔被寫回。
+- **Hydra View**：移除胖 torso / haunch / tail，只留小 root base；九頭越高越向左右外擴。
 - **Berserker**：正式 B叔 art pass 暫緩到玩法節奏穩定後。
 
 ## Docs / 積木編程規格
 
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲進程與 Playtest 2 Hydra I 規則。
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Persistence 分層。
-- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Progression、Save 等插頭。
+- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Progression、Save、Test Tools 等插頭。
 - [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 支援、科技、設施、Buff 的共用 Effect / Modifier 架構。
 - [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari portrait、gesture lock、局部 scroll 與 render boundary。
 - [`docs/SAVE_CONTRACT.md`](docs/SAVE_CONTRACT.md) — BigInt-safe persistence、Clock restore、offline progress boundary。
@@ -74,20 +77,21 @@ Hydra II                 ⛔ not yet
 8. **iOS portrait first。** Battle stage 不捲頁；fixed controls 防 Safari zoom；未來 Drawer 可局部 scroll。
 9. **NP 是 generic Rule Modifier。** Playtest 2 使用 timed 3s `hydra.regrowth = disabled`，跨 encounter 存續到 `endsAt`。
 10. **Progression 不藏進 Combat。** kill、經濟、respawn、capability 分層處理。
-11. **Save 只保存 logical state。** BigInt 精確 round trip；目前 offline progress 明確為 OFF。
-12. **`depleted` 與 `killed` 概念仍分離。** 只是 Playtest 2 的 Hydra I 暫時令 0 heads 同時成立。
+11. **再生曲線是 Data / rule context。** Combat 不知道第幾殺；Hydra Rule 只收到當刀的 `regrowthDelayMs`。
+12. **Save 只保存 logical state。** BigInt 精確 round trip；目前 offline progress 明確為 OFF。
+13. **`depleted` 與 `killed` 概念仍分離。** 只是 Playtest 2 的 Hydra I 暫時令 0 heads 同時成立。
 
 ## Current Runtime
 
-- `index.html` — Babylon portrait stage 入口
+- `index.html` — Babylon portrait stage + Playtest TEST panel
 - `css/style.css` — 100dvh / safe-area / fixed-control gesture policy
-- `js/app.js` — runtime ↔ View / input / browser save lifecycle
+- `js/app.js` — runtime ↔ View / input / browser save lifecycle / Test Tools wiring
 - `js/core/` — Clock / State / EventBus / Runtime / Save
 - `js/math/` — Hydra Rule / Cut Resolution / logical model
 - `js/input/` — 玩家意圖 → Attack Request
 - `js/systems/` — Combat / Auto Slash / Regrowth / Modifiers / NP / 人類惡 / Command Spell / Progression
-- `js/data/progression.js` — prototype tuning data
-- `js/view/` — Battle Stage / Hydra Head Pool / Berserker placeholder / HUD
+- `js/data/progression.js` — prototype economy / respawn / regen curve tuning data
+- `js/view/` — Battle Stage / NP tint / Hydra Head Pool / Berserker placeholder / HUD
 - `tests/*.node.test.js` — Node 核心與架構 contract tests
 - `.github/workflows/test.yml` — 每次 push 自動執行 `npm test`
 
@@ -109,12 +113,12 @@ Hydra II                 ⛔ not yet
 9 Save / Restore
 ```
 
-Playtest 1 後，Hydra I 已進入第二版 tuning。下一步不是繼續蓋 Hydra II，而是用 iPhone Playtest 2 回答：
+Playtest 2.1 目前只需要看：
 
-1. NP / Command Spell 快速連點是否還會觸發 double-tap zoom？
-2. 普通砍到 0 就 kill，是否明顯比較不無聊？
-3. 同一次 NP 能跨多隻 Hydra 後，是否形成值得期待的爆發期？
-4. 300ms respawn 是太快、剛好，還是仍太慢？
-5. 拿掉胖 body、九頭向上外擴後，Hydra silhouette 是否更清楚？
+1. TEST → RESET SAVE 能不能乾淨回到新檔。
+2. NP 一開，暗紅背景是否足以讓爆發窗口一眼可辨。
+3. `REGEN xxx ms` 隨 kills 下降時，壓力曲線是否有感但不突兀。
+4. 普通 kill / 300ms respawn / NP multi-kill 的整體節奏是否仍然順。
+5. 如果你原本已 99 kills，350ms 再生下限是否太狠、剛好、或還不夠狠。
 
-這五題大致成立後，再 Grill Hydra I 正式節奏與 Hydra II 入口。
+這輪確認後再決定再生曲線與 Hydra II 入口。
