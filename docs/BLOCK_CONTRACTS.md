@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.6
+# Hydra Clicker — Block Contracts v0.7
 
-> 這份文件不是最終 API，而是積木之間的插頭規格。函式名稱可以變，但資料責任不要混掉。v0.6 對齊第一次 iPhone Playtest 後的 Hydra I tuning。
+> 這份文件不是最終 API，而是積木之間的插頭規格。函式名稱可以變，但資料責任不要混掉。v0.7 加入 Playtest 2.1 的再生曲線、NP 視覺提示與測試工具。
 
 ## 1. Attack Request
 
@@ -15,8 +15,6 @@
   target: null
 }
 ```
-
-規則：
 
 - Attack Request 只描述「想砍」。
 - 不能自己移除 head。
@@ -68,23 +66,43 @@ rule.resolveCut({
 })
 ```
 
-`ruleContext` 是 Modifier resolver 已整理過的通用規則條件：
+Playtest 2.1 的 `ruleContext` 可以同時包含 Core/Data 注入的 base rule context 與 Modifier resolver 產生的 temporary context：
 
 ```js
 {
+  regrowthDelayMs: 750,
   regrowthEnabled: false
 }
 ```
 
-Hydra Rule 不知道這來自 NP、英靈、科技或設施。
+來源責任：
 
-### Hydra I — Playtest 2
+```text
+Data / progression curve
+→ Core composition
+→ getRuleContext(snapshot)
+→ regrowthDelayMs
+
+active rule modifiers
+→ Modifier resolver
+→ regrowthEnabled
+```
+
+Combat 只把兩者合併後交給 Rule；它不計算曲線。
+
+Hydra Rule 只知道「這一刀的有效再生延遲是多少」和「再生目前能不能發生」，不知道：
+
+- 目前是第幾殺。
+- 曲線公式長什麼樣。
+- `regrowthEnabled = false` 是 NP、英靈、科技還是設施造成。
+
+### Hydra I — Playtest 2.1
 
 ```text
 remaining heads > 0
 + regrowthEnabled = true
 → remove head(s)
-→ schedule same-head regrowth
+→ schedule same-head regrowth at now + regrowthDelayMs
 
 remaining heads > 0
 + regrowthEnabled = false
@@ -97,7 +115,7 @@ remaining heads = 0
 → cancel all pending regrowth
 ```
 
-NP 因此不再負責「賦予斬殺資格」；它只讓玩家更容易在時間窗口內跑贏再生。
+NP 因此不負責「賦予斬殺資格」；它只讓玩家更容易在時間窗口內跑贏再生。
 
 Hydra II / 後期結構型 Hydra 仍由其他 rule set 實作；Combat 不得寫 generation 專用分支。
 
@@ -158,6 +176,17 @@ Hydra B / C / ... → 同一 window 可繼續收割
 ```
 
 `scope: 'timed'` 表示生命週期只由 `startsAt / endsAt` + Game Clock 決定；Progression 不因 encounter change 清除它，也不延長它。
+
+Playtest 2.1 的紅色背景只是 View projection：
+
+```text
+logical active NP modifier
+→ App projection
+→ stage.setNpActive(true)
+→ Babylon backdrop / ground / clear color 暗紅
+```
+
+View 不得因此修改 modifier 或延長 NP。
 
 ## 6. Auto Slash Contract
 
@@ -338,24 +367,43 @@ command-spell:unlocked
 
 ## 11. Progression Data Contract
 
-Playtest 2 prototype tuning 集中於 `js/data/progression.js`：
+Playtest 2.1 prototype tuning 集中於 `js/data/progression.js`：
 
 ```text
 humanityEvilPerKill = 11n
 respawnDelayMs = 300
 requiredHydraKills = 9n
 commandSpellICost = 99n
+
+regenCurve.baseDelayMs = 1500
+regenCurve.killsScale = 30
+regenCurve.minDelayMs = 350
 ```
 
-目前故意形成：
+再生曲線：
 
 ```text
-9 kills × 11 = 99
+delay(kills)
+= max(minDelayMs,
+      round(baseDelayMs / (1 + kills / killsScale)))
 ```
 
-讓第一個完整周回可以直接驗證。
+目前代表值：
 
-這不是最終平衡；Grill 後可直接調 Data 而不改 system logic。
+```text
+0 kills   → 1500 ms
+9 kills   → 1154 ms
+30 kills  → 750 ms
+99 kills  → 350 ms floor
+```
+
+這是測試手感用的平滑加速曲線，不是最終平衡。
+
+目前仍故意形成：
+
+```text
+9 kills × 11 = 99 人類惡
+```
 
 Hydra I → II、99 kills 是否主線、Farm Reveal 等仍未定案。
 
@@ -487,7 +535,28 @@ head pool slots
 
 `scope: timed` NP modifier 必須和其他 active modifier 一樣保存；載入後依同一條 simulation timeline 繼續，不使用 wall-clock 補算 offline progress。
 
-## 16. 最重要的測試邊界
+## 16. Playtest Test Tools Contract
+
+Playtest 2.1 開始保留一個小型 `TEST` panel。
+
+目前只提供：
+
+```text
+current REGEN delay readout
+RESET SAVE
+```
+
+規則：
+
+- Regen readout 只呼叫 application-facing `currentRegenDelayMs()`。
+- `RESET SAVE` 只清 persistence adapter，不直接把 state 欄位歸零。
+- reset reload 前必須暫停 autosave / pagehide persistence，避免舊 snapshot 又被寫回 storage。
+- Test Tools 不保存進遊戲 state。
+- Test Tools 不得成為正式 progression requirement。
+
+之後若加入「NP READY」「跳到第 N 隻」等 cheat，也應透過明確的 debug/test API，不讓 UI 直接改 logical fields。
+
+## 17. 最重要的測試邊界
 
 ### Hydra I Math
 
@@ -498,6 +567,19 @@ head pool slots
 → 0
 → killed true
 → pending regrowth cleared
+```
+
+### Regen Curve
+
+```text
+0 kills  → 1500ms
+9 kills  → 1154ms
+30 kills → 750ms
+99 kills → 350ms floor
+
+Core injects delay
+→ Combat passes ruleContext
+→ Rule schedules executeAt
 ```
 
 ### Auto Slash
@@ -535,6 +617,25 @@ repeat ×9
 → kills = 9
 → 人類惡 = 99
 → Command Spell I available
+```
+
+### Render / NP Tint
+
+```text
+logical active NP window
+→ red-tinted backdrop / ground
+window ends
+→ normal stage colors
+```
+
+### Test Tools
+
+```text
+RESET SAVE
+→ suppress persistence
+→ clear save key
+→ reload fresh
+→ pagehide must not recreate old save
 ```
 
 ### Render Limit
