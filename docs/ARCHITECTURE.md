@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.5
+# Hydra Clicker — Architecture v0.6
 
-> 目標：每一塊都可以單獨測試、替換、重寫，不讓「數學規則」「遊戲經濟」「玩家輸入」「Babylon.js 畫面」互相糾纏。
+> 目標：每一塊都可以單獨測試、替換、重寫，不讓「數學規則」「遊戲經濟」「玩家輸入」「Babylon.js 畫面」互相糾纏。v0.6 對齊第一次 iPhone Playtest 後的 Hydra I tuning。
 
 ## 1. 頂層資料流
 
@@ -25,20 +25,21 @@ CAPABILITY / UNLOCK            Babylon.js   versioned save
 
 View 永遠只讀取結果，不決定數學；Input 只描述玩家意圖，不直接修改遊戲狀態。Economy / Progression 只監聽語義事件，不得把周回與獎勵寫進 Combat。Persistence 只保存 logical state，不保存 Babylon / DOM presentation objects。
 
-## 2. 目標目錄
+## 2. 目前目錄
 
 ```text
 hydra-clicker/
 ├── index.html
-├── css/
-│   └── style.css
+├── css/style.css
 ├── docs/
 │   ├── GAME_DESIGN.md
 │   ├── ARCHITECTURE.md
 │   ├── BLOCK_CONTRACTS.md
 │   ├── EFFECT_MODIFIER_ARCHITECTURE.md
 │   ├── PLATFORM_CONTRACT.md
-│   └── SAVE_CONTRACT.md
+│   ├── SAVE_CONTRACT.md
+│   ├── PLAYTEST_1.md
+│   └── PATCH_PLAN_HYDRA_I_TUNING.md
 ├── js/
 │   ├── core/
 │   │   ├── game.js
@@ -46,17 +47,11 @@ hydra-clicker/
 │   │   ├── event-bus.js
 │   │   ├── state.js
 │   │   └── save.js
-│   │
 │   ├── math/
 │   │   ├── hydra-model.js
 │   │   ├── hydra-rules.js
-│   │   ├── cut-resolver.js
-│   │   ├── big-count.js
-│   │   └── compressed-tree.js
-│   │
-│   ├── input/
-│   │   └── manual-attack.js
-│   │
+│   │   └── cut-resolver.js
+│   ├── input/manual-attack.js
 │   ├── systems/
 │   │   ├── combat.js
 │   │   ├── auto-slash.js
@@ -65,67 +60,40 @@ hydra-clicker/
 │   │   ├── np.js
 │   │   ├── humanity-evil.js
 │   │   ├── command-spells.js
-│   │   ├── progression.js
-│   │   ├── upgrades.js
-│   │   └── farming.js
-│   │
+│   │   └── progression.js
 │   ├── view/
 │   │   ├── battle-scene.js
 │   │   ├── berserker-view.js
 │   │   ├── hydra-view.js
 │   │   ├── head-pool.js
-│   │   ├── effects.js
-│   │   ├── hud-view.js
-│   │   ├── analyzer-view.js
-│   │   └── tree-view.js
-│   │
-│   └── data/
-│       ├── hydra-generations.js
-│       ├── upgrades.js
-│       ├── progression.js
-│       └── text.js
-│
+│   │   └── hud-view.js
+│   └── data/progression.js
 └── assets/
-    ├── models/
-    ├── images/
-    ├── audio/
-    └── fonts/
 ```
 
-目前舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 仍保留供回溯；新的 Phase 3 runtime 已經由 `index.html` / `js/app.js` 使用。
+舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 仍保留供回溯；正式入口已是 `index.html` + `js/app.js`。
 
-## 3. 積木 A — Core
+## 3. Core
 
 ### `game.js`
 
 唯一負責把積木接起來。
 
-它可以：
-
-- 初始化 state。
+可以：
+- 初始化／恢復 state。
 - 啟動／恢復 clock。
 - 註冊 systems。
-- 注入目前 Hydra rule。
-- 注入 progression tuning data。
-- 暴露 headless gameplay runtime 給 View 使用。
-- 將 snapshot / runtime commands 提供給 application layer。
+- 注入 Hydra rule 與 progression data。
+- 暴露 headless runtime API。
 
-它不可以：
-
+不可以：
 - 自己計算 Hydra 增殖。
 - 自己算 NP。
 - 自己發人類惡。
 - 自己決定令咒資格。
 - 直接生成 3D mesh。
 
-目前已有：
-
-```text
-createCoreRuntime()
-createHydraIGameRuntime()
-```
-
-Hydra I runtime 對外提供：
+目前 runtime 對外：
 
 ```text
 snapshot()
@@ -135,35 +103,22 @@ commandSpellIStatus()
 buyCommandSpellI()
 ```
 
-UI 只呼叫這些 application-facing API，不拿 state reference 直接修改。
-
 ### `clock.js`
 
-提供穩定的遊戲時間：
-
-- simulation tick
-- animation frame 分離
-- 從 Save 恢復 simulation time / tick
-- offline progress（未來獨立設計）
-
-遊戲邏輯不能依賴實際 FPS。
-
-單次實際 frame delta 有上限，避免頁籤背景化後突然一次補算過長的 frame。
-
-Block 9 載入時，Clock 從 saved logical state 的：
+GameClock 提供固定 simulation timeline：
 
 ```text
-time.simulationTimeMs
-time.tick
+fixed step
+animation frame 分離
+save restore time/tick
+future offline progress boundary
 ```
 
-繼續，確保 pending regrowth / NP modifier / respawn deadline 保持同一條 simulation timeline。
-
-**Block 9 不使用 wall-clock elapsed time 推進遊戲；offline progress 尚未實作。**
+遊戲邏輯不能依賴實際 FPS。Save 後重開會從 saved `simulationTimeMs / tick` 繼續；目前不使用 wall-clock 補算 offline progress。
 
 ### `event-bus.js`
 
-讓積木用語義事件溝通，例如：
+語義事件包括：
 
 ```text
 clock:tick
@@ -179,98 +134,71 @@ currency:gain
 currency:spend
 command-spell:available
 command-spell:unlocked
-hydra-generation:changed
 ```
 
-事件 listener 收到統一 envelope：
+listener 統一收到：
 
 ```js
-{
-  type,
-  payload
-}
+{ type, payload }
 ```
 
 ### `save.js`
 
-Persistence 的核心接口，只處理 logical state serialization / storage adapter。
-
-Block 9 已實作：
+只負責 logical state serialization / storage adapter：
 
 ```text
 serializeGameSave()
 deserializeGameSave()
-createSaveStore(Storage-like object)
+createSaveStore()
 ```
 
-存檔 envelope：
+BigInt 精確 round trip；Browser application 目前用 `localStorage`；Babylon / DOM / View objects 永不進 Save。
 
-```js
-{
-  formatVersion: 1,
-  savedAtEpochMs,
-  state
-}
-```
-
-規則：
-
-- nested BigInt 必須精確 round trip，不轉成 Number。
-- serializer 不知道 `window`、DOM、Babylon.js 或 gameplay systems。
-- Browser application 目前以 `localStorage` 作為 adapter。
-- invalid / unsupported save 不可半套套用進 logical state。
-- View / mesh / animation / head pool cache 永遠不進 Save。
-- `savedAtEpochMs` 目前只是 metadata，不代表自動 offline simulation。
-
-完整規格見 `docs/SAVE_CONTRACT.md`。
-
-## 4. 積木 B — Math / Hydra
-
-這是最需要保持純淨的區域。
+## 4. Math / Hydra
 
 ### `hydra-model.js`
 
-只處理 Hydra 邏輯 state transition helpers，例如：
+只處理 logical transition：
 
 ```text
-套用 cut result
-加入 pending regrowth
-取消 pending regrowth
-處理到期 regrowth
-累積純邏輯統計
+apply cut result
+pending regrowth queue
+cancel regrowth
+process due regrowth
+logical statistics
 ```
-
-它不知道 Combat、玩家輸入、周回獎勵或 Babylon.js。
 
 ### `hydra-rules.js`
 
-不同 Hydra 世代只換 rule set。
+不同世代只換 rule，不讓 Combat 寫 generation 專用 `if`。
 
-概念：
+### Hydra I — Playtest 2 current rule
 
-```js
-HydraRules.I
-HydraRules.II
-HydraRules.III
-HydraRules.KIRBY_PARIS
-```
-
-同一個 Combat system 不應該用 generation `if` 判斷增殖公式，而是由 Core 注入 active rule。
-
-Hydra I 已接受 generic rule context，例如：
+普通 non-terminal cut：
 
 ```text
-regrowthEnabled = false
+remove heads
+if regrowth enabled → schedule same-head regrowth
+if regrowth disabled → no new regrowth
 ```
 
-這是 NP 等 Rule Modifier 的插頭，不包含 Fate 專名。
+terminal cut：
+
+```text
+remaining heads = 0
+→ depleted = true
+→ killed = true
+→ cancelPendingRegrowth = true
+```
+
+這是 Hydra I 的 **Playtest 2 experimental rule**。`depleted` 與 `killed` 仍是不同概念，之後世代可以再次分離。
 
 ### `cut-resolver.js`
 
 輸入：
 
 ```text
-current hydra state
+hydra state
 attack specification
 target
 turn / time
@@ -282,422 +210,260 @@ resolved rule context
 ```text
 accepted
 removed heads
-scheduled regrowth
+regrowth
 spawned branches
-materials produced
+materials
 depleted / killed
 cancelPendingRegrowth
 next turn
 ```
 
-### `big-count.js`
+## 5. Input
 
-統一管理巨大離散數量表示。
-
-第一版主要使用 `BigInt`。
-
-所有其他積木都不應該自行把頭數無條件轉成 `Number`。
-
-### `compressed-tree.js`
-
-後期才實作。
-
-把大量重複 branch 表示成：
-
-```text
-pattern A × N
-```
-
-而不是實際存 N 個節點。
-
-## 5. 積木 C — Input
-
-Input 回答：「玩家做了什麼？」而不是「結果應該是什麼？」
-
-### `manual-attack.js`
-
-目前手動點擊只產生標準 Attack Request：
-
-```js
-{
-  source: 'manual',
-  timestamp,
-  strikeCount: 1,
-  headsPerStrike,
-  target
-}
-```
+`manual-attack.js` 只把玩家操作變成 Attack Request。
 
 Input 不可以：
+- 直接改 headCount。
+- 直接呼叫 Hydra Rule。
+- 播放 animation。
+- 決定素材掉落。
 
-- `headCount -= 1`
-- 直接呼叫 Hydra Rule
-- 播放攻擊動畫
-- 決定素材掉落
-
-未來 UI、touch、keyboard、Tree Targeting 都應先轉成標準 request / command，再交給 Systems。
-
-## 6. 積木 D — Systems
-
-Systems 只負責「遊戲如何隨時間與事件運作」，不畫畫面。
+## 6. Systems
 
 ### Combat
 
-Combat 接收 `attack:requested`，逐次把 strike 交給目前注入的 Hydra Rule，再套用 Cut Result。
-
-它發出：
-
 ```text
-attack:resolved
-head:cut
-hydra:killed
+Attack Request
+↓
+逐 strike 交給 active Hydra Rule
+↓
+套用 Cut Result
+↓
+attack:resolved / head:cut / hydra:killed
 ```
 
-但不知道：
+Combat 不知道人類惡、respawn、令咒、動畫。
 
-```text
-人類惡獎勵
-下一隻 Hydra 何時出生
-令咒是否解鎖
-動畫怎麼播
-```
+高攻速 batch 若某一 strike 已 terminal kill，立刻停止該 batch；不對死亡 Hydra 繼續製造多餘 resolution。
 
 ### Auto Slash
 
-只問：
+只讀 capability、有效攻速、可攻擊狀態，產生 Attack Request。
 
-```text
-Auto Slash capability 是否存在？
-Hydra encounter 是否可攻擊？
-有效攻速是多少？
-每刀幾顆？
-```
-
-它把時間累積轉成 Attack Request。
-
-小數攻速使用 accumulator；已加入極小 epsilon 修正浮點邊界，因此：
-
-```text
-1 attack/sec × 1 simulated second
-→ exactly 1 attack
-```
-
-高攻速時可以把同一 tick 的多刀包成一個 `strikeCount > 1` request；Combat 仍逐刀解算。
+小數攻速使用 accumulator + epsilon；Hydra defeated / 0 heads 時暫停。
 
 ### Hydra Regrowth
 
-監聽 `clock:tick`，處理已到期的 logical regrowth queue。
+由 Game Clock 處理 pending regrowth；不使用 gameplay `setTimeout()`。
 
-重要再生不使用散落的 gameplay `setTimeout()`。
-
-若目前 Rule Modifier 關閉 regrowth，既有 pending events 暫停，不消失；真正 terminal kill 時由 Cut Result 決定清空。
+若 rule modifier 暫時關閉 regrowth，既有 event 保留但暫停；terminal kill 則由 Cut Result 清空 queue。
 
 ### Modifiers
 
-目前是最小 resolver，只解析 active timed rule modifiers。
-
-Block 7 第一個正式實例：
+目前只需要最小 timed rule-modifier resolver。
 
 ```text
-NP
-→ rule-modifier
-→ hydra.regrowth disabled
+state.modifiers.active
+↓
+resolveRuleContext(now)
+↓
+Hydra Rule
 ```
 
-完整 Support / Facility / Research aggregator 仍延後到內容真的需要時再擴充。
-
-### NP
-
-- `head:cut` 充能。
-- release 建立 encounter-scoped timed rule modifier。
-- modifier duration 服從 Game Clock。
-- NP 不直接修改 Hydra heads。
+### NP — Playtest 2
 
 目前 prototype：
 
 ```text
 +0.125 NP / head
-8 heads → READY
-window = 3.0 sec
+8 heads → 100%
+release → 3.0s hydra.regrowth disable
+scope = timed
 ```
+
+重要變化：NP **不是 encounter-scoped**。
+
+```text
+release NP
+↓
+Hydra A killed
+↓ 300ms
+Hydra B respawn
+↓
+if now < endsAt
+NP modifier still active
+```
+
+因此同一次寶解可以跨 encounter 連殺多隻。NP 不直接修改 heads，也不負責 spawn Hydra。
 
 ### Humanity Evil
 
-Master meta currency；玩家顯示文本為「人類惡」。
-
-目前只監聽：
-
 ```text
-hydra:killed
-→ currency:gain
+hydra:killed → +11 人類惡
 ```
 
-prototype reward 由 `data/progression.js` 提供：
+11 來自 Data，不是 system 常數。
+
+### Command Spell I
 
 ```text
-+11 人類惡 / Hydra I kill
+requires 9 kills
+cost 99 人類惡
+unlock combat.autoSlash
 ```
 
-System 不知道為什麼數值是 11，也不判斷令咒資格。
+Command Spell system 只寫 capability state；不直接呼叫 Auto Slash。
 
-### Command Spells
-
-每道令咒是功能權限，而不只是一次性 consumable。
-
-目前 Command Spell I：
-
-```text
-requirements: 9 Hydra kills
-cost: 99 人類惡
-unlock: combat.autoSlash
-```
-
-System 只：
-
-- 檢查 logical requirements / currency。
-- 扣款。
-- 寫入 capability state。
-- 發出 `currency:spend` / `command-spell:unlocked`。
-
-它不直接呼叫 Auto Slash。
-
-### Progression / Encounter Loop
-
-Block 8 目前只負責 Hydra I 周回：
+### Progression / Encounter Loop — Playtest 2
 
 ```text
 hydra:killed
 ↓
 defeated = true
 ↓
-1.2 s Game Clock delay
+300ms Game Clock delay
 ↓
-clean Hydra I encounter respawn
+new Hydra I encounter
 ```
 
-重生時：
+重生：
+- heads = startingHeadCount
+- turn = 0
+- pending regrowth = []
+- defeated = false
+- encounter +1
+- 清除真正 `scope: encounter` modifier
+- **不清除 `scope: timed` NP modifier**
 
-- heads 回到 `startingHeadCount`。
-- turn 歸零。
-- pending regrowth 清空。
-- encounter counter +1。
-- encounter-scoped modifiers 清除。
+目前刻意只用單一 300ms respawn。尚未加入「NP active 時 100ms」特例，避免 Progression 直接知道 NP；若實機仍嫌慢，再用正式 progression/encounter modifier 解決。
 
-這不是 Hydra Math 的「再生」，而是新的敵方 encounter。
+## 7. View / Babylon.js
 
-Hydra I → II、Farm Reveal、Analyzer / Tree milestones 仍屬未來 progression，不在 Block 8 偷做。
+### Stage
 
-### Farming
+- iOS portrait-first 100dvh
+- orthographic side-view
+- BERSERKER left anchor
+- HYDRA right anchor
 
-在 Hydra III 前可以不存在或隱藏。
+### Berserker View
 
-當 reveal 發生後，才把「斬首產物」正式作為經濟資源呈現給玩家。
+目前仍是 placeholder animation machine；本輪不做正式 B叔 art pass。
 
-## 7. 積木 E — View / Babylon.js
+### Hydra View — Playtest 2
 
-View 只有投影責任。
+仍只吃 logical snapshot。
 
-### `battle-scene.js`
+Playtest 1 後的視覺修改：
+- 移除 bulky torso / haunch / tail。
+- 只保留 tiny root base。
+- 初始 9 heads 由窄根部向上、向左右逐層擴散。
+- 保留少量 depth / height variation。
+- Head Pool contract 不變。
 
-- Babylon engine / scene
-- camera
-- lights
-- background
-- stage anchors
-
-### `berserker-view.js`
-
-輸入：
+### Head Pool
 
 ```text
-idle
-attack
-np（未來演出）
-attackSpeed
+logical 0–99 → visible same count
+logical 100+ → visible 99
 ```
 
-輸出只有動畫。
+初始只建 9 slots，需要時按需擴到最多 99。
 
-### `hydra-view.js`
+View 永遠不得把 mesh count 寫回 logical state。
 
-輸入 logical snapshot，投影到最多 99 顆可見 heads。
+### HUD / Fixed Controls
 
-它不能用「畫面上有幾顆 mesh」反推真正 headCount。
+HUD 只讀 snapshot / application projection。
 
-### `head-pool.js`
-
-固定建立少量 head meshes，重複使用，避免增殖時一直 new / dispose。
-
-目標硬上限：
+Playtest 1 發現 iOS NP button 偶發 smart zoom，因此 NP / Command Spell 等 fixed controls 採 scoped gesture lock：
 
 ```text
-MAX_VISIBLE_HEADS = 99
+touch-action: none
+pointerup → command
+pointer-generated click default suppressed
+dblclick / iOS gesture default suppressed
+keyboard click preserved
 ```
 
-### `hud-view.js`
+這個規則不應全域套到未來 Drawer / Panel；長面板仍可局部 scroll。
 
-只顯示 application 提供的 projection：
+## 8. Data
+
+`data/progression.js` 目前 tuning：
 
 ```text
-HEADS
-CUTS
-NP
-AUTO
-KILLS
-人類惡
-Command Spell I status
+humanityEvilPerKill = 11n
+respawnDelayMs = 300
+requiredHydraKills = 9n
+Command Spell I cost = 99n
 ```
 
-HUD 不計算令咒 requirement；它吃 `commandSpellIStatus()` 的結果。
+`9 × 11 = 99` 只是 prototype tuning，不是架構常數。
 
-### `analyzer-view.js`
-
-只顯示 analyzer model 給它的數據。
-
-### `tree-view.js`
-
-後期加入；初期可完全不存在。
-
-## 8. 積木 F — Data
-
-所有容易被調整或換皮的內容都放 data。
-
-`data/progression.js` 目前包含 Hydra I prototype tuning：
-
-```text
-humanityEvilPerKill = 11
-respawnDelayMs = 1200
-Command Spell I requiredHydraKills = 9
-Command Spell I cost = 99 人類惡
-Command Spell I unlock = combat.autoSlash
-```
-
-`11 × 9 = 99` 是目前方便測完整周回的 prototype tuning，不是架構常數。
-
-未來也應放 Data：
-
-- Hydra I 再生時間曲線
-- milestone 3 / 9 / 99
-- 升級成本
-- 人類惡顯示名稱
-- Master / Servant 顯示名稱
-- Command Spell 台詞
-- Fate 梗文字
-
-規則層不要寫：
-
-```js
-if (master === 'Gudako')
-```
-
-而應寫能力／狀態：
-
-```js
-if (state.master.commandSpells.autoSlash)
-```
-
-之後 Modifier layer 成熟後，再把這類能力解析集中到 capability aggregator。
-
-## 9. 依賴方向
+## 9. Dependency Direction
 
 允許：
 
 ```text
-data → 無依賴
-math → data / plain logical context
-input → injected state snapshot + event interface
+data → none
+math → data / plain context
+input → injected snapshot + event interface
 systems → math + data + injected core interfaces
-core/application → systems + math + input + data composition
-view/audio → snapshot + semantic events + application projections + data
-save → serializable logical state + Storage-like adapter
+core/application → composition
+view/audio → snapshot + semantic events + data
+save → serializable logical state + storage adapter
 ```
 
 禁止：
 
 ```text
-math → Babylon.js
-math → DOM
-input → 直接改 Hydra state
-systems → Babylon.js mesh
-view → 修改 Hydra rule
-command spell → 直接呼叫 Auto Slash internals
-combat → 發人類惡 / respawn Hydra
-save → Babylon / DOM / combat / offline battle calculation
+math → Babylon / DOM
+input → mutate Hydra state
+systems → mesh
+view → mutate rules
+command spell → call Auto Slash internals
+combat → award currency / respawn
+NP → spawn Hydra
+progression → inspect NP source name
+save → Babylon / DOM / offline battle calculation
 ```
 
-Input / Systems 不需要直接 import Core 實作；由 `game.js` composition 時注入 `state` / `events` 等 interface，降低循環依賴。
+## 10. Snapshot / Persistence
 
-## 10. Snapshot 原則
-
-每次 view 更新只拿一份不可從外部改壞 store 的 snapshot：
-
-```js
-{
-  time,
-  hydra: {
-    generation,
-    encounter,
-    logicalHeadCount,
-    startingHeadCount,
-    pendingRegrowth,
-    turn,
-    defeated,
-    respawnAtMs
-  },
-  berserker: {
-    baseAttacksPerSecond,
-    headsPerStrike,
-    rage,
-    np
-  },
-  master: {
-    humanityEvil,
-    commandSpells
-  },
-  progression,
-  statistics,
-  modifiers
-}
-```
-
-View 不拿可修改的原始 state reference。
-
-UI formatter 處理 BigInt 顯示；Save serializer 另外用 tagged representation 處理 BigInt persistence，兩者不可混用。
-
-## 11. 第三階段實作順序
+View 拿 read-only logical snapshot；Save 保存同一邏輯世界，包括：
 
 ```text
-Block 1  Core clock + state                              ✅
-↓
-Block 2  Hydra I pure logic                              ✅
-↓
-Block 3  Combat / Auto Slash                             ✅
-↓
-Block 4  Babylon battle stage                            ✅
-↓
-Block 5  9-head Hydra visual pool                        ✅
-↓
-Block 6  Placeholder Berserker animation                 ✅
-↓
-Block 7  NP / regen stop window                          ✅
-↓
-Block 8  Humanity Evil / 人類惡 + Command Spell I       ✅
-↓
-Block 9  Save                                            ✅
+Hydra logical state
+pending regrowth
+NP / active timed modifiers
+currencies
+command-spell capabilities
+progression
+statistics
+simulation time / tick
 ```
 
-**Phase 3 Hydra I vertical slice 已完成。**
+UI formatting BigInt 與 persistence serialization 是不同責任。
 
-Hydra II 暫時不進場。下一步先做第一次完整 iPhone 人工試玩 / Grill，確認：
+Playtest 2 沒有改 state schema，所以 Playtest 1 的既有存檔仍可直接載入。
+
+## 11. Current Stage
 
 ```text
-portrait 畫面比例
-手動斬擊感
-Hydra 再生節奏
-NP window 可讀性與壓力
-9-round progression
-Command Spell I / Auto Slash 解鎖爽感
-save / refresh / restore 行為
+Phase 3 Blocks 1–9        ✅
+Playtest 1 on iPhone       ✅
+Hydra I Tuning A–E         ✅ implemented
+Playtest 2 on iPhone       ← NEXT
+Hydra II                   ⛔ not yet
 ```
 
-人工試玩後再決定 Hydra I tuning、視覺回饋與下一個 generation。
+Playtest 2 只需要驗證：
+
+1. fixed controls 還會不會 double-tap zoom。
+2. 普通砍到 0 就 kill 是否比較有趣。
+3. NP timed window 能不能自然連殺多隻。
+4. 300ms respawn 是否太快／剛好／仍太慢。
+5. Hydra outward fan silhouette 是否比胖 body 清楚。
+
+B叔美術暫緩；Playtest 2 / Grill 後再決定 Hydra II。
