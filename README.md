@@ -35,6 +35,8 @@ Analyzer / Tree View
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲層級、Hydra 世代、令咒、人類惡、Hydra Farm、Analyzer。
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / View / Data 的工程分層。
 - [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot 等積木插頭規格。
+- [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 英靈支援、迦勒底科技、設施、研究、Buff 共用的 Effect / Modifier 架構。
+- [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來開發者看的積木施工守則。
 
 ## Engineering Principles
 
@@ -43,6 +45,7 @@ Analyzer / Tree View
 3. **離散數量保持整數。** 頭數／素材數預計以 `BigInt` 或可替換的大整數層保存。
 4. **View 只負責演出。** Mesh、animation、particle 不得反過來決定遊戲規則。
 5. **Fate 梗與角色名隔離在 data/text 層。** 規則本身可以日後換成原創皮。
+6. **支援、科技、設施與研究優先輸出標準 Effect / Modifier。** 不直接跨層修改核心系統。
 
 ## Current Repository
 
@@ -52,6 +55,7 @@ Analyzer / Tree View
 - `js/hydra.js` — 目前最小 Hydra 邏輯
 - `js/heracles.js` — 目前最小攻擊者邏輯
 - `docs/` — 第二階段設計與工程規格
+- `AGENTS.md` — AI / contributor 架構守則
 - `assets/` — 未來模型、圖片、音效、字型
 
 舊的三個 JS 檔暫時不急著搬家。第三階段才會逐步重構成 `core/`, `math/`, `systems/`, `view/`, `data/`，避免為了目錄漂亮而先做無效重寫。
