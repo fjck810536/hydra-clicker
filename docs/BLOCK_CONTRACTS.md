@@ -40,6 +40,7 @@
   headsRemoved: 1n,
   headsSpawned: 0n,
   materialsProduced: 0n,
+  depleted: false,
   killed: false,
   regrowth: [
     {
@@ -56,6 +57,9 @@
 
 - 頭數用整數型別；範例使用 `BigInt`。
 - `effects` 只是語義事件，不是 Babylon particle object。
+- `depleted` 表示「這一刀之後當下頭數為 0」。
+- `killed` 只表示「已確認真正討伐完成，不會再由既有規則／排程復原」。
+- Hydra I 若頭數暫時歸零但仍有 regrowth，應為 `depleted: true, killed: false`，避免把短暫無頭誤記為討伐。
 
 ## 3. Hydra Rule Interface
 
