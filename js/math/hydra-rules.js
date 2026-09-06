@@ -63,7 +63,10 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
       }
 
       const remaining = hydraState.logicalHeadCount - removable;
-      const killed = !regrowthEnabled && remaining === 0n;
+
+      // Playtest 2 experiment: Hydra I treats reaching zero heads as terminal death.
+      // depleted/killed remain distinct concepts for later Hydra generations.
+      const killed = remaining === 0n;
 
       return {
         accepted: true,
@@ -73,7 +76,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
         headsRemoved: removable,
         headsSpawned: 0n,
         materialsProduced: 0n,
-        regrowth: regrowthEnabled
+        regrowth: regrowthEnabled && !killed
           ? [
               {
                 executeAt: nowMs + regenDelayMs,
@@ -84,7 +87,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
             ]
           : [],
         cancelPendingRegrowth: killed,
-        depleted: remaining === 0n,
+        depleted: killed,
         killed,
         effects: ['slash-hit'],
       };
