@@ -50,6 +50,7 @@ Analyzer / Tree View
 7. **iOS portrait first。** Battle Stage 鎖頁面 scroll / zoom gesture；未來長面板只開自己的局部 scroll。
 8. **Head Pool 是投影。** Hydra I 初始只建 9 個 head slots；未來按需擴張，但可見 mesh 硬上限 99，永遠不能反推 logical head count。
 9. **Animation 也是投影。** Combat 先完成 logical resolution，再用 semantic events 驅動 Berserker 動畫；動畫完成與否不能決定砍頭結果。
+10. **NP 以 Rule Modifier 實作。** NP 不直接改 Hydra；它只暫時關閉 `hydra.regrowth`，既有再生事件在窗口內暫停，新斬首不建立再生，真正歸零時由 Hydra Rule 宣告 kill。
 
 ## Current Repository
 
@@ -62,6 +63,8 @@ Analyzer / Tree View
 - `js/systems/combat.js` — Attack Request → Hydra Rule → Cut Result
 - `js/systems/auto-slash.js` — Game Clock 驅動的自動斬擊 request generator
 - `js/systems/hydra-regrowth.js` — Game Clock 驅動的 Hydra 再生處理
+- `js/systems/modifiers.js` — 最小 timed rule-modifier resolver
+- `js/systems/np.js` — NP charge / release / regeneration-stop window
 - `js/view/battle-scene.js` — Babylon engine / orthographic camera / lights / stage anchors
 - `js/view/hud-view.js` — read-only logical HUD projection
 - `js/view/hydra-view.js` — 低模 Hydra 身體與 logical snapshot → visual projection
@@ -124,7 +127,15 @@ Analyzer / Tree View
   - animation never triggers or gates logical head removal
   - later GLB replacement can keep the same View-facing interface
   - view-boundary contract tests + GitHub Actions CI
-- [ ] **Block 7 — NP / regen stop window**
+- [x] **Block 7 — NP / regen stop window**
+  - accepted head cuts charge NP
+  - prototype gauge fills after 8 heads (`0.125` per head)
+  - NP release creates a 3.0 s timed `rule-modifier`
+  - pending regrowth pauses during the active window
+  - new cuts during NP do not schedule regrowth
+  - reaching zero during NP clears pending regrowth and becomes true `hydra:killed`
+  - NP HUD / release button remains a runtime request, never direct Hydra mutation
+  - headless NP tests + View boundary tests + GitHub Actions CI
 - [ ] **Block 8 — 人類惡 + Command Spell I**
 - [ ] **Block 9 — Save**
 
@@ -135,7 +146,7 @@ Analyzer / Tree View
 - Babylon.js 固定側視舞台。
 - placeholder 低模 Berserker 循環攻擊。
 - 9-head Hydra 可被斬首並延遲長回。
-- 邏輯頭數與可見 heads 分離。
+- 邏輯頭數和渲染頭數已分離。
 - NP 可產生短暫有效斬殺窗口。
 - Command Spell I 解鎖 Auto Slash。
 
