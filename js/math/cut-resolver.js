@@ -1,4 +1,4 @@
-export function resolveCut({ rule, hydraState, attack, turn, nowMs } = {}) {
+export function resolveCut({ rule, hydraState, attack, turn, nowMs, ruleContext = {} } = {}) {
   if (!rule || typeof rule.resolveCut !== 'function') {
     throw new TypeError('resolveCut requires a rule with resolveCut().');
   }
@@ -8,5 +8,6 @@ export function resolveCut({ rule, hydraState, attack, turn, nowMs } = {}) {
     attack,
     turn,
     nowMs,
+    ruleContext,
   });
 }
