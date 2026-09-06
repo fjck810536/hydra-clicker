@@ -62,6 +62,38 @@ function bindFixedControl(button, handler) {
   };
 }
 
+function bindBattleShellGestureLock(root) {
+  const preventDefault = (event) => event.preventDefault();
+
+  // iOS Safari can still enter smart-zoom / page-zoom paths from touchend on
+  // non-button HUD areas even when the canvas and controls each use touch-action:none.
+  // The battle shell never needs browser-generated touch clicks, so prevent touchend
+  // defaults at the shell boundary. Pointer events still deliver gameplay commands.
+  const preventTouchEnd = (event) => {
+    event.preventDefault();
+  };
+
+  const preventMultiTouch = (event) => {
+    if (event.touches?.length > 1) event.preventDefault();
+  };
+
+  root.addEventListener('touchend', preventTouchEnd, { passive: false, capture: true });
+  root.addEventListener('touchmove', preventMultiTouch, { passive: false, capture: true });
+  root.addEventListener('dblclick', preventDefault, { passive: false, capture: true });
+  root.addEventListener('gesturestart', preventDefault, { passive: false, capture: true });
+  root.addEventListener('gesturechange', preventDefault, { passive: false, capture: true });
+  root.addEventListener('gestureend', preventDefault, { passive: false, capture: true });
+
+  return () => {
+    root.removeEventListener('touchend', preventTouchEnd, true);
+    root.removeEventListener('touchmove', preventMultiTouch, true);
+    root.removeEventListener('dblclick', preventDefault, true);
+    root.removeEventListener('gesturestart', preventDefault, true);
+    root.removeEventListener('gesturechange', preventDefault, true);
+    root.removeEventListener('gestureend', preventDefault, true);
+  };
+}
+
 function isNpWindowActive(snapshot) {
   const nowMs = snapshot.time.simulationTimeMs;
   return snapshot.modifiers.active.some((modifier) => {
@@ -70,6 +102,8 @@ function isNpWindowActive(snapshot) {
       && nowMs < (modifier.endsAt ?? Infinity);
   });
 }
+
+const unbindBattleShellGestureLock = bindBattleShellGestureLock(app);
 
 let saveStore = null;
 let restoredSave = null;
@@ -246,6 +280,7 @@ runtime.start();
 window.addEventListener('pagehide', () => {
   persistNow();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  unbindBattleShellGestureLock();
   unbindNpButton();
   unbindCommandSpellButton();
   unbindTestToolsToggle();
