@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.5
+# Hydra Clicker — Block Contracts v0.6
 
-> 這份文件不是最終 API，而是積木之間的插頭規格。函式名稱可以變，但資料責任不要混掉。
+> 這份文件不是最終 API，而是積木之間的插頭規格。函式名稱可以變，但資料責任不要混掉。v0.6 對齊第一次 iPhone Playtest 後的 Hydra I tuning。
 
 ## 1. Attack Request
 
@@ -51,9 +51,10 @@ Hydra Math 接收 attack request 後產生：
 - 頭數等離散值使用 `BigInt`。
 - `effects` 是語義，不是 Babylon object。
 - `depleted` = 當下 heads 為 0。
-- `killed` = 確認不會由目前規則／既有排程復原。
-- Hydra I 普通狀態歸零但仍有 regrowth 時：`depleted: true, killed: false`。
-- `cancelPendingRegrowth` 只有 Rule 確認排程失效時才可要求；NP system 不直接清 queue。
+- `killed` = 目前 active rule 判斷為 terminal death。
+- `depleted` 與 `killed` 仍是不同概念；後續 Hydra 世代可能再次分離。
+- **Playtest 2 的 Hydra I 暫時規定：reaching 0 heads → `depleted: true, killed: true`。**
+- Hydra I terminal cut 要求 `cancelPendingRegrowth: true`，所以先前排隊的同頭再生全部失效。
 
 ## 3. Hydra Rule Interface
 
@@ -77,18 +78,26 @@ rule.resolveCut({
 
 Hydra Rule 不知道這來自 NP、英靈、科技或設施。
 
-Hydra I：
+### Hydra I — Playtest 2
 
 ```text
-regrowthEnabled = true
-→ remove 1
-→ schedule regrow 1
+remaining heads > 0
++ regrowthEnabled = true
+→ remove head(s)
+→ schedule same-head regrowth
 
-regrowthEnabled = false
-→ remove 1
+remaining heads > 0
++ regrowthEnabled = false
+→ remove head(s)
 → no new regrowth
-→ reaching 0 may become true killed
+
+remaining heads = 0
+→ killed = true
+→ no new regrowth
+→ cancel all pending regrowth
 ```
+
+NP 因此不再負責「賦予斬殺資格」；它只讓玩家更容易在時間窗口內跑贏再生。
 
 Hydra II / 後期結構型 Hydra 仍由其他 rule set 實作；Combat 不得寫 generation 專用分支。
 
@@ -111,9 +120,11 @@ Hydra II / 後期結構型 Hydra 仍由其他 rule set 實作；Combat 不得寫
 
 不可把重要 gameplay delay 散成 `setTimeout()`。
 
+Hydra I terminal kill 會透過 Cut Resolution 取消 pending regrowth；不是 NP system 直接清 queue。
+
 ## 5. NP Activation / Rule Modifier
 
-Block 7 正式實作：
+Playtest 2 的 NP modifier：
 
 ```js
 {
@@ -124,7 +135,7 @@ Block 7 正式實作：
   startsAt,
   endsAt,
   source: 'np',
-  scope: 'encounter'
+  scope: 'timed'
 }
 ```
 
@@ -139,13 +150,14 @@ Modifier resolver 輸出：
 NP window：
 
 ```text
-既有 pending regrowth → 暫停
+既有 pending regrowth → window 內暫停
 新 cut → 不建立 regrowth
-heads → 0 → killed = true
-terminal Cut Result → cancelPendingRegrowth
+Hydra A killed → encounter 可 respawn
+if now < endsAt → NP effect 仍有效
+Hydra B / C / ... → 同一 window 可繼續收割
 ```
 
-`scope: 'encounter'` 表示下一隻 Hydra encounter 重生時清除，不把上一場 NP window 帶到下一場。
+`scope: 'timed'` 表示生命週期只由 `startsAt / endsAt` + Game Clock 決定；Progression 不因 encounter change 清除它，也不延長它。
 
 ## 6. Auto Slash Contract
 
@@ -174,6 +186,8 @@ master.commandSpells.autoSlash
 
 Hydra defeated / 0 heads 時 Auto Slash 暫停並清 accumulator。
 
+高攻速 batch 中，一旦某 strike 產生 `killed: true`，Combat 立刻停止該 batch；不為已死亡 Hydra 製造多餘 rejected cuts。
+
 浮點 accumulator 使用極小 epsilon 防止：
 
 ```text
@@ -186,7 +200,7 @@ Hydra defeated / 0 heads 時 Auto Slash 暫停並清 accumulator。
 
 貨幣以語義事件記錄。
 
-Block 8 目前：
+目前：
 
 ```js
 {
@@ -216,14 +230,14 @@ Block 8 目前：
 
 `hydra:killed` 是討伐事件，不等於同一顆頭的 regrowth。
 
-Block 8 的 Hydra I encounter lifecycle：
+Playtest 2 的 Hydra I encounter lifecycle：
 
 ```text
 active
 ↓ true kill
 defeated = true
 logicalHeadCount = 0
-respawnAtMs = kill time + 1200
+respawnAtMs = kill time + 300
 ↓ Game Clock
 new encounter
 ```
@@ -241,7 +255,7 @@ new encounter
 }
 ```
 
-並清除 `scope: 'encounter'` 的 temporary modifiers。
+Progression system 仍會清除 `scope: 'encounter'` 的 modifier；**它不清 `scope: 'timed'` NP window**。
 
 Progression system 發：
 
@@ -251,9 +265,11 @@ hydra:respawned
 
 Combat / Hydra Math 不負責生下一隻敵人。
 
+目前只用單一 `respawnDelayMs = 300`，尚未建立「NP active 時特別 100ms」的 progression modifier。
+
 ## 9. Command Spell Definition / Capability
 
-Block 8 data definition：
+目前 data definition：
 
 ```js
 {
@@ -295,7 +311,7 @@ command-spell:unlocked
 
 令咒 system 只寫 capability state；它不直接觸發 Auto Slash request。
 
-第二／第三令咒仍只是設計候選，不在 Block 8 實作。
+第二／第三令咒仍只是設計候選。
 
 ## 10. Upgrade Definition
 
@@ -322,11 +338,11 @@ command-spell:unlocked
 
 ## 11. Progression Data Contract
 
-Block 8 prototype tuning 集中於 `js/data/progression.js`：
+Playtest 2 prototype tuning 集中於 `js/data/progression.js`：
 
 ```text
 humanityEvilPerKill = 11n
-respawnDelayMs = 1200
+respawnDelayMs = 300
 requiredHydraKills = 9n
 commandSpellICost = 99n
 ```
@@ -345,7 +361,7 @@ Hydra I → II、99 kills 是否主線、Farm Reveal 等仍未定案。
 
 ## 12. Logical Snapshot vs Render Projection
 
-Core snapshot 保存 logical state：
+Core snapshot 保存 logical state；View 再派生 `visibleHeadCount`。
 
 ```js
 {
@@ -381,16 +397,7 @@ Core snapshot 保存 logical state：
 }
 ```
 
-View 再派生：
-
-```js
-{
-  logicalHeadCount: 18472n,
-  visibleHeadCount: 99
-}
-```
-
-BigInt UI formatting 與 Block 9 Save serialization 是不同責任。
+BigInt UI formatting 與 Save serialization 是不同責任。
 
 ## 13. Visible Head Projection / Head Pool
 
@@ -409,12 +416,14 @@ Hydra Head Pool
 Babylon meshes
 ```
 
-Block 5：
+目前：
 
 ```text
 initial pool size = 9
 hard visible cap  = 99
 ```
+
+Playtest 2 只改 View silhouette：大型 torso / haunch / tail 移除，保留小 root base；九個初始 head slot 越高越向左右展開。
 
 禁止：
 
@@ -448,7 +457,7 @@ analyzer.inspect(snapshot, activeRule)
 
 ## 15. Save Contract
 
-Block 9 只保存 logical state / persistence metadata。
+Save 只保存 logical state / persistence metadata。
 
 需要保存：
 
@@ -460,7 +469,7 @@ pending timed regrowth
 defeated / respawnAtMs
 active timed modifiers
 progression milestones
-statistics（若設計為 lifetime persistent）
+statistics
 lastSavedAt
 ```
 
@@ -476,12 +485,19 @@ visibleHeadCount cache
 head pool slots
 ```
 
+`scope: timed` NP modifier 必須和其他 active modifier 一樣保存；載入後依同一條 simulation timeline 繼續，不使用 wall-clock 補算 offline progress。
+
 ## 16. 最重要的測試邊界
 
 ### Hydra I Math
 
 ```text
-9 → cut → 8 → regen deadline → 9
+9 → non-terminal cut → 8 → regen deadline → 9
+
+1 head + terminal cut
+→ 0
+→ killed true
+→ pending regrowth cleared
 ```
 
 ### Auto Slash
@@ -490,33 +506,35 @@ head pool slots
 locked → 0 auto requests
 unlocked → rate-accurate requests
 1 attack/sec × 1 sec → 1 attack
+high-speed batch → stops at terminal kill
 ```
 
 ### NP
 
 ```text
-8 accepted heads → 100%
-release → encounter-scoped regrowth disable
-terminal cut → true kill
+release → timed regrowth disable
+Hydra A killed
+→ 300ms respawn
+→ modifier still active
+Hydra B killed
+→ same window can continue
+endsAt reached
+→ modifier expires regardless of encounter count
 ```
 
-### Block 8 Progression
+### Progression
 
 ```text
-true kill
+ordinary true kill
 → +11 人類惡
 → defeated
-→ 1.2 sec
+→ 300ms
 → clean next Hydra I
 
 repeat ×9
 → kills = 9
 → 人類惡 = 99
 → Command Spell I available
-→ purchase
-→ 人類惡 = 0
-→ autoSlash capability = true
-→ Auto Slash starts next simulation ticks
 ```
 
 ### Render Limit
@@ -526,4 +544,13 @@ logical = 1000000000000 heads
 visible = 99
 ```
 
-只要 Math / Systems / Economy / Progression 與 View projection 能在沒有 Babylon runtime 的 Node tests 中各自驗證，積木分離就算成功。
+### Platform
+
+```text
+fixed battle control
+→ pointerup command
+→ browser click/dblclick/gesture default suppressed
+→ iOS page zoom must not change
+```
+
+只要 Math / Systems / Economy / Progression / View / Platform contracts 能分別自動驗證，積木分離就算成功。
