@@ -190,7 +190,10 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.08em;
   pointer-events: auto;
-  touch-action: manipulation;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .command-spell-button {
