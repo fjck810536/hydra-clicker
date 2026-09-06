@@ -1,8 +1,11 @@
 import { createHydraIGameRuntime } from './core/game.js';
+import { createSaveStore } from './core/save.js';
 import { createBattleStage } from './view/battle-scene.js';
 import { createHudView } from './view/hud-view.js';
 import { createHydraView } from './view/hydra-view.js';
 import { createBerserkerView } from './view/berserker-view.js';
+
+const AUTOSAVE_INTERVAL_MS = 5000;
 
 const app = document.querySelector('[data-app]');
 const canvas = document.querySelector('#battle-canvas');
@@ -13,8 +16,43 @@ if (!app || !canvas || !npButton || !commandSpellButton) {
   throw new Error('Hydra Clicker app shell is missing.');
 }
 
-const runtime = createHydraIGameRuntime();
+let saveStore = null;
+let restoredSave = null;
+
+try {
+  saveStore = createSaveStore({ storage: window.localStorage });
+  restoredSave = saveStore.load();
+} catch (error) {
+  console.warn('Hydra Clicker save data is unavailable; starting a fresh session.', error);
+}
+
+let runtime;
+let restoredFromSave = false;
+
+if (restoredSave) {
+  try {
+    runtime = createHydraIGameRuntime({ initialState: restoredSave.state });
+    restoredFromSave = true;
+  } catch (error) {
+    console.warn('Hydra Clicker save data failed logical validation; starting fresh.', error);
+  }
+}
+
+runtime ??= createHydraIGameRuntime();
+
 const hud = createHudView({ root: app });
+
+function persistNow() {
+  if (!saveStore) return false;
+
+  try {
+    saveStore.save(runtime.snapshot());
+    return true;
+  } catch (error) {
+    console.warn('Hydra Clicker autosave failed.', error);
+    return false;
+  }
+}
 
 const stage = createBattleStage({
   canvas,
@@ -53,13 +91,25 @@ npButton.addEventListener('click', handleNpPress);
 const handleCommandSpellPress = () => {
   const result = runtime.buyCommandSpellI();
   if (result.accepted) {
+    persistNow();
     hud.setStatus('COMMAND SPELL I · AUTO SLASH UNLOCKED');
   }
   renderSnapshot();
 };
 commandSpellButton.addEventListener('click', handleCommandSpellPress);
 
-const offTick = runtime.events.on('clock:tick', renderSnapshot);
+let nextAutosaveAtMs = runtime.snapshot().time.simulationTimeMs + AUTOSAVE_INTERVAL_MS;
+
+const offTick = runtime.events.on('clock:tick', ({ payload: tick }) => {
+  renderSnapshot();
+
+  if (tick.nowMs >= nextAutosaveAtMs) {
+    persistNow();
+    while (nextAutosaveAtMs <= tick.nowMs) {
+      nextAutosaveAtMs += AUTOSAVE_INTERVAL_MS;
+    }
+  }
+});
 const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => {
   if (!payload.resolution.accepted) return;
 
@@ -87,6 +137,7 @@ const offKilled = runtime.events.on('hydra:killed', () => {
 });
 const offCurrencyGain = runtime.events.on('currency:gain', ({ payload }) => {
   if (payload.currency === 'humanity-evil') {
+    persistNow();
     hud.setStatus(`人類惡 +${payload.amount.toString()}`);
     renderSnapshot();
   }
@@ -100,15 +151,27 @@ const offSpellAvailable = runtime.events.on('command-spell:available', () => {
   renderSnapshot();
 });
 const offSpellUnlocked = runtime.events.on('command-spell:unlocked', () => {
+  persistNow();
   hud.setStatus('AUTO SLASH ONLINE');
   renderSnapshot();
 });
 
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'hidden') {
+    persistNow();
+  }
+};
+document.addEventListener('visibilitychange', handleVisibilityChange);
+
 renderSnapshot();
-hud.setStatus('Defeat Hydra I repeatedly. 9 kills unlock Command Spell I.');
+hud.setStatus(restoredFromSave
+  ? 'SAVE RESTORED · simulation resumes where it stopped.'
+  : 'Defeat Hydra I repeatedly. 9 kills unlock Command Spell I.');
 runtime.start();
 
 window.addEventListener('pagehide', () => {
+  persistNow();
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
   npButton.removeEventListener('click', handleNpPress);
   commandSpellButton.removeEventListener('click', handleCommandSpellPress);
   offTick();
