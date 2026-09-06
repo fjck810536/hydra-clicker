@@ -32,7 +32,7 @@ Analyzer / Tree View
 
 ## Phase 2 — 積木編程規格
 
-- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲層級、Hydra 世代、令咒、人類惡性、Hydra Farm、Analyzer。
+- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲層級、Hydra 世代、令咒、人類惡、Hydra Farm、Analyzer。
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / View / Data 的工程分層。
 - [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot 等積木插頭規格。
 
