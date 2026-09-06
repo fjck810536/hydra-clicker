@@ -2,15 +2,53 @@ function assertDefinition(definition) {
   if (!definition || definition.id !== 'command-spell-1') {
     throw new TypeError('Command Spell I definition is required.');
   }
-  if (typeof definition.requiredHydraKills !== 'bigint' || definition.requiredHydraKills < 0n) {
-    throw new TypeError('requiredHydraKills must be a non-negative BigInt.');
-  }
   if (definition.cost?.currency !== 'humanity-evil') {
     throw new TypeError('Command Spell I currently requires humanity-evil currency.');
   }
-  if (typeof definition.cost.amount !== 'bigint' || definition.cost.amount < 0n) {
-    throw new TypeError('Command Spell I cost must be a non-negative BigInt.');
+  if (!Array.isArray(definition.levels) || definition.levels.length < 1) {
+    throw new TypeError('Command Spell I requires at least one level definition.');
   }
+
+  let previousKills = -1n;
+  let previousLevel = 0;
+  for (const level of definition.levels) {
+    if (!Number.isInteger(level.level) || level.level !== previousLevel + 1) {
+      throw new TypeError('Command Spell I levels must be contiguous positive integers.');
+    }
+    if (typeof level.requiredHydraKills !== 'bigint' || level.requiredHydraKills < 0n) {
+      throw new TypeError('Command Spell I requiredHydraKills must be a non-negative BigInt.');
+    }
+    if (level.requiredHydraKills <= previousKills) {
+      throw new RangeError('Command Spell I kill requirements must strictly increase.');
+    }
+    if (typeof level.cost !== 'bigint' || level.cost < 0n) {
+      throw new TypeError('Command Spell I level cost must be a non-negative BigInt.');
+    }
+    if (!Number.isFinite(level.attacksPerSecond) || level.attacksPerSecond <= 0) {
+      throw new RangeError('Command Spell I attacksPerSecond must be a finite number > 0.');
+    }
+
+    previousKills = level.requiredHydraKills;
+    previousLevel = level.level;
+  }
+}
+
+function milestoneId(definition, level) {
+  return `${definition.id}-lv${level}`;
+}
+
+function getCurrentLevel(snapshot, definition) {
+  if (!snapshot.master.commandSpells.autoSlash) return 0;
+
+  let level = 1;
+  for (const candidate of definition.levels.slice(1)) {
+    if (snapshot.progression.milestones.includes(milestoneId(definition, candidate.level))) {
+      level = candidate.level;
+    } else {
+      break;
+    }
+  }
+  return level;
 }
 
 export function createCommandSpellSystem({ state, events, definition } = {}) {
@@ -22,22 +60,31 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
   }
   assertDefinition(definition);
 
-  let announcedAvailable = false;
+  let announcedLevel = null;
 
   function getStatus() {
     const snapshot = state.read();
-    const purchased = snapshot.master.commandSpells.autoSlash;
-    const killsMet = snapshot.statistics.totalHydrasKilled >= definition.requiredHydraKills;
-    const canAfford = snapshot.master.humanityEvil >= definition.cost.amount;
+    const level = getCurrentLevel(snapshot, definition);
+    const maxLevel = definition.levels.length;
+    const next = definition.levels[level] ?? null;
+    const maxed = next == null;
+    const killsMet = maxed || snapshot.statistics.totalHydrasKilled >= next.requiredHydraKills;
+    const canAfford = maxed || snapshot.master.humanityEvil >= next.cost;
 
     return Object.freeze({
       id: definition.id,
-      purchased,
+      purchased: level >= 1,
+      level,
+      maxLevel,
+      maxed,
+      attacksPerSecond: snapshot.berserker.baseAttacksPerSecond,
+      nextLevel: next?.level ?? null,
+      nextAttacksPerSecond: next?.attacksPerSecond ?? null,
       killsMet,
       canAfford,
-      available: !purchased && killsMet && canAfford,
-      requiredHydraKills: definition.requiredHydraKills,
-      cost: definition.cost.amount,
+      available: !maxed && killsMet && canAfford,
+      requiredHydraKills: next?.requiredHydraKills ?? definition.levels.at(-1).requiredHydraKills,
+      cost: next?.cost ?? 0n,
       balance: snapshot.master.humanityEvil,
       kills: snapshot.statistics.totalHydrasKilled,
     });
@@ -45,16 +92,19 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
 
   function announceIfAvailable(atMs) {
     const status = getStatus();
-    if (status.available && !announcedAvailable) {
-      announcedAvailable = true;
+    if (status.available && announcedLevel !== status.nextLevel) {
+      announcedLevel = status.nextLevel;
       events.emit('command-spell:available', {
         atMs,
         id: definition.id,
-        unlocks: [...definition.unlocks],
+        level: status.nextLevel,
+        cost: status.cost,
+        requiredHydraKills: status.requiredHydraKills,
+        attacksPerSecond: status.nextAttacksPerSecond,
       });
     }
-    if (!status.available && !status.purchased) {
-      announcedAvailable = false;
+    if (!status.available) {
+      announcedLevel = null;
     }
     return status;
   }
@@ -68,31 +118,52 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
 
   function purchase() {
     const status = getStatus();
-    if (status.purchased) return { accepted: false, reason: 'already-purchased', status };
+    if (status.maxed) return { accepted: false, reason: 'max-level', status };
     if (!status.killsMet) return { accepted: false, reason: 'kills-required', status };
     if (!status.canAfford) return { accepted: false, reason: 'insufficient-humanity-evil', status };
 
+    const next = definition.levels[status.level];
     const atMs = state.read().time.simulationTimeMs;
+
     state.update((draft) => {
-      draft.master.humanityEvil -= definition.cost.amount;
+      draft.master.humanityEvil -= next.cost;
       draft.master.commandSpells.autoSlash = true;
+      draft.berserker.baseAttacksPerSecond = next.attacksPerSecond;
+
+      if (next.level > 1) {
+        const id = milestoneId(definition, next.level);
+        if (!draft.progression.milestones.includes(id)) {
+          draft.progression.milestones.push(id);
+        }
+      }
     });
 
-    announcedAvailable = false;
+    announcedLevel = null;
     events.emit('currency:spend', {
       atMs,
       currency: definition.cost.currency,
-      amount: definition.cost.amount,
-      reason: definition.id,
+      amount: next.cost,
+      reason: next.level === 1 ? definition.id : milestoneId(definition, next.level),
       balance: state.read().master.humanityEvil,
     });
-    events.emit('command-spell:unlocked', {
+
+    const payload = {
       atMs,
       id: definition.id,
-      unlocks: [...definition.unlocks],
-    });
+      level: next.level,
+      attacksPerSecond: next.attacksPerSecond,
+    };
 
-    return { accepted: true, status: getStatus() };
+    if (next.level === 1) {
+      events.emit('command-spell:unlocked', {
+        ...payload,
+        unlocks: [...definition.unlocks],
+      });
+    } else {
+      events.emit('command-spell:upgraded', payload);
+    }
+
+    return { accepted: true, level: next.level, status: getStatus() };
   }
 
   return {
