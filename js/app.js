@@ -11,8 +11,21 @@ const app = document.querySelector('[data-app]');
 const canvas = document.querySelector('#battle-canvas');
 const npButton = document.querySelector('[data-np-button]');
 const commandSpellButton = document.querySelector('[data-command-spell-button]');
+const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
+const testToolsPanel = document.querySelector('[data-test-tools-panel]');
+const resetSaveButton = document.querySelector('[data-reset-save]');
+const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
 
-if (!app || !canvas || !npButton || !commandSpellButton) {
+if (
+  !app
+  || !canvas
+  || !npButton
+  || !commandSpellButton
+  || !testToolsToggle
+  || !testToolsPanel
+  || !resetSaveButton
+  || !regenDelayReadout
+) {
   throw new Error('Hydra Clicker app shell is missing.');
 }
 
@@ -49,8 +62,18 @@ function bindFixedControl(button, handler) {
   };
 }
 
+function isNpWindowActive(snapshot) {
+  const nowMs = snapshot.time.simulationTimeMs;
+  return snapshot.modifiers.active.some((modifier) => {
+    return modifier?.source === 'np'
+      && (modifier.startsAt ?? 0) <= nowMs
+      && nowMs < (modifier.endsAt ?? Infinity);
+  });
+}
+
 let saveStore = null;
 let restoredSave = null;
+let suppressPersistence = false;
 
 try {
   saveStore = createSaveStore({ storage: window.localStorage });
@@ -76,7 +99,7 @@ runtime ??= createHydraIGameRuntime();
 const hud = createHudView({ root: app });
 
 function persistNow() {
-  if (!saveStore) return false;
+  if (suppressPersistence || !saveStore) return false;
 
   try {
     saveStore.save(runtime.snapshot());
@@ -110,6 +133,8 @@ const renderSnapshot = () => {
     commandSpellI: runtime.commandSpellIStatus(),
   });
   hydraView.render(snapshot);
+  stage.setNpActive(isNpWindowActive(snapshot));
+  regenDelayReadout.textContent = `${runtime.currentRegenDelayMs()} ms`;
 };
 
 const handleNpPress = () => {
@@ -130,6 +155,22 @@ const handleCommandSpellPress = () => {
   renderSnapshot();
 };
 const unbindCommandSpellButton = bindFixedControl(commandSpellButton, handleCommandSpellPress);
+
+const handleTestToolsToggle = () => {
+  testToolsPanel.hidden = !testToolsPanel.hidden;
+};
+const unbindTestToolsToggle = bindFixedControl(testToolsToggle, handleTestToolsToggle);
+
+const handleResetSave = () => {
+  suppressPersistence = true;
+  try {
+    saveStore?.clear();
+  } catch (error) {
+    console.warn('Hydra Clicker save reset failed.', error);
+  }
+  window.location.reload();
+};
+const unbindResetSave = bindFixedControl(resetSaveButton, handleResetSave);
 
 let nextAutosaveAtMs = runtime.snapshot().time.simulationTimeMs + AUTOSAVE_INTERVAL_MS;
 
@@ -207,6 +248,8 @@ window.addEventListener('pagehide', () => {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   unbindNpButton();
   unbindCommandSpellButton();
+  unbindTestToolsToggle();
+  unbindResetSave();
   offTick();
   offAttackResolved();
   offCut();
