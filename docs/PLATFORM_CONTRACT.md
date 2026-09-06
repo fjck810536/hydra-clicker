@@ -1,6 +1,6 @@
-# Hydra Clicker — Platform Contract v0.2
+# Hydra Clicker — Platform Contract v0.3
 
-> Block 4 起正式採用的瀏覽器／裝置外殼規則；Playtest 1 後補強 iOS fixed-control gesture policy。這份文件約束 View / UI，不改變 Math / Systems。
+> Block 4 起正式採用的瀏覽器／裝置外殼規則；Playtest 2 後再次補強 iOS Safari zoom 防護。這份文件約束 View / UI，不改變 Math / Systems。
 
 ## Primary Target
 
@@ -20,6 +20,8 @@ Static HTML / GitHub Pages
 100vw × 100dvh
 viewport-fit=cover
 safe-area insets
+initial-scale=1
+minimum-scale=1
 maximum-scale=1
 user-scalable=no
 ```
@@ -34,39 +36,63 @@ Battle Stage：
 single tap   → gameplay input
 double tap   → 不觸發頁面 zoom
 pan/swipe    → 不捲動整個網頁
-pinch/gesture→ battle canvas 不交給瀏覽器縮放
+pinch/gesture→ battle shell 不交給瀏覽器縮放
 ```
 
-Canvas 使用 `touch-action: none`，並處理 iOS gesture events。
+Canvas 與目前整個 battle shell 都使用 `touch-action: none`。
+
+### Why the shell owns the lock
+
+Playtest 1 先發現 NP button 快速連點可能觸發 Safari smart zoom，所以最初只加強 fixed controls；Playtest 2 又出現無法確定來源的頁面放大，表示 zoom path 不只存在於按鈕／canvas，本體 HUD 空白區或 Safari 的 touchend synthesis 仍可能進入 browser zoom。
+
+因此目前 Playtest build 採較強策略：
+
+```text
+battle shell capture phase
+├─ touchend default prevented
+├─ multi-touch touchmove default prevented
+├─ dblclick default prevented
+└─ gesturestart / change / end default prevented
+```
+
+Gameplay 不依賴 browser-generated touch `click`：
+
+```text
+stage input     → pointer event
+fixed controls → pointerup command
+keyboard        → click(detail === 0)
+```
+
+所以攔掉 touchend 的 browser default 不會拿掉目前主要操作。
 
 ### Fixed Battle Controls
 
-Playtest 1 發現 NP button 快速連點仍可能觸發 Safari smart zoom。因此固定戰鬥控制（目前 NP / Command Spell）使用更嚴格的 scoped policy：
+固定戰鬥控制（NP / Command Spell / TEST tools）仍保留自己的 scoped protection：
 
 ```text
 [data-fixed-control]
 → touch-action: none
 → pointerup 直接執行 command
 → pointer-generated click default 阻止
-→ dblclick / gesturestart / gesturechange / gestureend 阻止 browser default
+→ dblclick / gesture default 阻止
 ```
 
-鍵盤產生的 `click`（`detail === 0`）仍保留 activation，因此不是單純把按鈕 accessibility 拔掉。
+鍵盤產生的 `click`（`detail === 0`）仍保留 activation。
 
-這個規則只適用於 fixed battle controls；不要為了防 zoom 對整個未來 UI 全域攔截所有 touch events。
+## Future scroll panels
 
-注意：這不是「遊戲所有地方永遠不能 scroll」。
+目前 battle shell 是完全鎖手勢的 prototype。這不是宣告「遊戲永遠不能有 scroll」。
 
-未來 UI 應保持：
+未來加入升級商店、迦勒底科技、Analyzer、Tree View 等長內容時，應把可捲動 panel 做成明確的 interaction surface，重新收窄 gesture guard，而不是偷偷在 battle shell 內解除 zoom lock。
+
+目標結構仍是：
 
 ```text
 APP
-├─ Battle Stage        fixed / no page scroll
-├─ Fixed HUD Controls  no browser zoom gesture
-└─ Drawer / Panel      可自行設定局部 overflow:auto
+├─ Battle Stage        fixed / no page scroll / no browser zoom
+├─ Fixed HUD Controls  pointer-driven
+└─ Drawer / Panel      未來獨立 interaction policy
 ```
-
-因此升級商店、迦勒底科技、英靈支援、Analyzer、Tree View 等長內容可以有自己的局部捲動容器。
 
 ## Orientation
 
@@ -116,4 +142,4 @@ Berserker anchor (left)
 Hydra anchor (right)
 ```
 
-後續 View blocks 已在其上加入 Hydra head pool、Berserker placeholder 與 HUD；它們仍不得反過來控制 logical combat。
+後續 View blocks 已在其上加入 Hydra head pool、Berserker placeholder、NP tint 與 HUD；它們仍不得反過來控制 logical combat。
