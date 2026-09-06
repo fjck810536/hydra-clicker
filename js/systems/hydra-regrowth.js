@@ -8,7 +8,7 @@ export function createHydraRegrowthSystem({ state, events } = {}) {
     throw new TypeError('Hydra regrowth system requires an event bus.');
   }
 
-  const unsubscribe = events.on('clock:tick', (tick) => {
+  const unsubscribe = events.on('clock:tick', ({ payload: tick }) => {
     let result = null;
 
     state.update((draft) => {
