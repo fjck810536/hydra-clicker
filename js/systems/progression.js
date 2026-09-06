@@ -2,6 +2,7 @@ export function createHydraIProgressionSystem({
   state,
   events,
   respawnDelayMs = 1200,
+  getRespawnDelayMs = null,
 } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Progression system requires a state store.');
@@ -12,11 +13,23 @@ export function createHydraIProgressionSystem({
   if (!Number.isFinite(respawnDelayMs) || respawnDelayMs < 0) {
     throw new RangeError('respawnDelayMs must be a finite number >= 0.');
   }
+  if (getRespawnDelayMs != null && typeof getRespawnDelayMs !== 'function') {
+    throw new TypeError('getRespawnDelayMs must be a function when provided.');
+  }
+
+  const resolveRespawnDelayMs = (snapshot, payload) => {
+    const delay = getRespawnDelayMs?.(snapshot, payload) ?? respawnDelayMs;
+    if (!Number.isFinite(delay) || delay < 0) {
+      throw new RangeError('Resolved Hydra respawn delay must be a finite number >= 0.');
+    }
+    return delay;
+  };
 
   const offKilled = events.on('hydra:killed', ({ payload }) => {
+    const delay = resolveRespawnDelayMs(state.read(), payload);
     state.update((draft) => {
       draft.hydra.defeated = true;
-      draft.hydra.respawnAtMs = payload.atMs + respawnDelayMs;
+      draft.hydra.respawnAtMs = payload.atMs + delay;
     });
   });
 
