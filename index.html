@@ -2,41 +2,66 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+  />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#09090c" />
   <title>Hydra Clicker</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <main class="game-shell">
-    <header class="game-header">
-      <p class="eyebrow">PROTOTYPE</p>
-      <h1>Hydra Clicker</h1>
-      <p class="subtitle">拔—灑卡，幹死那頭海德拉！</p>
+  <main class="game-shell" data-app>
+    <canvas
+      id="battle-canvas"
+      class="battle-canvas"
+      aria-label="Hydra Clicker battle stage"
+    ></canvas>
+
+    <header class="top-hud" aria-label="遊戲狀態">
+      <div class="brand-block">
+        <span class="eyebrow">HYDRA I · PROTOTYPE</span>
+        <strong>Hydra Clicker</strong>
+      </div>
+
+      <div class="hud-strip">
+        <div class="hud-cell">
+          <span class="hud-label">HEADS</span>
+          <strong data-hud="heads">9</strong>
+        </div>
+        <div class="hud-cell">
+          <span class="hud-label">CUTS</span>
+          <strong data-hud="cuts">0</strong>
+        </div>
+        <div class="hud-cell">
+          <span class="hud-label">AUTO</span>
+          <strong data-hud="auto-slash">LOCKED</strong>
+        </div>
+      </div>
     </header>
 
-    <section class="hud" aria-label="遊戲狀態">
-      <div>
-        <span class="hud-label">HEADS</span>
-        <strong id="head-count">9</strong>
-      </div>
-      <div>
-        <span class="hud-label">CUTS</span>
-        <strong id="cut-count">0</strong>
-      </div>
-    </section>
+    <div class="anchor-label anchor-label--berserker" aria-hidden="true">
+      BERSERKER<br />ANCHOR
+    </div>
+    <div class="anchor-label anchor-label--hydra" aria-hidden="true">
+      HYDRA<br />ANCHOR
+    </div>
 
-    <section class="arena" aria-label="九頭蛇戰場">
-      <button id="hydra-target" class="hydra-target" type="button">
-        <span class="hydra-placeholder">HYDRA</span>
-        <span class="hydra-hint">點擊砍頭</span>
-      </button>
-    </section>
+    <footer class="bottom-hud">
+      <p class="status-line" data-stage-status>Initializing battle stage…</p>
+      <p class="tap-hint">TAP STAGE · MANUAL CUT</p>
+      <p class="subtitle">拔—灑卡，幹死那頭海德拉！</p>
+    </footer>
 
-    <p id="status-line" class="status-line">等待第一次斬擊。</p>
+    <aside class="landscape-guard" aria-live="polite">
+      <strong>PORTRAIT MODE</strong>
+      <span>請將裝置轉回直立。</span>
+    </aside>
   </main>
 
-  <script src="js/hydra.js"></script>
-  <script src="js/heracles.js"></script>
-  <script src="js/game.js"></script>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
