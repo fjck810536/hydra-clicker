@@ -62,19 +62,23 @@ test('Hydra I: regrowth does not happen early and restores the same head at dead
   assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
 });
 
-test('Hydra I: reaching zero heads is depleted, not killed, while regrowth is pending', () => {
+test('Hydra I Playtest 2: reaching zero heads is a terminal kill and cancels pending regrowth', () => {
   const state = new GameStateStore(createInitialState());
   const rule = createHydraIRule({ regenDelayMs: 1500 });
 
-  const resolution = cutOnce({ state, rule, headsPerStrike: 9n, nowMs: 0 });
+  cutOnce({ state, rule, headsPerStrike: 1n, nowMs: 0 });
+  assert.equal(state.read().hydra.pendingRegrowth.length, 1);
+
+  const resolution = cutOnce({ state, rule, headsPerStrike: 8n, nowMs: 100 });
+  const snapshot = state.read();
 
   assert.equal(resolution.depleted, true);
-  assert.equal(resolution.killed, false);
-  assert.equal(state.read().hydra.logicalHeadCount, 0n);
-  assert.equal(state.read().hydra.pendingRegrowth[0].amount, 9n);
-
-  state.update((draft) => processDueRegrowth(draft, 1500));
-  assert.equal(state.read().hydra.logicalHeadCount, 9n);
+  assert.equal(resolution.killed, true);
+  assert.equal(resolution.cancelPendingRegrowth, true);
+  assert.deepEqual(resolution.regrowth, []);
+  assert.equal(snapshot.hydra.logicalHeadCount, 0n);
+  assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
+  assert.equal(snapshot.statistics.totalHydrasKilled, 1n);
 });
 
 test('Hydra I: cutting while already depleted is rejected and creates no extra regrowth', () => {
@@ -114,7 +118,7 @@ test('Hydra I rule is pure: resolving a cut does not mutate the supplied state',
   assert.deepEqual(initial.hydra, hydraBefore);
 });
 
-test('Hydra I: overlapping regrowth events restore only what each cut removed', () => {
+test('Hydra I: overlapping regrowth events restore only what each non-terminal cut removed', () => {
   const state = new GameStateStore(createInitialState());
   const rule = createHydraIRule({ regenDelayMs: 1500 });
 
