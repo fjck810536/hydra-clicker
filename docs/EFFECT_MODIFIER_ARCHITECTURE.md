@@ -1,6 +1,6 @@
-# Hydra Clicker — Effect / Modifier Architecture v0.2
+# Hydra Clicker — Effect / Modifier Architecture v0.3
 
-> 積木編程 2.1：讓英靈支援、迦勒底科技、建設、研究與 Buff 都能使用同一套可擴充效果介面。
+> 積木編程 2.1：讓英靈支援、迦勒底科技、建設、研究、令咒與 Buff 都能使用同一套可擴充效果語言。
 
 ## 1. 目標
 
@@ -24,7 +24,7 @@ Support / Facility / Research / Command Spell / Temporary Buff
                 ↓
           EFFECT DEFINITIONS
                 ↓
-        MODIFIER AGGREGATOR
+        MODIFIER / CAPABILITY RESOLUTION
                 ↓
  ┌─────────┬─────────┬──────────┬──────────┐
  ↓         ↓         ↓          ↓
@@ -131,17 +131,22 @@ Block 7 已實作的第一個最小 rule modifier：
   effect: 'disable',
   startsAt: 10000,
   endsAt: 13000,
-  source: 'np'
+  source: 'np',
+  scope: 'encounter'
 }
 ```
 
-這個 source 是 NP，但 Hydra Rule 只會收到已解析後的：
+Hydra Rule 只收到解析後的：
 
 ```js
 {
   regrowthEnabled: false
 }
 ```
+
+它不知道 source 是 NP。
+
+`scope: 'encounter'` 是 lifecycle 語義：Block 8 的 Progression 在新的 Hydra encounter 出生時統一清除這類 temporary modifier，因此上一場效果不會滲漏到下一場。
 
 Rule modifier 不能直接改 mesh，也不能用角色名稱判斷。
 
@@ -181,6 +186,37 @@ Offline Farming
 
 Capability 是 bool / level / feature flag，不等同 stat buff。
 
+### Block 8 第一個正式 capability source
+
+```text
+Command Spell I
+↓ purchase / unlock
+combat.autoSlash
+↓
+master.commandSpells.autoSlash = true
+```
+
+目前還沒有完整 capability aggregator；state 中既有 feature flag 就是最小落地。
+
+重要的是依賴方向：
+
+```text
+Command Spell system
+→ 寫 capability state
+
+Auto Slash system
+→ 讀 capability state
+```
+
+禁止：
+
+```text
+Command Spell system
+→ 直接呼叫 Auto Slash internals
+```
+
+等英靈／科技也開始提供同一 capability 時，再把多 source 聚合正式抽成 capability aggregator。
+
 ---
 
 ## 6. Effect Type D — Policy
@@ -209,7 +245,7 @@ predicted-safe-cut
 
 這是未來支援英靈最有趣的類型之一。
 
-同樣攻速的 B 叔，因為不同支援英靈，可能完全採用不同 Hydra farming 策略。
+同樣攻速的 B 叔，因不同支援英靈，可能採用完全不同 Hydra farming 策略。
 
 ---
 
@@ -241,16 +277,16 @@ predicted-safe-cut
 
 ```text
 head cut → material
-NP release → 人類惡
+NP release → 人類惡（若未來採用）
 excess growth → research data
 tree complexity → analyzer points
 ```
 
+Block 8 目前的人類惡獎勵仍是獨立 economy system 監聽 `hydra:killed`；不要為了形式統一而提前把所有經濟都改成 Conversion framework。
+
 ---
 
 ## 8. Modifier Aggregator
-
-所有有效 effects 先集中整理，再提供給各 system。
 
 長期概念 API：
 
@@ -279,9 +315,9 @@ modifierAggregator.build({
 
 各 system 只問 aggregator 結果，不自己遍歷所有角色／科技。
 
-### Phase 3 Block 7 的最小實作
+### Phase 3 目前的最小實作
 
-目前沒有提前建完整 aggregator；只有：
+Rule modifier：
 
 ```text
 state.modifiers.active
@@ -293,15 +329,23 @@ resolveRuleContext()
 Hydra Rule
 ```
 
-這是刻意的小接口。等 Support / Facility 真正進場後再把 source collection、stacking、condition evaluator 補齊。
+Capability：
+
+```text
+Command Spell I
+        ↓
+logical feature flag
+        ↓
+Auto Slash reads flag
+```
+
+這些是刻意的小接口。等 Support / Facility 真正進場後再補 source collection、stacking、condition evaluator 與 capability aggregation。
 
 ---
 
 ## 9. Stacking 規則
 
-需要避免效果順序不同造成不同答案。
-
-建議第一版固定：
+未來同 target 有多個 source 時，建議固定：
 
 ```text
 BASE
@@ -326,7 +370,7 @@ base attack speed = 4
 
 不要讓 UI 購買順序改變計算順序。
 
-Block 7 的 `hydra.regrowth / disable` 還沒有 stacking 問題；未來同 target 出現多個 source 時再正式啟用這套排序。
+Block 7 的單一 `hydra.regrowth / disable` 暫時沒有 stacking 問題；需要第二個同 target source 時再正式實作排序。
 
 ---
 
@@ -346,7 +390,7 @@ Block 7 的 `hydra.regrowth / disable` 還沒有 stacking 問題；未來同 tar
 }
 ```
 
-View 可以把它畫成：
+View 可以畫成：
 
 ```text
 [Portrait]
@@ -410,7 +454,7 @@ Predictive Computation
 → 預測下一刀結果
 ```
 
-這樣「迦勒底科技」可以成為遊戲的第三條 progression：
+「迦勒底科技」可以形成第三條 progression：
 
 ```text
 BERSERKER
@@ -425,28 +469,48 @@ CHALDEA
 
 ---
 
-## 13. Temporary Buff
+## 13. Temporary Buff / Modifier Lifecycle
 
-短時間 Buff 與永久科技使用同一個 Effect 格式，只多時間資訊。
+短時間 Buff 與永久科技可以使用相同 Effect 格式，但多時間與 lifecycle 資訊。
 
 ```js
 {
-  sourceId: 'temporary-buff-example',
-  effectId: 'effect-attack-speed-01',
+  type: 'rule-modifier',
+  target: 'hydra.regrowth',
+  effect: 'disable',
   startsAt: 10000,
-  endsAt: 20000
+  endsAt: 13000,
+  scope: 'encounter'
 }
 ```
 
-Block 7 的 NP regeneration window 就是第一個真正使用 Game Clock 的 temporary rule modifier。
+時間到期由 Game Clock / modifier lifecycle 清理。
 
-到期由 Game Clock / modifier lifecycle 清理。
+不能由 View 動畫結束事件決定 Buff 是否過期。
 
-不能由 View 的動畫結束事件決定 Buff 是否過期。
+### Lifecycle Scope
+
+目前已有：
+
+```text
+scope: encounter
+→ 新 Hydra encounter 時移除
+```
+
+未來有實際需求時才加入其他 scope，例如：
+
+```text
+run
+persistent
+```
+
+不要先發明完整 scope taxonomy。
+
+注意：`scope` 是「活多久」，與下一節 `conditions` 的「什麼情境才有效」不同。
 
 ---
 
-## 14. Effect Scope
+## 14. Effect Conditions
 
 部分效果只應作用於特定情境。
 
@@ -472,16 +536,14 @@ if (...) if (...) if (...)
 
 ## 15. 第三令咒也可以只是 Capability Source
 
-如果未來確定：
+若未來確定：
 
 ```text
 COMMAND SPELL III
 → Tree Targeting
 ```
 
-程式上不需要特殊架構。
-
-它只是：
+程式上不需要特殊架構：
 
 ```js
 {
@@ -493,7 +555,7 @@ COMMAND SPELL III
 }
 ```
 
-因此令咒、英靈、科技、設施可以共享同一個效果語言。
+因此令咒、英靈、科技、設施可以共享效果語言。
 
 ---
 
@@ -501,7 +563,7 @@ COMMAND SPELL III
 
 目標不是「把所有東西抽象化」。
 
-目標是避免未來內容增加時形成：
+目標是避免：
 
 ```text
 30 英靈
@@ -510,9 +572,9 @@ COMMAND SPELL III
 × Hydra I–VIII
 ```
 
-然後核心程式充滿角色專用 `if`。
+最後核心充滿角色專用 `if`。
 
-健康狀態應該是：
+健康狀態：
 
 ```text
 新增英靈
@@ -525,35 +587,35 @@ COMMAND SPELL III
 ≈ 新增 source + effect definitions
 ```
 
-只有真正出現新的遊戲概念時，才增加新的 System / Effect Type。
+只有真的出現新遊戲概念，才增加新的 System / Effect Type。
 
 ---
 
 ## 17. Phase 3 實作狀態
 
-原則仍然是：不要因為有這份架構就把完整 Support 系統一次做完。
-
-目前已經因實際需求落地的最小能力：
+已因實際需求落地：
 
 ```text
 capability
-→ Auto Slash 狀態已有位置，Block 8 正式接令咒
+→ Block 8 Command Spell I → Auto Slash
 
 rule-modifier
-→ Block 7 NP regeneration window 已使用
+→ Block 7 NP regeneration window
+
+modifier lifecycle scope
+→ Block 8 encounter reset 清除上一場 NP modifier
 ```
 
-下一步才會按需要加入：
+尚未因實際需求落地：
 
 ```text
 stat-modifier
-→ Attack Speed / NP Gain 升級需要時
-
 policy
-→ Tree Targeting / support targeting 真正出現時
-
-conversion
-→ Hydra Farm / 人類惡經濟需要時
+conversion aggregator
+full capability aggregator
+full support/facility source collector
 ```
+
+它們分別等 Attack Speed 升級、Tree/Support targeting、Hydra Farm 等內容真的出現時再施工。
 
 **先保留共同接口，需要一種效果時才實作那一種；不提前建一座沒人用的框架。**
