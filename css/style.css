@@ -99,7 +99,7 @@ textarea {
 
 .hud-strip {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.3fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid rgb(255 255 255 / 12%);
   background: rgb(8 8 12 / 68%);
   backdrop-filter: blur(8px);
@@ -108,7 +108,7 @@ textarea {
 
 .hud-cell {
   min-width: 0;
-  padding: 8px 10px 9px;
+  padding: 8px 8px 9px;
 }
 
 .hud-cell + .hud-cell {
@@ -119,7 +119,7 @@ textarea {
   display: block;
   margin-top: 2px;
   overflow: hidden;
-  font-size: clamp(1rem, 4vw, 1.45rem);
+  font-size: clamp(0.88rem, 3.7vw, 1.35rem);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -152,6 +152,28 @@ textarea {
     max(16px, env(safe-area-inset-bottom))
     max(14px, env(safe-area-inset-left));
   text-align: center;
+}
+
+.np-button {
+  width: min(100%, 280px);
+  margin: 0 auto 9px;
+  padding: 10px 16px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 999px;
+  background: rgb(235 235 255 / 12%);
+  color: inherit;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.np-button:disabled {
+  opacity: 0.34;
+}
+
+.np-button:not(:disabled):active {
+  transform: scale(0.97);
 }
 
 .status-line {
