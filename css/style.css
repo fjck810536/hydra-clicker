@@ -124,6 +124,73 @@ textarea {
   white-space: nowrap;
 }
 
+.test-tools {
+  position: absolute;
+  top: max(108px, calc(env(safe-area-inset-top) + 92px));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 4;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.test-tools-toggle,
+.test-reset-button {
+  border: 1px solid rgb(255 255 255 / 22%);
+  color: inherit;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.test-tools-toggle {
+  min-width: 54px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgb(8 8 12 / 72%);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.test-tools-panel {
+  display: grid;
+  min-width: 138px;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(8 8 12 / 86%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  pointer-events: auto;
+}
+
+.test-tools-panel[hidden] {
+  display: none;
+}
+
+.test-tools-panel span {
+  opacity: 0.78;
+}
+
+.test-tools-panel strong {
+  margin-left: 4px;
+}
+
+.test-reset-button {
+  padding: 7px 9px;
+  border-radius: 4px;
+  background: rgb(255 72 72 / 14%);
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
 .anchor-label {
   top: 58%;
   transform: translate(-50%, -50%);
@@ -212,7 +279,9 @@ textarea {
 }
 
 .command-spell-button:not(:disabled):active,
-.np-button:not(:disabled):active {
+.np-button:not(:disabled):active,
+.test-tools-toggle:active,
+.test-reset-button:active {
   transform: scale(0.97);
 }
 
