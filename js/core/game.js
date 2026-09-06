@@ -6,7 +6,11 @@ import { createHydraRegrowthSystem } from '../systems/hydra-regrowth.js';
 import { createCombatSystem } from '../systems/combat.js';
 import { createAutoSlashSystem } from '../systems/auto-slash.js';
 import { createNpSystem } from '../systems/np.js';
+import { createHumanityEvilSystem } from '../systems/humanity-evil.js';
+import { createCommandSpellSystem } from '../systems/command-spells.js';
+import { createHydraIProgressionSystem } from '../systems/progression.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
+import { HYDRA_I_PROGRESSION } from '../data/progression.js';
 
 export function createCoreRuntime({
   fixedStepMs = 100,
@@ -59,6 +63,7 @@ export function createHydraIGameRuntime({
   regenDelayMs = 1500,
   npGainPerHead = 0.125,
   npDurationMs = 3000,
+  progression = HYDRA_I_PROGRESSION,
   initialState = createInitialState(),
 } = {}) {
   const core = createCoreRuntime({ fixedStepMs, initialState });
@@ -75,24 +80,49 @@ export function createHydraIGameRuntime({
     gainPerHead: npGainPerHead,
     durationMs: npDurationMs,
   });
+  const humanityEvil = createHumanityEvilSystem({
+    ...core,
+    rewardPerHydraKill: progression.humanityEvilPerKill,
+  });
+  const commandSpells = createCommandSpellSystem({
+    ...core,
+    definition: progression.commandSpellI,
+  });
+  const hydraProgression = createHydraIProgressionSystem({
+    ...core,
+    respawnDelayMs: progression.respawnDelayMs,
+  });
   const manual = createManualAttackInput(core);
 
   return {
     ...core,
     rule,
+    progression,
     manualAttack(options) {
       return manual.attack(options);
     },
     releaseNp() {
       return np.release();
     },
+    commandSpellIStatus() {
+      return commandSpells.getStatus();
+    },
+    buyCommandSpellI() {
+      return commandSpells.purchase();
+    },
     systems: Object.freeze({
       regrowth,
       combat,
       autoSlash,
       np,
+      humanityEvil,
+      commandSpells,
+      hydraProgression,
     }),
     destroy() {
+      hydraProgression.destroy();
+      commandSpells.destroy();
+      humanityEvil.destroy();
       np.destroy();
       autoSlash.destroy();
       combat.destroy();
