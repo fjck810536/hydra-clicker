@@ -10,7 +10,10 @@ import { createHumanityEvilSystem } from '../systems/humanity-evil.js';
 import { createCommandSpellSystem } from '../systems/command-spells.js';
 import { createHydraIProgressionSystem } from '../systems/progression.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
-import { HYDRA_I_PROGRESSION } from '../data/progression.js';
+import {
+  HYDRA_I_PROGRESSION,
+  getHydraIRegenDelayMs,
+} from '../data/progression.js';
 
 export function createCoreRuntime({
   fixedStepMs = 100,
@@ -65,19 +68,33 @@ export function createCoreRuntime({
 
 export function createHydraIGameRuntime({
   fixedStepMs = 100,
-  regenDelayMs = 1500,
+  regenDelayMs = null,
   npGainPerHead = 0.125,
   npDurationMs = 3000,
   progression = HYDRA_I_PROGRESSION,
   initialState = createInitialState(),
 } = {}) {
   const core = createCoreRuntime({ fixedStepMs, initialState });
-  const rule = createHydraIRule({ regenDelayMs });
+  const staticRegenDelayMs = regenDelayMs;
+  const rule = createHydraIRule({
+    regenDelayMs: staticRegenDelayMs ?? progression.regenCurve?.baseDelayMs ?? 1500,
+  });
+
+  const resolveCurrentRegenDelayMs = (snapshot = core.state.read()) => {
+    if (staticRegenDelayMs != null) return staticRegenDelayMs;
+    return getHydraIRegenDelayMs(
+      snapshot.statistics.totalHydrasKilled,
+      progression.regenCurve,
+    );
+  };
 
   const regrowth = createHydraRegrowthSystem(core);
   const combat = createCombatSystem({
     ...core,
     getRule: () => rule,
+    getRuleContext: (snapshot) => ({
+      regrowthDelayMs: resolveCurrentRegenDelayMs(snapshot),
+    }),
   });
   const autoSlash = createAutoSlashSystem(core);
   const np = createNpSystem({
@@ -108,6 +125,9 @@ export function createHydraIGameRuntime({
     },
     releaseNp() {
       return np.release();
+    },
+    currentRegenDelayMs() {
+      return resolveCurrentRegenDelayMs(core.state.read());
     },
     commandSpellIStatus() {
       return commandSpells.getStatus();
