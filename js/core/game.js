@@ -5,6 +5,7 @@ import { createHydraIRule } from '../math/hydra-rules.js';
 import { createHydraRegrowthSystem } from '../systems/hydra-regrowth.js';
 import { createCombatSystem } from '../systems/combat.js';
 import { createAutoSlashSystem } from '../systems/auto-slash.js';
+import { createNpSystem } from '../systems/np.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
 
 export function createCoreRuntime({
@@ -56,6 +57,8 @@ export function createCoreRuntime({
 export function createHydraIGameRuntime({
   fixedStepMs = 100,
   regenDelayMs = 1500,
+  npGainPerHead = 0.125,
+  npDurationMs = 3000,
   initialState = createInitialState(),
 } = {}) {
   const core = createCoreRuntime({ fixedStepMs, initialState });
@@ -67,6 +70,11 @@ export function createHydraIGameRuntime({
     getRule: () => rule,
   });
   const autoSlash = createAutoSlashSystem(core);
+  const np = createNpSystem({
+    ...core,
+    gainPerHead: npGainPerHead,
+    durationMs: npDurationMs,
+  });
   const manual = createManualAttackInput(core);
 
   return {
@@ -75,12 +83,17 @@ export function createHydraIGameRuntime({
     manualAttack(options) {
       return manual.attack(options);
     },
+    releaseNp() {
+      return np.release();
+    },
     systems: Object.freeze({
       regrowth,
       combat,
       autoSlash,
+      np,
     }),
     destroy() {
+      np.destroy();
       autoSlash.destroy();
       combat.destroy();
       regrowth.destroy();
