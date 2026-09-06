@@ -1,7 +1,11 @@
 export function createAutoSlashSystem({
   state,
   events,
-  isEnabled = (snapshot) => snapshot.master.commandSpells.autoSlash,
+  isEnabled = (snapshot) => (
+    snapshot.master.commandSpells.autoSlash
+    && !snapshot.hydra.defeated
+    && snapshot.hydra.logicalHeadCount > 0n
+  ),
   getAttacksPerSecond = (snapshot) => snapshot.berserker.baseAttacksPerSecond,
   getHeadsPerStrike = (snapshot) => snapshot.berserker.headsPerStrike,
 } = {}) {
