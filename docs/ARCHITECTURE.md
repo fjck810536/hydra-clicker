@@ -1,13 +1,15 @@
-# Hydra Clicker — Architecture v0.2
+# Hydra Clicker — Architecture v0.3
 
-> 目標：每一塊都可以單獨測試、替換、重寫，不讓「數學規則」「遊戲經濟」「Babylon.js 畫面」互相糾纏。
+> 目標：每一塊都可以單獨測試、替換、重寫，不讓「數學規則」「遊戲經濟」「玩家輸入」「Babylon.js 畫面」互相糾纏。
 
 ## 1. 頂層資料流
 
 ```text
 INPUT / AUTO SYSTEMS
         ↓
-COMBAT INTENT
+   ATTACK REQUEST
+        ↓
+      COMBAT
         ↓
 HYDRA RULE ENGINE
         ↓
@@ -21,7 +23,7 @@ ECONOMY UI  VIEW
          Babylon.js
 ```
 
-View 永遠只讀取結果，不決定數學。
+View 永遠只讀取結果，不決定數學；Input 只描述玩家意圖，不直接修改遊戲狀態。
 
 ## 2. 目標目錄
 
@@ -33,7 +35,8 @@ hydra-clicker/
 ├── docs/
 │   ├── GAME_DESIGN.md
 │   ├── ARCHITECTURE.md
-│   └── BLOCK_CONTRACTS.md
+│   ├── BLOCK_CONTRACTS.md
+│   └── EFFECT_MODIFIER_ARCHITECTURE.md
 ├── js/
 │   ├── core/
 │   │   ├── game.js
@@ -49,9 +52,13 @@ hydra-clicker/
 │   │   ├── big-count.js
 │   │   └── compressed-tree.js
 │   │
+│   ├── input/
+│   │   └── manual-attack.js
+│   │
 │   ├── systems/
 │   │   ├── combat.js
 │   │   ├── auto-slash.js
+│   │   ├── hydra-regrowth.js
 │   │   ├── rage.js
 │   │   ├── np.js
 │   │   ├── command-spells.js
@@ -83,7 +90,7 @@ hydra-clicker/
     └── fonts/
 ```
 
-目前舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 可以保留到第三階段再遷移，不急著為了目錄漂亮而重寫。
+目前舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 繼續與新架構並行；對應積木有測試後再逐步替換，不為了目錄漂亮先重寫。
 
 ## 3. 積木 A — Core
 
@@ -96,6 +103,8 @@ hydra-clicker/
 - 初始化 state。
 - 啟動 clock。
 - 註冊 systems。
+- 注入目前 Hydra rule。
+- 暴露 headless gameplay runtime 給 View 使用。
 - 將 snapshot 推送給 view。
 
 它不可以：
@@ -103,6 +112,15 @@ hydra-clicker/
 - 自己計算 Hydra 增殖。
 - 自己算 NP。
 - 直接生成 3D mesh。
+
+目前已有：
+
+```text
+createCoreRuntime()
+createHydraIGameRuntime()
+```
+
+第二個是 Hydra I 的 headless 組合插座；Babylon.js 之後只接它的 snapshot / semantic events / input API。
 
 ### `clock.js`
 
@@ -114,12 +132,16 @@ hydra-clicker/
 
 遊戲邏輯不能依賴實際 FPS。
 
+單次實際 frame delta 有上限，避免頁籤背景化後突然一次補算過長的 frame；真正 offline progress 未來另外處理。
+
 ### `event-bus.js`
 
-讓積木用事件溝通，例如：
+讓積木用語義事件溝通，例如：
 
 ```text
+clock:tick
 attack:requested
+attack:resolved
 head:cut
 head:regrow
 hydra:killed
@@ -129,21 +151,30 @@ command-spell:unlocked
 hydra-generation:changed
 ```
 
+事件 listener 收到統一 envelope：
+
+```js
+{
+  type,
+  payload
+}
+```
+
 ## 4. 積木 B — Math / Hydra
 
 這是最需要保持純淨的區域。
 
 ### `hydra-model.js`
 
-只保存 Hydra 的邏輯狀態，例如：
+只處理 Hydra 邏輯 state transition helpers，例如：
 
 ```text
-generation
-headCount
-root/tree structure
-pendingRegrowth
-turn
+套用 cut result
+加入 pending regrowth
+處理到期 regrowth
 ```
+
+它不知道 Combat、玩家輸入或 Babylon.js。
 
 ### `hydra-rules.js`
 
@@ -158,7 +189,7 @@ HydraRules.III
 HydraRules.KIRBY_PARIS
 ```
 
-同一個 combat system 不應該知道現在是哪種增殖公式。
+同一個 Combat system 不應該用 generation `if` 判斷增殖公式，而是由 Core 注入 active rule。
 
 ### `cut-resolver.js`
 
@@ -168,16 +199,19 @@ HydraRules.KIRBY_PARIS
 current hydra state
 attack specification
 target
+turn / time
 ```
 
 輸出：
 
 ```text
+accepted
 removed heads
 scheduled regrowth
 spawned branches
 materials produced
-next hydra state
+depleted / killed
+next turn
 ```
 
 ### `big-count.js`
@@ -200,13 +234,49 @@ pattern A × N
 
 而不是實際存 N 個節點。
 
-## 5. 積木 C — Systems
+## 5. 積木 C — Input
 
-Systems 只負責「遊戲規則」，不畫畫面。
+Input 回答：「玩家做了什麼？」而不是「結果應該是什麼？」
+
+### `manual-attack.js`
+
+目前手動點擊只產生標準 Attack Request：
+
+```js
+{
+  source: 'manual',
+  timestamp,
+  strikeCount: 1,
+  headsPerStrike,
+  target
+}
+```
+
+Input 不可以：
+
+- `headCount -= 1`
+- 直接呼叫 Hydra Rule
+- 播放攻擊動畫
+- 決定素材掉落
+
+未來 UI、touch、keyboard、Tree Targeting 都應該先轉成標準 request / command，再交給 Systems。
+
+## 6. 積木 D — Systems
+
+Systems 只負責「遊戲如何隨時間與事件運作」，不畫畫面。
 
 ### Combat
 
-把玩家點擊或 Auto Slash 轉成 attack intent。
+Combat 接收 `attack:requested`，逐次把 strike 交給目前注入的 Hydra Rule，再套用 Cut Result。
+
+它發出語義事件：
+
+```text
+attack:resolved
+head:cut
+```
+
+但不播放動畫。
 
 ### Auto Slash
 
@@ -214,10 +284,26 @@ Systems 只負責「遊戲規則」，不畫畫面。
 
 ```text
 現在是否解鎖？
-每秒幾次？
+有效攻速是多少？
+每刀幾顆？
 ```
 
-它不能直接呼叫 Babylon animation。
+它把時間累積轉成 Attack Request。
+
+小數攻速使用 accumulator，例如：
+
+```text
+2.5 attacks/sec
+→ 長時間仍精確產生平均 2.5 attacks/sec
+```
+
+高攻速時可以把同一 tick 的多刀包成一個 `strikeCount > 1` request；Combat 仍逐刀解算，避免不同 Hydra 規則被粗暴合併。
+
+### Hydra Regrowth
+
+監聽 `clock:tick`，處理已到期的 logical regrowth queue。
+
+重要再生不使用散落的 gameplay `setTimeout()`。
 
 ### Rage / NP
 
@@ -238,7 +324,7 @@ III reserve Tree Targeting
 
 ### Humanity Evil
 
-Master meta currency。
+Master meta currency；玩家顯示文本為「人類惡」。
 
 只處理：
 
@@ -265,7 +351,7 @@ Master meta currency。
 
 當 reveal 發生後，才把「斬首產物」正式作為經濟資源呈現給玩家。
 
-## 6. 積木 D — View / Babylon.js
+## 7. 積木 E — View / Babylon.js
 
 View 只有投影責任。
 
@@ -314,14 +400,14 @@ MAX_VISIBLE_HEADS = 99
 
 後期加入；初期可完全不存在。
 
-## 7. 積木 E — Data
+## 8. 積木 F — Data
 
 所有容易被調整或換皮的內容都放 data：
 
 - Hydra I 再生時間曲線
 - milestone 3 / 9 / 99
 - 升級成本
-- Humanity Evil 名稱
+- Humanity Evil / 人類惡顯示名稱
 - Master / Servant 顯示名稱
 - Command Spell 台詞
 - Fate 梗文字
@@ -332,24 +418,25 @@ MAX_VISIBLE_HEADS = 99
 if (master === 'Gudako')
 ```
 
-而應寫：
+而應寫能力／狀態：
 
 ```js
-if (state.commandSpells.autoSlashUnlocked)
+if (state.master.commandSpells.autoSlash)
 ```
 
-這樣未來要從 fan game 換成原創作品，不需要拆整個程式。
+之後 Modifier layer 成熟後，再把這類能力解析集中到 capability aggregator。
 
-## 8. 依賴方向
+## 9. 依賴方向
 
 允許：
 
 ```text
 data → 無依賴
 math → data
-systems → math + data
-core → systems + math
-view → core snapshot + data
+input → injected state snapshot + event interface
+systems → math + data + injected core interfaces
+core/application → systems + math + input
+view/audio → snapshot + semantic events + data
 ```
 
 禁止：
@@ -357,26 +444,28 @@ view → core snapshot + data
 ```text
 math → Babylon.js
 math → DOM
+input → 直接改 Hydra state
 systems → Babylon.js mesh
 view → 修改 Hydra rule
 ```
 
-## 9. Snapshot 原則
+Input / Systems 不需要直接 import Core 實作；由 `game.js` composition 時注入 `state` / `events` 等 interface，降低循環依賴。
 
-每次 view 更新只拿一份可序列化 snapshot：
+## 10. Snapshot 原則
+
+每次 view 更新只拿一份不可從外部改壞 store 的 snapshot：
 
 ```js
 {
   time,
   hydra: {
     generation,
-    headCount,
-    visibleHeadCount,
-    regenRate,
-    netGrowth
+    logicalHeadCount,
+    pendingRegrowth,
+    turn
   },
   berserker: {
-    attacksPerSecond,
+    baseAttacksPerSecond,
     headsPerStrike,
     rage,
     np
@@ -385,24 +474,24 @@ view → 修改 Hydra rule
     humanityEvil,
     commandSpells
   },
-  progression: {
-    kills,
-    analyzerLevel,
-    treeViewUnlocked
-  }
+  progression,
+  statistics,
+  modifiers
 }
 ```
 
 View 不拿可修改的原始 state reference。
 
-## 10. 第三階段實作順序
+真正 UI formatter 之後要處理 BigInt 顯示與 JSON serialization。
+
+## 11. 第三階段實作順序
 
 ```text
-Block 1  Core clock + state
+Block 1  Core clock + state                 ✅
 ↓
-Block 2  Hydra I pure logic
+Block 2  Hydra I pure logic                 ✅
 ↓
-Block 3  Combat / Auto Slash
+Block 3  Combat / Auto Slash                ✅
 ↓
 Block 4  Babylon battle stage
 ↓
@@ -412,7 +501,7 @@ Block 6  Placeholder Berserker animation
 ↓
 Block 7  NP / regen stop window
 ↓
-Block 8  Humanity Evil + Command Spell I
+Block 8  Humanity Evil / 人類惡 + Command Spell I
 ↓
 Block 9  Save
 ```
