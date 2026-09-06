@@ -34,6 +34,19 @@ test('visual projection rejects Number/floating logical head counts', () => {
   assert.throws(() => computeVisibleHeadCount(-1n), /BigInt/);
 });
 
+test('Hydra I nine-head silhouette spreads farther outward as height increases', () => {
+  const poses = Array.from({ length: 9 }, (_, index) => getHeadSlotPose(index));
+
+  const lowerSpread = Math.max(Math.abs(poses[1].x), Math.abs(poses[2].x));
+  const middleSpread = Math.max(Math.abs(poses[5].x), Math.abs(poses[6].x));
+  const upperSpread = Math.max(Math.abs(poses[7].x), Math.abs(poses[8].x));
+
+  assert.ok(middleSpread > lowerSpread);
+  assert.ok(upperSpread > middleSpread);
+  assert.ok(poses[7].y > poses[5].y);
+  assert.ok(poses[8].y > poses[6].y);
+});
+
 test('head slot poses are deterministic and finite across the entire visible pool', () => {
   for (const index of [0, 4, 8, 9, 50, 98]) {
     const pose = getHeadSlotPose(index);
@@ -47,7 +60,7 @@ test('head slot poses are deterministic and finite across the entire visible poo
   assert.throws(() => getHeadSlotPose(99), /0 to 98/);
 });
 
-test('Hydra view remains inside View layer and app only feeds it snapshots', async () => {
+test('Hydra view keeps only a small root base and remains inside View layer', async () => {
   const poolSource = await readFile(new URL('../js/view/head-pool.js', import.meta.url), 'utf8');
   const hydraSource = await readFile(new URL('../js/view/hydra-view.js', import.meta.url), 'utf8');
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
@@ -58,6 +71,10 @@ test('Hydra view remains inside View layer and app only feeds it snapshots', asy
     assert.doesNotMatch(source, /headCount\s*[+\-*/]?=/);
   }
 
+  assert.match(hydraSource, /hydra-root-base/);
+  assert.doesNotMatch(hydraSource, /hydra-haunch/);
+  assert.doesNotMatch(hydraSource, /hydra-tail-placeholder/);
+  assert.doesNotMatch(hydraSource, /hydra-body['"]/);
   assert.match(appSource, /createHydraView/);
   assert.match(appSource, /hydraView\.render\(snapshot\)/);
 });
