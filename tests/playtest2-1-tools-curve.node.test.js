@@ -5,12 +5,12 @@ import { readFile } from 'node:fs/promises';
 import { createHydraIGameRuntime } from '../js/core/game.js';
 import { getHydraIRegenDelayMs } from '../js/data/progression.js';
 
-test('Hydra I regeneration curve speeds up smoothly with kills and respects the floor', () => {
+test('Hydra I regeneration curve hits 350ms at kill 9 then flattens toward the 100ms floor', () => {
   assert.equal(getHydraIRegenDelayMs(0n), 1500);
-  assert.equal(getHydraIRegenDelayMs(9n), 1154);
-  assert.equal(getHydraIRegenDelayMs(30n), 750);
-  assert.equal(getHydraIRegenDelayMs(99n), 350);
-  assert.equal(getHydraIRegenDelayMs(999999999999n), 350);
+  assert.equal(getHydraIRegenDelayMs(9n), 350);
+  assert.equal(getHydraIRegenDelayMs(30n), 247);
+  assert.equal(getHydraIRegenDelayMs(99n), 100);
+  assert.equal(getHydraIRegenDelayMs(999999999999n), 100);
 });
 
 test('default Hydra I runtime injects the current kill-based regen delay into new cuts', () => {
@@ -19,12 +19,12 @@ test('default Hydra I runtime injects the current kill-based regen delay into ne
     draft.statistics.totalHydrasKilled = 30n;
   });
 
-  assert.equal(runtime.currentRegenDelayMs(), 750);
+  assert.equal(runtime.currentRegenDelayMs(), 247);
   runtime.manualAttack();
 
   const snapshot = runtime.snapshot();
   assert.equal(snapshot.hydra.pendingRegrowth.length, 1);
-  assert.equal(snapshot.hydra.pendingRegrowth[0].executeAt, 750);
+  assert.equal(snapshot.hydra.pendingRegrowth[0].executeAt, 247);
 
   runtime.destroy();
 });
