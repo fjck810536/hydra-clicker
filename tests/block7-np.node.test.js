@@ -51,7 +51,7 @@ test('NP pauses already scheduled regrowth until the window ends', () => {
   runtime.destroy();
 });
 
-test('NP window suppresses new regrowth and allows a true Hydra I kill', () => {
+test('NP window suppresses new regrowth while Hydra I itself owns terminal death', () => {
   const runtime = createHydraIGameRuntime({
     regenDelayMs: 10000,
     npDurationMs: 3000,
@@ -65,7 +65,7 @@ test('NP window suppresses new regrowth and allows a true Hydra I kill', () => {
 
   const release = runtime.releaseNp();
   assert.equal(release.accepted, true);
-  assert.equal(runtime.snapshot().statistics.totalNpReleases, 1n);
+  assert.equal(release.modifier.scope, 'timed');
 
   runtime.manualAttack();
   const snapshot = runtime.snapshot();
@@ -76,9 +76,47 @@ test('NP window suppresses new regrowth and allows a true Hydra I kill', () => {
   assert.equal(kills.length, 1);
   assert.equal(snapshot.berserker.np, 0.125);
 
-  runtime.advance(1000);
-  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 0n);
-
   offKilled();
+  runtime.destroy();
+});
+
+test('one NP window survives respawns and can cover multiple Hydra kills', () => {
+  const runtime = createHydraIGameRuntime({
+    regenDelayMs: 10000,
+    npDurationMs: 3000,
+  });
+
+  runtime.state.update((draft) => {
+    draft.berserker.np = 1;
+  });
+  const release = runtime.releaseNp();
+  assert.equal(release.accepted, true);
+  assert.equal(release.modifier.scope, 'timed');
+
+  for (let i = 0; i < 9; i += 1) runtime.manualAttack();
+  assert.equal(runtime.snapshot().statistics.totalHydrasKilled, 1n);
+
+  runtime.advance(300);
+  assert.equal(runtime.snapshot().hydra.encounter, 2n);
+  assert.equal(runtime.snapshot().modifiers.active.length, 1);
+
+  for (let i = 0; i < 9; i += 1) runtime.manualAttack();
+  assert.equal(runtime.snapshot().statistics.totalHydrasKilled, 2n);
+
+  runtime.advance(300);
+  let snapshot = runtime.snapshot();
+  assert.equal(snapshot.hydra.encounter, 3n);
+  assert.equal(snapshot.modifiers.active.length, 1);
+
+  runtime.manualAttack();
+  snapshot = runtime.snapshot();
+  assert.equal(snapshot.hydra.logicalHeadCount, 8n);
+  assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
+
+  runtime.advance(1000);
+  runtime.advance(1000);
+  runtime.advance(400);
+  assert.equal(runtime.snapshot().modifiers.active.length, 0);
+
   runtime.destroy();
 });
