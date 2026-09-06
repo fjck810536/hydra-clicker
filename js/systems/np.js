@@ -60,6 +60,7 @@ export function createNpSystem({
       startsAt,
       endsAt,
       source: 'np',
+      scope: 'encounter',
     };
 
     state.update((draft) => {
