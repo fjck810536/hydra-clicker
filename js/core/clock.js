@@ -1,14 +1,25 @@
 export class GameClock {
-  constructor({ fixedStepMs = 100, maxFrameDeltaMs = 1000 } = {}) {
+  constructor({
+    fixedStepMs = 100,
+    maxFrameDeltaMs = 1000,
+    initialSimulationTimeMs = 0,
+    initialTickCount = 0,
+  } = {}) {
     if (!(fixedStepMs > 0)) throw new RangeError('fixedStepMs must be > 0.');
     if (!(maxFrameDeltaMs >= fixedStepMs)) {
       throw new RangeError('maxFrameDeltaMs must be >= fixedStepMs.');
     }
+    if (!Number.isFinite(initialSimulationTimeMs) || initialSimulationTimeMs < 0) {
+      throw new RangeError('initialSimulationTimeMs must be a finite number >= 0.');
+    }
+    if (!Number.isInteger(initialTickCount) || initialTickCount < 0) {
+      throw new RangeError('initialTickCount must be an integer >= 0.');
+    }
 
     this.fixedStepMs = fixedStepMs;
     this.maxFrameDeltaMs = maxFrameDeltaMs;
-    this.simulationTimeMs = 0;
-    this.tickCount = 0;
+    this.simulationTimeMs = initialSimulationTimeMs;
+    this.tickCount = initialTickCount;
     this.running = false;
 
     this.#accumulatorMs = 0;
