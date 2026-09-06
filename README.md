@@ -39,6 +39,11 @@ Analyzer / Tree View
 - [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari 直立舞台、viewport、手勢鎖定、局部 scroll 與 Babylon render boundary。
 - [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來開發者看的積木施工守則。
 
+## Playtest / Tuning
+
+- [`docs/PLAYTEST_1.md`](docs/PLAYTEST_1.md) — 第一次 iPhone 實機試玩原始觀察：iOS 雙擊放大、NP 單 encounter、Hydra I 擊殺節奏、Hydra 輪廓、Berserker placeholder。
+- [`docs/PATCH_PLAN_HYDRA_I_TUNING.md`](docs/PATCH_PLAN_HYDRA_I_TUNING.md) — Playtest 1 對應施工計畫；在 Hydra II 前先完成 Hydra I tuning patch，再做 Playtest 2。
+
 ## Engineering Principles
 
 1. **Hydra Math 不依賴 Babylon.js。**
@@ -79,7 +84,7 @@ Analyzer / Tree View
 - `js/view/berserker-view.js` — 低模 Berserker placeholder、idle bob、event-driven strike animation
 - `tests/*.node.test.js` — Node 原生核心、存檔與架構 contract 自動測試
 - `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
-- `docs/` — 設計、架構、平台與效果規格
+- `docs/` — 設計、架構、平台、效果、Playtest 與 tuning 規格
 - `AGENTS.md` — AI / contributor 架構守則
 - `assets/` — 未來模型、圖片、音效、字型
 
@@ -178,6 +183,6 @@ Hydra I vertical slice 現在已具備：
 - Command Spell I → Auto Slash。
 - Browser local save / restore。
 
-**Block 1–9 已完成。下一步不是 Hydra II，而是第一次完整 iPhone 人工試玩 / Grill。**
+**Block 1–9 已完成。第一次 iPhone Playtest 也已完成；現在先做 Hydra I tuning patch，不直接進 Hydra II。**
 
-人工試玩確認 Hydra I 的操作感、畫面比例、斬擊回饋、再生節奏、NP 窗口、9-round progression、Auto Slash 解鎖與存檔恢復後，再決定下一階段的數值與 Hydra II 入口。
+下一輪依 `docs/PATCH_PLAN_HYDRA_I_TUNING.md` 依序處理 iOS double-tap zoom、Hydra I zero-head kill、NP multi-encounter window、respawn pacing 與 Hydra silhouette，再做 Playtest 2 / Grill。
