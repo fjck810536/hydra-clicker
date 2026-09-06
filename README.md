@@ -4,13 +4,13 @@
 
 一個瀏覽器上直接玩的低模 Hydra clicker / incremental game 原型。
 
-目前方向：固定側視角低模狂戰士持續斬擊 Hydra；遊戲前期像普通周回 clicker，中期把 Hydra 增殖轉化為素材農場，後期逐步解鎖 Tree View 與數學分析儀。
+目前方向：固定側視角低模狂戰士持續斬擊 Hydra；前期是 Hydra 周回 clicker，中期把增殖轉化為素材農場，後期逐步解鎖 Tree View 與數學分析儀。
 
 ## Current Design
 
 ```text
 Hydra I
-頭會復原，復原速度逐步加快
+會復原，但砍到 0 就能討伐
 ↓
 Command Spell I
 解鎖 Auto Slash
@@ -22,167 +22,99 @@ Command Spell II
 解鎖 Auto NP
 ↓
 Hydra III
-發現 Hydra 其實可以被當成「生頭農場」
+Hydra 反轉成「生頭農場」
 ↓
 Analyzer / Tree View
-逐步看見真正的結構與公式
+逐步看見真正結構與公式
 ```
 
-這裡的 Hydra I → II → III 暫時不是傳統 prestige/reset；玩家已購買的自動化與主要升級會保留，只是 Hydra 的規則逐代變化。
+Hydra I → II → III 暫時不是傳統 prestige/reset；已購買的自動化與主要能力保留，只是 Hydra 規則逐代變化。
 
-## Phase 2 — 積木編程規格
+## Playtest Status
 
-- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲層級、Hydra 世代、令咒、人類惡、Hydra Farm、Analyzer。
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Data 的工程分層。
-- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Upgrade、Snapshot、Save 等積木插頭規格。
-- [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 英靈支援、迦勒底科技、設施、研究、Buff 共用的 Effect / Modifier 架構。
-- [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari 直立舞台、viewport、手勢鎖定、局部 scroll 與 Babylon render boundary。
-- [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來開發者看的積木施工守則。
+```text
+Phase 3 Blocks 1–9      ✅
+iPhone Playtest 1       ✅
+Hydra I Tuning A–E      ✅
+Core CI                  ✅
+iPhone Playtest 2       ← NEXT
+Hydra II                 ⛔ not yet
+```
 
-## Playtest / Tuning
+第一次實機試玩後的 Playtest 2 tuning：
 
-- [`docs/PLAYTEST_1.md`](docs/PLAYTEST_1.md) — 第一次 iPhone 實機試玩原始觀察：iOS 雙擊放大、NP 單 encounter、Hydra I 擊殺節奏、Hydra 輪廓、Berserker placeholder。
-- [`docs/PATCH_PLAN_HYDRA_I_TUNING.md`](docs/PATCH_PLAN_HYDRA_I_TUNING.md) — Playtest 1 對應施工計畫；在 Hydra II 前先完成 Hydra I tuning patch，再做 Playtest 2。
+- **iOS fixed controls**：NP / Command Spell 改用 scoped gesture lock，針對 Safari double-tap smart zoom。
+- **Hydra I**：目前實驗規則為 `0 heads → killed`，terminal cut 清除 pending regrowth。
+- **NP**：3.0 秒 regeneration suppression 改成 `scope: timed`，可跨多個 Hydra encounter 連續收割。
+- **Respawn**：`1200ms → 300ms`；暫時不加 NP 專用 100ms 特例。
+- **Hydra View**：移除胖 torso / haunch / tail，只留小 root base；九頭改成越高越向左右外擴的 fan。
+- **Berserker**：正式 B叔 art pass 暫緩到玩法節奏穩定後。
+
+## Docs / 積木編程規格
+
+- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲進程與 Playtest 2 Hydra I 規則。
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Persistence 分層。
+- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、Progression、Save 等插頭。
+- [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 支援、科技、設施、Buff 的共用 Effect / Modifier 架構。
+- [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari portrait、gesture lock、局部 scroll 與 render boundary。
+- [`docs/SAVE_CONTRACT.md`](docs/SAVE_CONTRACT.md) — BigInt-safe persistence、Clock restore、offline progress boundary。
+- [`docs/PLAYTEST_1.md`](docs/PLAYTEST_1.md) — 第一次 iPhone 實機試玩原始觀察。
+- [`docs/PATCH_PLAN_HYDRA_I_TUNING.md`](docs/PATCH_PLAN_HYDRA_I_TUNING.md) — A–E tuning patch，目前已全部實作。
+- [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來 contributor 的施工守則。
 
 ## Engineering Principles
 
-1. **Hydra Math 不依賴 Babylon.js。**
-2. **邏輯頭數不等於畫面頭數。** 真實頭數可以很大；3D 畫面最多約 99 heads。
-3. **離散數量保持整數。** 頭數／素材數預計以 `BigInt` 或可替換的大整數層保存。
-4. **View 只負責演出。** Mesh、animation、particle 不得反過來決定遊戲規則。
-5. **Fate 梗與角色名隔離在 data/text 層。** 規則本身可以日後換成原創皮。
-6. **支援、科技、設施與研究優先輸出標準 Effect / Modifier。** 不直接跨層修改核心系統。
-7. **iOS portrait first。** Battle Stage 鎖頁面 scroll / zoom gesture；未來長面板只開自己的局部 scroll。
-8. **Head Pool 是投影。** Hydra I 初始只建 9 個 head slots；未來按需擴張，但可見 mesh 硬上限 99，永遠不能反推 logical head count。
-9. **Animation 也是投影。** Combat 先完成 logical resolution，再用 semantic events 驅動 Berserker 動畫；動畫完成與否不能決定砍頭結果。
-10. **NP 以 Rule Modifier 實作。** NP 不直接改 Hydra；它只暫時關閉 `hydra.regrowth`，既有再生事件在窗口內暫停，新斬首不建立再生，真正歸零時由 Hydra Rule 宣告 kill。
-11. **Progression 不藏進 Combat。** `hydra:killed` 之後由 economy / progression systems 分別處理人類惡、周回重生與令咒資格；Command Spell I 只解鎖 capability，Auto Slash 自己讀 capability。
-12. **Save 只保存 logical state。** BigInt 以版本化格式序列化；Clock 從保存的 simulation time / tick 恢復。Block 9 不做 offline progress，關閉期間的現實時間不直接推進遊戲。
+1. **Hydra Math 不依賴 Babylon.js / DOM。**
+2. **Logical head count != rendered head count。** 畫面最多 99 heads。
+3. **離散數量維持整數。** heads / kills / currencies 等使用 `BigInt`。
+4. **View 只演出。** Mesh / animation / particle 不決定遊戲規則。
+5. **Gameplay Time 服從 GameClock。** 不依賴 FPS，不散落 gameplay `setTimeout()`。
+6. **Fate 梗與角色名是可替換 presentation/data。** 核心規則不依賴角色名稱。
+7. **Effect / Modifier 是支援、科技、設施與 Buff 的共同插頭。**
+8. **iOS portrait first。** Battle stage 不捲頁；fixed controls 防 Safari zoom；未來 Drawer 可局部 scroll。
+9. **NP 是 generic Rule Modifier。** Playtest 2 使用 timed 3s `hydra.regrowth = disabled`，跨 encounter 存續到 `endsAt`。
+10. **Progression 不藏進 Combat。** kill、經濟、respawn、capability 分層處理。
+11. **Save 只保存 logical state。** BigInt 精確 round trip；目前 offline progress 明確為 OFF。
+12. **`depleted` 與 `killed` 概念仍分離。** 只是 Playtest 2 的 Hydra I 暫時令 0 heads 同時成立。
 
-## Current Repository
+## Current Runtime
 
-- `index.html` — Phase 3 Babylon portrait stage 入口
-- `css/style.css` — iOS `100dvh` / safe-area / gesture-lock / HUD layout
-- `js/app.js` — 把 headless Hydra I runtime 接到 View，並處理 browser save lifecycle
-- `js/core/` — Clock / State / EventBus / Runtime / versioned Save
-- `js/core/save.js` — BigInt-safe save envelope、Storage adapter、格式版本
-- `js/math/` — Hydra 純邏輯 Rule / Cut Resolution / logical model helpers
-- `js/input/manual-attack.js` — 手動輸入轉成標準 Attack Request
-- `js/data/progression.js` — Hydra I 周回、人類惡、Command Spell I 的可調 prototype 數值
-- `js/systems/combat.js` — Attack Request → Hydra Rule → Cut Result
-- `js/systems/auto-slash.js` — Game Clock 驅動的自動斬擊 request generator
-- `js/systems/hydra-regrowth.js` — Game Clock 驅動的 Hydra 再生處理
-- `js/systems/modifiers.js` — 最小 timed rule-modifier resolver
-- `js/systems/np.js` — NP charge / release / regeneration-stop window
-- `js/systems/humanity-evil.js` — `hydra:killed` → 人類惡 economy event
-- `js/systems/command-spells.js` — Command Spell I 資格、消費與 Auto Slash capability unlock
-- `js/systems/progression.js` — defeated encounter → 下一隻 Hydra I 周回重生
-- `js/view/battle-scene.js` — Babylon engine / orthographic camera / lights / stage anchors
-- `js/view/hud-view.js` — read-only logical HUD projection
-- `js/view/hydra-view.js` — 低模 Hydra 身體與 logical snapshot → visual projection
-- `js/view/head-pool.js` — 初始 9-slot、按需擴張、99 visible heads 硬上限
-- `js/view/berserker-view.js` — 低模 Berserker placeholder、idle bob、event-driven strike animation
-- `tests/*.node.test.js` — Node 原生核心、存檔與架構 contract 自動測試
-- `.github/workflows/test.yml` — 每次 push 自動跑 `npm test`
-- `docs/` — 設計、架構、平台、效果、Playtest 與 tuning 規格
-- `AGENTS.md` — AI / contributor 架構守則
-- `assets/` — 未來模型、圖片、音效、字型
+- `index.html` — Babylon portrait stage 入口
+- `css/style.css` — 100dvh / safe-area / fixed-control gesture policy
+- `js/app.js` — runtime ↔ View / input / browser save lifecycle
+- `js/core/` — Clock / State / EventBus / Runtime / Save
+- `js/math/` — Hydra Rule / Cut Resolution / logical model
+- `js/input/` — 玩家意圖 → Attack Request
+- `js/systems/` — Combat / Auto Slash / Regrowth / Modifiers / NP / 人類惡 / Command Spell / Progression
+- `js/data/progression.js` — prototype tuning data
+- `js/view/` — Battle Stage / Hydra Head Pool / Berserker placeholder / HUD
+- `tests/*.node.test.js` — Node 核心與架構 contract tests
+- `.github/workflows/test.yml` — 每次 push 自動執行 `npm test`
 
-舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 暫時保留供回溯；新的 `index.html` 已改接 Phase 3 runtime / View。
+舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 暫時保留供回溯；正式頁面已使用新 runtime。
 
-## Phase 3 — Implementation Status
+## Phase 3 — Complete
 
-- [x] **Block 1 — Core Clock + State**
-  - fixed-step `GameClock`
-  - logical `GameStateStore`
-  - semantic `EventBus`
-  - thin `createCoreRuntime()` orchestrator
-  - Node CI regression tests
-- [x] **Block 2 — Hydra I pure logic**
-  - Hydra I rule: cut → delayed same-head regrowth
-  - pure Cut Resolution
-  - logical regrowth queue
-  - `depleted` 與真正 `killed` 分離
-  - Game Clock 驅動再生，不使用 gameplay `setTimeout`
-  - Node tests + GitHub Actions CI
-- [x] **Block 3 — Combat / Auto Slash**
-  - manual input 與 Auto Slash 共用標準 Attack Request
-  - Combat 注入 active Hydra Rule，不用 generation `if`
-  - fractional attack-rate accumulator
-  - high-speed multi-strike batch request / sequential resolution
-  - `createHydraIGameRuntime()` headless gameplay composition
-  - Node tests + GitHub Actions CI
-- [x] **Block 4 — Babylon battle stage**
-  - iOS Safari portrait-first `100dvh` shell
-  - page scroll / double-tap / battle gesture lock
-  - safe-area aware HUD
-  - orthographic fixed-side camera
-  - backdrop / ground / lighting
-  - Berserker left anchor / Hydra right anchor
-  - landscape rotate guard for small screens
-  - headless Hydra I runtime connected to Babylon View
-  - stage contract tests + GitHub Actions CI
-- [x] **Block 5 — 9-head Hydra visual pool**
-  - low-poly placeholder Hydra body / tail / nine heads
-  - initial 9-slot pooled head meshes
-  - cut/regrowth projected from logical snapshot
-  - slots disable / re-enable instead of new/dispose on every cut
-  - pool can expand on demand but never beyond 99 visible heads
-  - astronomical BigInt head counts safely saturate at 99 visible heads
-  - View never writes mesh count back into logical state
-  - projection contract tests + GitHub Actions CI
-- [x] **Block 6 — Placeholder Berserker animation**
-  - low-poly primitive Berserker body / weapon
-  - lightweight idle bob
-  - `attack:resolved` → View-only `playAttack()`
-  - rejected attacks do not animate as successful strikes
-  - animation never triggers or gates logical head removal
-  - later GLB replacement can keep the same View-facing interface
-  - view-boundary contract tests + GitHub Actions CI
-- [x] **Block 7 — NP / regen stop window**
-  - accepted head cuts charge NP
-  - prototype gauge fills after 8 heads (`0.125` per head)
-  - NP release creates a 3.0 s timed `rule-modifier`
-  - pending regrowth pauses during the active window
-  - new cuts during NP do not schedule regrowth
-  - reaching zero during NP clears pending regrowth and becomes true `hydra:killed`
-  - NP HUD / release button remains a runtime request, never direct Hydra mutation
-  - headless NP tests + View boundary tests + GitHub Actions CI
-- [x] **Block 8 — 人類惡 + Command Spell I**
-  - true `hydra:killed` awards prototype `+11` 人類惡
-  - defeated Hydra waits 1.2 s, then a clean Hydra I encounter respawns
-  - encounter-scoped NP modifiers do not leak into the next round
-  - prototype tuning: `9 kills × 11 = 99 人類惡`
-  - Command Spell I requires 9 kills and costs 99 人類惡
-  - purchase emits semantic spend / unlock events and sets Auto Slash capability
-  - Auto Slash begins operating from capability state; Command Spell system never calls it directly
-  - fractional accumulator boundary fixed so 1 attack/sec produces one attack in exactly one simulated second
-  - portrait HUD displays KILLS / 人類惡 / Command Spell I without owning the rules
-  - headless 9-round tests + UI/data boundary tests + GitHub Actions CI
-- [x] **Block 9 — Save**
-  - versioned save envelope stored in browser `localStorage`
-  - nested BigInt values round-trip without precision loss
-  - logical Hydra state、pending regrowth、temporary modifiers、economy、statistics、capabilities persist
-  - GameClock resumes saved `simulationTimeMs` / tick instead of restarting at zero
-  - 5 s simulation autosave + progression events + `visibilitychange` / `pagehide`
-  - corrupted / unsupported save data is rejected and the game can fall back to a fresh session
-  - no Babylon mesh / scene / animation / visible head cache enters save data
-  - Block 9 intentionally pauses while closed; offline progress is a future system
-  - persistence / clock restore / app boundary tests + GitHub Actions CI
+已完成：
 
-## Phase 3 Goal — Complete
+```text
+1 Core Clock + State
+2 Hydra I pure logic
+3 Combat / Auto Slash
+4 Babylon portrait stage
+5 Hydra visual head pool
+6 Berserker placeholder animation
+7 NP / Rule Modifier
+8 人類惡 / Command Spell I / encounter loop
+9 Save / Restore
+```
 
-Hydra I vertical slice 現在已具備：
+Playtest 1 後，Hydra I 已進入第二版 tuning。下一步不是繼續蓋 Hydra II，而是用 iPhone Playtest 2 回答：
 
-- Babylon.js 固定側視舞台。
-- placeholder 低模 Berserker attack animation。
-- 9-head Hydra 斬首、再生與真正討伐。
-- 邏輯頭數與渲染頭數分離。
-- NP 有效斬殺窗口。
-- 人類惡周回資源。
-- Command Spell I → Auto Slash。
-- Browser local save / restore。
+1. NP / Command Spell 快速連點是否還會觸發 double-tap zoom？
+2. 普通砍到 0 就 kill，是否明顯比較不無聊？
+3. 同一次 NP 能跨多隻 Hydra 後，是否形成值得期待的爆發期？
+4. 300ms respawn 是太快、剛好，還是仍太慢？
+5. 拿掉胖 body、九頭向上外擴後，Hydra silhouette 是否更清楚？
 
-**Block 1–9 已完成。第一次 iPhone Playtest 也已完成；現在先做 Hydra I tuning patch，不直接進 Hydra II。**
-
-下一輪依 `docs/PATCH_PLAN_HYDRA_I_TUNING.md` 依序處理 iOS double-tap zoom、Hydra I zero-head kill、NP multi-encounter window、respawn pacing 與 Hydra silhouette，再做 Playtest 2 / Grill。
+這五題大致成立後，再 Grill Hydra I 正式節奏與 Hydra II 入口。
