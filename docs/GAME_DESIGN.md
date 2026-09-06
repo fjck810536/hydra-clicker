@@ -74,12 +74,12 @@ Hydra #99  regen nearly instant
 
 99 不一定最後是硬門檻；需要用實際遊玩時間驗證。
 
-## 5. Master 資源：人類惡性（暫名）
+## 5. Master 資源：人類惡
 
 原型階段使用惡搞型資源：
 
 ```text
-HUMANITY EVIL / 人類惡性
+HUMANITY EVIL / 人類惡
 ```
 
 來源候選：
