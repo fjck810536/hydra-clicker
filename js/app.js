@@ -16,6 +16,39 @@ if (!app || !canvas || !npButton || !commandSpellButton) {
   throw new Error('Hydra Clicker app shell is missing.');
 }
 
+function bindFixedControl(button, handler) {
+  const handlePointerUp = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    handler();
+  };
+
+  // Pointer-generated click is suppressed so Safari never gets a second
+  // synthesized tap to use for smart zoom. detail === 0 preserves keyboard activation.
+  const handleClick = (event) => {
+    event.preventDefault();
+    if (event.detail === 0) handler();
+  };
+
+  const preventGesture = (event) => event.preventDefault();
+
+  button.addEventListener('pointerup', handlePointerUp, { passive: false });
+  button.addEventListener('click', handleClick, { passive: false });
+  button.addEventListener('dblclick', preventGesture, { passive: false });
+  button.addEventListener('gesturestart', preventGesture, { passive: false });
+  button.addEventListener('gesturechange', preventGesture, { passive: false });
+  button.addEventListener('gestureend', preventGesture, { passive: false });
+
+  return () => {
+    button.removeEventListener('pointerup', handlePointerUp);
+    button.removeEventListener('click', handleClick);
+    button.removeEventListener('dblclick', preventGesture);
+    button.removeEventListener('gesturestart', preventGesture);
+    button.removeEventListener('gesturechange', preventGesture);
+    button.removeEventListener('gestureend', preventGesture);
+  };
+}
+
 let saveStore = null;
 let restoredSave = null;
 
@@ -82,11 +115,11 @@ const renderSnapshot = () => {
 const handleNpPress = () => {
   const result = runtime.releaseNp();
   if (result.accepted) {
-    hud.setStatus('NP RELEASE · Hydra regeneration suspended for 3.0 s');
+    hud.setStatus('NP RELEASE · regeneration suppressed for 3.0 s');
   }
   renderSnapshot();
 };
-npButton.addEventListener('click', handleNpPress);
+const unbindNpButton = bindFixedControl(npButton, handleNpPress);
 
 const handleCommandSpellPress = () => {
   const result = runtime.buyCommandSpellI();
@@ -96,7 +129,7 @@ const handleCommandSpellPress = () => {
   }
   renderSnapshot();
 };
-commandSpellButton.addEventListener('click', handleCommandSpellPress);
+const unbindCommandSpellButton = bindFixedControl(commandSpellButton, handleCommandSpellPress);
 
 let nextAutosaveAtMs = runtime.snapshot().time.simulationTimeMs + AUTOSAVE_INTERVAL_MS;
 
@@ -120,7 +153,7 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
 });
 const offCut = runtime.events.on('head:cut', ({ payload }) => {
   hud.setStatus(payload.killed
-    ? `CUT ${payload.amount.toString()} · TERMINAL CUT`
+    ? `CUT ${payload.amount.toString()} · HYDRA DOWN`
     : `CUT ${payload.amount.toString()}`);
   renderSnapshot();
 });
@@ -166,14 +199,14 @@ document.addEventListener('visibilitychange', handleVisibilityChange);
 renderSnapshot();
 hud.setStatus(restoredFromSave
   ? 'SAVE RESTORED · simulation resumes where it stopped.'
-  : 'Defeat Hydra I repeatedly. 9 kills unlock Command Spell I.');
+  : 'Cut all 9 heads to defeat Hydra I. NP is a timed farming burst.');
 runtime.start();
 
 window.addEventListener('pagehide', () => {
   persistNow();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
-  npButton.removeEventListener('click', handleNpPress);
-  commandSpellButton.removeEventListener('click', handleCommandSpellPress);
+  unbindNpButton();
+  unbindCommandSpellButton();
   offTick();
   offAttackResolved();
   offCut();
