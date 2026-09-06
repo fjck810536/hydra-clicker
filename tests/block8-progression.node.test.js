@@ -17,6 +17,11 @@ function chargeAndKill(runtime) {
   }
 }
 
+function advance1200(runtime) {
+  runtime.advance(1000);
+  runtime.advance(200);
+}
+
 test('Hydra kill awards Humanity Evil and encounter respawns cleanly', () => {
   const runtime = createHydraIGameRuntime();
 
@@ -29,7 +34,7 @@ test('Hydra kill awards Humanity Evil and encounter respawns cleanly', () => {
   assert.equal(snapshot.hydra.defeated, true);
   assert.equal(snapshot.modifiers.active.length, 1);
 
-  runtime.advance(1200);
+  advance1200(runtime);
   snapshot = runtime.snapshot();
 
   assert.equal(snapshot.hydra.logicalHeadCount, 9n);
@@ -52,7 +57,7 @@ test('Command Spell I requires 9 kills and 99 Humanity Evil, then unlocks Auto S
     chargeAndKill(runtime);
     assert.equal(runtime.snapshot().statistics.totalHydrasKilled, BigInt(kill));
     assert.equal(runtime.snapshot().master.humanityEvil, BigInt(kill * 11));
-    runtime.advance(1200);
+    advance1200(runtime);
   }
 
   const status = runtime.commandSpellIStatus();
@@ -88,7 +93,7 @@ test('Command Spell I purchase emits semantic unlock and spend events', () => {
 
   for (let kill = 0; kill < 9; kill += 1) {
     chargeAndKill(runtime);
-    runtime.advance(1200);
+    advance1200(runtime);
   }
 
   runtime.buyCommandSpellI();
