@@ -12,6 +12,7 @@
 2. `docs/ARCHITECTURE.md` — 模組分層與依賴方向。
 3. `docs/BLOCK_CONTRACTS.md` — 積木之間的資料插頭。
 4. `docs/EFFECT_MODIFIER_ARCHITECTURE.md` — Buff、英靈支援、迦勒底科技、設施的共同效果架構。
+5. `docs/SAVE_CONTRACT.md` — Save 格式、BigInt、simulation time 與 offline-progress 邊界；碰 persistence / offline 前必讀。
 
 若程式與文件衝突，**不要默默猜設計意圖**。優先保留既有可玩行為，並把衝突寫成 TODO / issue 或更新文件。
 
@@ -172,8 +173,19 @@ upgrades
 currencies
 Hydra generation
 logical Hydra state
+pending timed events
+active timed modifiers
 milestones
+statistics
 ```
+
+Persistence 額外遵守：
+
+- Save 只吃 logical snapshot，不保存 View / Babylon objects。
+- BigInt 不得為了 JSON 先轉成 Number。
+- 載入時 GameClock 必須與保存的 `simulationTimeMs` / tick 對齊。
+- Block 9 的 `savedAtEpochMs` 只是 metadata；**不得擅自用 wall-clock elapsed time 補算 offline progress**。
+- 要加入 offline progress 時，先讀 `docs/SAVE_CONTRACT.md`，並把它當成新的 System 設計與測試，而不是 Save 的順手功能。
 
 ### Statistics / History
 
@@ -313,6 +325,7 @@ view presentation
 - 第三令咒是否一定是 Tree Targeting。
 - 真正 Kirby–Paris 規則在哪一代完整登場。
 - 是否加入傳統 prestige/reset。
+- Offline progress 的規則與上限。
 
 可以為未來留 interface，但不能偷偷固定玩法。
 
@@ -356,6 +369,12 @@ base attackSpeed 4 × 1.25 → effective 5
 Capability:
 未解鎖 autoSlash → 0 auto requests
 解鎖後 → 正確產生 requests
+
+Save:
+BigInt round trip exact
+saved simulation clock resumes at same time
+pending timed events retain remaining simulation delay
+View / Babylon objects never enter save data
 ```
 
 ---
@@ -388,6 +407,7 @@ Capability:
 - UI 知道增殖公式，
 - 英靈支援直接改 headCount，
 - Babylon animation 決定傷害結果，
+- Save serializer 開始計算 offline 戰鬥，
 
 先停下來重新找積木邊界。
 
