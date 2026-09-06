@@ -154,24 +154,61 @@ textarea {
   text-align: center;
 }
 
+.meta-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: min(100%, 320px);
+  margin: 0 auto 8px;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  opacity: 0.76;
+}
+
+.meta-strip span {
+  padding: 6px 8px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(8 8 12 / 56%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.meta-strip strong {
+  margin-left: 4px;
+  font-size: 0.78rem;
+}
+
+.command-spell-button,
 .np-button {
-  width: min(100%, 280px);
-  margin: 0 auto 9px;
-  padding: 10px 16px;
+  display: block;
+  width: min(100%, 320px);
+  margin: 0 auto 8px;
+  padding: 9px 14px;
   border: 1px solid rgb(255 255 255 / 28%);
   border-radius: 999px;
-  background: rgb(235 235 255 / 12%);
   color: inherit;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   pointer-events: auto;
   touch-action: manipulation;
 }
 
+.command-spell-button {
+  background: rgb(255 80 80 / 12%);
+  font-size: 0.72rem;
+}
+
+.np-button {
+  background: rgb(235 235 255 / 12%);
+  font-size: 0.78rem;
+}
+
+.command-spell-button:disabled,
 .np-button:disabled {
   opacity: 0.34;
 }
 
+.command-spell-button:not(:disabled):active,
 .np-button:not(:disabled):active {
   transform: scale(0.97);
 }
@@ -218,6 +255,22 @@ textarea {
 @media (orientation: landscape) and (max-height: 600px) {
   .landscape-guard {
     display: grid;
+  }
+}
+
+@media (max-height: 720px) and (orientation: portrait) {
+  .meta-strip {
+    margin-bottom: 5px;
+  }
+
+  .command-spell-button,
+  .np-button {
+    padding-block: 7px;
+    margin-bottom: 5px;
+  }
+
+  .subtitle {
+    display: none;
   }
 }
 
