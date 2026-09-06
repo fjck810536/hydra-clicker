@@ -147,8 +147,16 @@ export class GameStateStore {
       throw new RangeError('baseAttacksPerSecond must be a finite number >= 0.');
     }
 
+    if (!Number.isFinite(state.berserker.np) || state.berserker.np < 0 || state.berserker.np > 1) {
+      throw new RangeError('berserker.np must be a finite number from 0 to 1.');
+    }
+
     if (typeof state.master.humanityEvil !== 'bigint' || state.master.humanityEvil < 0n) {
       throw new TypeError('master.humanityEvil must be a non-negative BigInt.');
+    }
+
+    if (!state.modifiers || !Array.isArray(state.modifiers.active)) {
+      throw new TypeError('modifiers.active must be an array.');
     }
   }
 }
