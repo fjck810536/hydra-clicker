@@ -79,6 +79,7 @@ export function getHumanityEvilRewardForGeneration(
 }
 
 const HYDRA_II_FIRST_MANUAL_CUT_MILESTONE = 'hydra-ii-first-manual-cut';
+const HYDRA_III_FIRST_NP_RELEASE_MILESTONE = 'hydra-iii-first-np-release';
 
 // Command Spell I now follows the player-facing affordability-driven pacing.
 // Levels 1–6 have no independent kill gate: sequential prerequisites + the
@@ -194,6 +195,37 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
   }),
 ]);
 
+// Command Spell III's mechanic is ready for playtest, but its Humanity Evil
+// prices are explicitly still open in the player-facing proposal. Keeping
+// cost:null makes formal purchases impossible while TEST can exercise the
+// confirmed 1/9 -> 1/3 -> full Auto-in-NP ladder.
+const COMMAND_SPELL_III_LEVELS = Object.freeze([
+  Object.freeze({
+    level: 1,
+    rewardLabel: 'AUTO IN NP · 1/9',
+    autoNpNumerator: 1,
+    autoNpDenominator: 9,
+    cost: null,
+    purchasePending: true,
+  }),
+  Object.freeze({
+    level: 2,
+    rewardLabel: 'AUTO IN NP · 1/3',
+    autoNpNumerator: 1,
+    autoNpDenominator: 3,
+    cost: null,
+    purchasePending: true,
+  }),
+  Object.freeze({
+    level: 3,
+    rewardLabel: 'AUTO IN NP · FULL',
+    autoNpNumerator: 1,
+    autoNpDenominator: 1,
+    cost: null,
+    purchasePending: true,
+  }),
+]);
+
 export const HYDRA_GENERATIONS = Object.freeze({
   1: Object.freeze({
     generation: 1,
@@ -256,6 +288,17 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     }),
     levels: COMMAND_SPELL_II_LEVELS,
   }),
+  commandSpellIII: Object.freeze({
+    id: 'command-spell-3',
+    displayName: 'Command Spell III',
+    unlockGeneration: 3,
+    firstEligibilityMilestone: HYDRA_III_FIRST_NP_RELEASE_MILESTONE,
+    base: Object.freeze({
+      autoNpNumerator: 0,
+      autoNpDenominator: 1,
+    }),
+    levels: COMMAND_SPELL_III_LEVELS,
+  }),
   // Compatibility alias for the existing Playtest 4.2 TEST preset/API while
   // formal Command Spell II progression replaces the prototype-only path.
   commandSpellIIPrototype: Object.freeze({
@@ -272,5 +315,7 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     fromGeneration: 2,
     generation: 3,
     unlockAfterGenerationKills: 99n,
+    treeViewLogicalHeadThreshold: 100n,
+    firstNpReleaseMilestone: HYDRA_III_FIRST_NP_RELEASE_MILESTONE,
   }),
 });
