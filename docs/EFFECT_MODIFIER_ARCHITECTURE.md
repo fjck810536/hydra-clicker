@@ -1,6 +1,6 @@
-# Hydra Clicker — Effect / Modifier Architecture v0.5
+# Hydra Clicker — Effect / Modifier Architecture v0.6
 
-> v0.5 對齊 Playtest 3：NP 從只關閉 Hydra I delayed regrowth，升級為 generic Hydra head-growth suppression，因此可同時作用於 Hydra I regrowth 與 Hydra II immediate structural spawn。
+> v0.6 對齊 Playtest 4.1：NP 的 Hydra effect 仍然只是 generic `hydra.headGrowth` rule modifier。Auto Slash 在 NP 中暫停，是 Core composition 根據 active NP window 注入的 application policy；不是新的 persistent effect type，也不是讓 Hydra Rule 或 Auto Slash System 知道 NP 名稱。
 
 ## 1. 目標
 
@@ -52,18 +52,6 @@ Source 回答「效果從哪裡來？」；Effect 回答「它改變什麼？」
 
 用途：合法修改 Hydra rule engine 的參數或行為開關。
 
-一般概念：
-
-```js
-{
-  id: 'effect-regrowth-delay',
-  type: 'rule-modifier',
-  target: 'hydra.regrowthDelay',
-  operation: 'multiply',
-  value: 1.5
-}
-```
-
 目前 NP：
 
 ```js
@@ -97,33 +85,22 @@ Hydra Rules 不知道 source 是 NP。
 ```text
 Hydra I delayed same-head regrowth → 受影響
 Hydra II immediate GROW +2        → 受影響
+Cut 本身                           → 不受影響
 ```
-
-Cut 本身不受影響。
 
 ### Legacy target compatibility
 
-Playtest 2/3 舊 save 可能仍保存：
+舊 save 的：
 
 ```text
 target: hydra.regrowth
 ```
 
-Resolver 暫時把它視為 `hydra.headGrowth` 的 compatibility alias，讓已經啟動中的舊 NP window 繼續正確作用到 `endsAt`。新 release 一律使用 `hydra.headGrowth`。
-
-Rule modifier 不能直接改 mesh，也不能用角色名稱判斷。
-
-後期可能用於：
-
-- reproduction factor
-- regrowth delay
-- turn coefficient
-- legal targeting constraint
-- branch copy rule parameter
+仍被 resolver 視為 `hydra.headGrowth` compatibility alias，直到原本 `endsAt`。
 
 ## 5. Effect Type C — Capability
 
-用途：解鎖以前不能做的事情，例如 Auto Slash、Auto NP、Analyzer、Tree View。
+用途：解鎖以前不能做的事情。
 
 目前：
 
@@ -132,11 +109,29 @@ Command Spell I
 → combat.autoSlash capability
 ```
 
+Playtest 4.1 的 NP 時停**不移除 capability**；它只讓 Auto execution policy 在 window 內判定 disabled。
+
 ## 6. Effect Type D — Policy
 
-用途：改變自動系統「怎麼選」，而不是直接改數值。
+長期用途：改變自動系統「怎麼選／何時允許執行」，例如 random、nearest-root、highest-growth、predicted-safe-cut。
 
-候選：random、nearest-root、highest-growth、predicted-safe-cut 等。
+目前尚未建立通用的 persistent Policy Effect aggregator。
+
+### Playtest 4.1 的 Auto pause 不是新 Effect Type 落地
+
+目前實作是最小 application composition：
+
+```text
+NP System exposes isActive(snapshot)
+↓
+Core composes Auto Slash isEnabled(snapshot)
+↓
+active NP → Auto request generation paused
+```
+
+這只是現階段的 injected runtime policy，沒有寫進 `state.modifiers.active`，也不宣告通用 Policy Effect framework 已完成。
+
+未來若令咒／科技要允許 Auto 在 NP window 中重新運作，可以把這個條件升級成正式 capability/policy resolution，而不需要改 Hydra Rule。
 
 ## 7. Effect Type E — Conversion
 
@@ -168,6 +163,8 @@ resolveRuleContext()
         ↓
 Hydra Rule
 ```
+
+NP active-window detection 可以讀同一批 timed modifier，但 Auto pause 不會把額外資料寫回 modifier array。
 
 ## 9. Stacking 規則
 
@@ -215,7 +212,15 @@ encounter change：不影響
 Save / Restore：保存 modifier + simulation timeline
 ```
 
-不能由 View 動畫結束事件決定 Buff 是否過期。
+Playtest 4.1 在最後一個 active NP window 到期時 emit：
+
+```text
+np:ended
+```
+
+這是 semantic lifecycle event，不是另一個 modifier。
+
+不能由 View 動畫結束事件決定 Buff 是否過期；`寶具解放` / `TIME RESUMES` cards 只投影 `np:released` / `np:ended`。
 
 ## 12. Effect Conditions
 
@@ -233,6 +238,15 @@ Save / Restore：保存 modifier + simulation timeline
 
 只有真的出現新的遊戲概念，才增加 System / Effect Type。
 
+Playtest 4.1 特別避免：
+
+```text
+NP System → 直接呼叫 AutoSlash.stop()
+Auto Slash → if (np)
+Hydra Rule → if (source === 'np')
+View → 決定 NP endsAt
+```
+
 ## 14. 目前實作狀態
 
 已落地：
@@ -247,6 +261,11 @@ rule-modifier
 
 timed lifecycle
 → NP 可跨 encounter，直到 endsAt
+→ final expiry emits np:ended
+
+application composition policy
+→ active NP temporarily prevents Auto Slash requests
+→ Manual Input unaffected
 
 legacy alias
 → hydra.regrowth disable maps to hydra.headGrowth disable
@@ -256,7 +275,7 @@ legacy alias
 
 ```text
 stat-modifier aggregator
-policy
+persistent/general policy aggregator
 conversion aggregator
 full capability aggregator
 full support/facility source collector
