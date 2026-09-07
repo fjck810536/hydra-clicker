@@ -37,6 +37,13 @@ if (
   throw new Error('Hydra Clicker app shell is missing.');
 }
 
+function formatGeneration(generation) {
+  if (generation === 1) return 'I';
+  if (generation === 2) return 'II';
+  if (generation === 3) return 'III';
+  return String(generation);
+}
+
 function bindFixedControl(button, handler) {
   const handlePointerUp = (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -178,18 +185,24 @@ const renderSnapshot = () => {
   stage.setNpActive(isNpWindowActive(snapshot));
 
   const regenDelayMs = runtime.currentRegenDelayMs();
-  regenDelayReadout.textContent = regenDelayMs == null ? 'STRUCTURAL' : `${regenDelayMs} ms`;
-  autoApsReadout.textContent = introPending
-    ? 'PAUSED · TAP'
-    : snapshot.master.commandSpells.autoSlash
-      ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-      : 'LOCKED';
+  regenDelayReadout.textContent = snapshot.hydra.generation >= 3
+    ? 'RULE PENDING'
+    : regenDelayMs == null
+      ? 'STRUCTURAL'
+      : `${regenDelayMs} ms`;
+  autoApsReadout.textContent = snapshot.hydra.generation >= 3
+    ? 'PAUSED'
+    : introPending
+      ? 'PAUSED · TAP'
+      : snapshot.master.commandSpells.autoSlash
+        ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+        : 'LOCKED';
 };
 
 const handleNpPress = () => {
   const result = runtime.releaseNp();
   if (result.accepted) {
-    hud.setStatus('NP RELEASE · regeneration suppressed for 3.0 s');
+    hud.setStatus('NP RELEASE · head growth suppressed for 3.0 s');
   }
   renderSnapshot();
 };
@@ -213,8 +226,6 @@ const handleTestToolsToggle = () => {
 const unbindTestToolsToggle = bindFixedControl(testToolsToggle, handleTestToolsToggle);
 
 function enterNonPersistentTestSession() {
-  // Test presets intentionally never overwrite the player's real save. Reloading
-  // the page restores the last persisted normal session.
   suppressPersistence = true;
 }
 
@@ -276,7 +287,8 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
 const offCut = runtime.events.on('head:cut', ({ payload }) => {
   if (payload.spawned > 0n) {
     const net = payload.spawned - payload.amount;
-    hud.setStatus(`CUT ${payload.amount.toString()} · GROW +${payload.spawned.toString()} · Δ +${net.toString()}`);
+    const sign = net >= 0n ? '+' : '';
+    hud.setStatus(`CUT ${payload.amount.toString()} · GROW +${payload.spawned.toString()} · Δ ${sign}${net.toString()}`);
   } else {
     hud.setStatus(payload.killed
       ? `CUT ${payload.amount.toString()} · HYDRA DOWN`
@@ -292,7 +304,7 @@ const offNpReleased = runtime.events.on('np:released', () => {
   renderSnapshot();
 });
 const offKilled = runtime.events.on('hydra:killed', ({ payload }) => {
-  hud.setStatus(`HYDRA ${payload.generation === 1 ? 'I' : 'II'} DEFEATED`);
+  hud.setStatus(`HYDRA ${formatGeneration(payload.generation)} DEFEATED`);
   renderSnapshot();
 });
 const offCurrencyGain = runtime.events.on('currency:gain', ({ payload }) => {
@@ -303,12 +315,18 @@ const offCurrencyGain = runtime.events.on('currency:gain', ({ payload }) => {
   }
 });
 const offRespawned = runtime.events.on('hydra:respawned', ({ payload }) => {
-  hud.setStatus(`HYDRA ${payload.generation === 1 ? 'I' : 'II'} · ENCOUNTER ${payload.encounter.toString()}`);
+  hud.setStatus(`HYDRA ${formatGeneration(payload.generation)} · ENCOUNTER ${payload.encounter.toString()}`);
   renderSnapshot();
 });
 const offGenerationChanged = runtime.events.on('hydra:generation-changed', ({ payload }) => {
   persistNow();
-  hud.setStatus(`HYDRA ${payload.generation === 2 ? 'II' : payload.generation} · AUTO PAUSED · TAP TO CUT`);
+  if (payload.generation === 2) {
+    hud.setStatus('HYDRA II · AUTO PAUSED · TAP TO CUT');
+  } else if (payload.generation === 3) {
+    hud.setStatus(`HYDRA III · 9 HEADS · MAX ${payload.maxHeads?.toString() ?? '729'} · RULE PENDING`);
+  } else {
+    hud.setStatus(`HYDRA ${formatGeneration(payload.generation)}`);
+  }
   renderSnapshot();
 });
 const offIntroComplete = runtime.events.on('hydra:intro-complete', () => {
