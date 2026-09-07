@@ -49,6 +49,32 @@ test('an old save with Auto Slash unlocked is treated as Command Spell I Lv.1', 
   runtime.destroy();
 });
 
+test('legacy Playtest 2.3 Lv.8 / 128 APS save is clamped to current 64 APS MAX', () => {
+  const initialState = createInitialState();
+  initialState.master.commandSpells.autoSlash = true;
+  initialState.berserker.baseAttacksPerSecond = 128;
+  initialState.statistics.totalHydrasKilled = 99n;
+  initialState.progression.milestones = [
+    'command-spell-1-lv2',
+    'command-spell-1-lv3',
+    'command-spell-1-lv4',
+    'command-spell-1-lv5',
+    'command-spell-1-lv6',
+    'command-spell-1-lv7',
+    'command-spell-1-lv8',
+  ];
+
+  const runtime = createHydraIGameRuntime({ initialState });
+  const status = runtime.commandSpellIStatus();
+
+  assert.equal(status.level, 7);
+  assert.equal(status.maxed, true);
+  assert.equal(status.attacksPerSecond, 64);
+  assert.equal(runtime.snapshot().berserker.baseAttacksPerSecond, 64);
+
+  runtime.destroy();
+});
+
 test('kill 66 economy can buy every post-unlock Command Spell I upgrade and leave reserve Humanity Evil', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
