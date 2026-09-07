@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.10
+# Hydra Clicker — Block Contracts v0.11
 
-> v0.10 對齊 Playtest 3 Hydra II Intro。這是積木之間的資料插頭，不是最終 API。
+> v0.11 對齊 Playtest 3 Hydra II Intro，並補上 session-only TEST preset contract。這是積木之間的資料插頭，不是最終 API。
 
 ## 1. Attack Request
 
@@ -302,7 +302,7 @@ Capability / APS 跨 Hydra generation 保留。
 
 Curve Data-owned；Combat 不知道 kill count。
 
-## 15. View / Head Pool
+## 15. View / Head Pool / TEST Tools
 
 ```text
 logical 0–99 → same visible count
@@ -320,6 +320,47 @@ CUT 1 · GROW +2 · Δ +1
 ```
 
 TEST regen readout在 Hydra II 可顯示 `STRUCTURAL`。
+
+### Session-only TEST presets
+
+TEST 面板目前額外提供：
+
+```text
+MAX COMMAND SPELL
+→ Command Spell I Lv.MAX
+→ Auto Slash capability ON
+→ 64 APS
+→ 不免費補 kills / 人類惡
+
+START HYDRA #98
+→ Hydra I generation
+→ encounter = 98
+→ completed kills = 97
+→ heads = 9
+→ clean pending regrowth / NP modifier state
+```
+
+兩個 preset 可以任意順序疊用，例如：
+
+```text
+MAX COMMAND SPELL
+↓
+START HYDRA #98
+↓
+64 APS remains active at Hydra I #98
+```
+
+重要邊界：
+
+```text
+TEST UI
+→ calls js/dev/test-presets.js
+→ dedicated dev state mutation
+→ browser session sets suppressPersistence = true
+→ existing normal save is not overwritten
+```
+
+TEST preset 不是正式 progression、不是 cheat capability、也不加入 persistent schema。重新整理頁面後，會重新載入最後一次正常保存的狀態。
 
 ## 16. Save
 
@@ -364,6 +405,12 @@ Hydra II intro:
 Auto remains paused before first manual cut
 first manual cut → 9→10 + milestone
 next tick → Auto resumes and logical heads increase
+
+TEST presets:
+MAX COMMAND SPELL → Lv.MAX / 64 APS without changing kills or currency
+START HYDRA #98 → 97 completed kills + fresh encounter 98
+presets compose without resetting each other's targeted state
+browser TEST session suppresses persistence
 
 Legacy:
 99-kill live Hydra I save → next tick enters Hydra II
