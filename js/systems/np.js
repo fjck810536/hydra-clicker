@@ -1,14 +1,32 @@
-const DEFAULT_GAIN_PER_HEAD = 0.125;
+const DEFAULT_MAX_POINTS = 66;
+const DEFAULT_POINTS_PER_HEAD = 1;
 const DEFAULT_DURATION_MS = 3000;
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
 }
 
+function assertGaugeConfig({ maxPoints, pointsPerHead, durationMs }) {
+  if (!Number.isInteger(maxPoints) || maxPoints < 1) {
+    throw new RangeError('NP maxPoints must be a positive integer.');
+  }
+  if (!Number.isInteger(pointsPerHead) || pointsPerHead < 0) {
+    throw new RangeError('NP pointsPerHead must be a non-negative integer.');
+  }
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    throw new RangeError('durationMs must be a finite number > 0.');
+  }
+}
+
+function normalizedToPoints(value, maxPoints) {
+  return Math.min(maxPoints, Math.max(0, Math.round(clamp01(value) * maxPoints)));
+}
+
 export function createNpSystem({
   state,
   events,
-  gainPerHead = DEFAULT_GAIN_PER_HEAD,
+  maxPoints = DEFAULT_MAX_POINTS,
+  pointsPerHead = DEFAULT_POINTS_PER_HEAD,
   durationMs = DEFAULT_DURATION_MS,
 } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
@@ -17,22 +35,49 @@ export function createNpSystem({
   if (!events || typeof events.on !== 'function' || typeof events.emit !== 'function') {
     throw new TypeError('NP system requires an event bus.');
   }
-  if (!Number.isFinite(gainPerHead) || gainPerHead < 0) {
-    throw new RangeError('gainPerHead must be a finite number >= 0.');
-  }
-  if (!Number.isFinite(durationMs) || durationMs <= 0) {
-    throw new RangeError('durationMs must be a finite number > 0.');
+  assertGaugeConfig({ maxPoints, pointsPerHead, durationMs });
+
+  function getStatus(snapshot = state.read()) {
+    const points = normalizedToPoints(snapshot.berserker.np, maxPoints);
+    return Object.freeze({
+      points,
+      maxPoints,
+      ready: points >= maxPoints,
+      normalized: points / maxPoints,
+    });
   }
 
   const offCut = events.on('head:cut', ({ payload }) => {
-    const amount = Number(payload.amount);
+    if (typeof payload.amount !== 'bigint' || payload.amount < 0n) {
+      throw new TypeError('head:cut amount must be a non-negative BigInt.');
+    }
+
+    // The gauge caps at maxPoints, so there is no reason to convert an
+    // arbitrarily large BigInt head count into Number.
+    const maxRelevantHeads = pointsPerHead === 0
+      ? 0
+      : Math.ceil(maxPoints / pointsPerHead);
+    const relevantHeads = payload.amount > BigInt(maxRelevantHeads)
+      ? maxRelevantHeads
+      : Number(payload.amount);
+    const requestedPoints = relevantHeads * pointsPerHead;
+
+    let gainedPoints = 0;
+    let valuePoints = 0;
     state.update((draft) => {
-      draft.berserker.np = clamp01(draft.berserker.np + amount * gainPerHead);
+      const currentPoints = normalizedToPoints(draft.berserker.np, maxPoints);
+      valuePoints = Math.min(maxPoints, currentPoints + requestedPoints);
+      gainedPoints = valuePoints - currentPoints;
+      // Persistence keeps the existing normalized 0..1 representation.
+      // This makes old percentage-based saves naturally map onto the 66-point gauge.
+      draft.berserker.np = valuePoints / maxPoints;
     });
+
     events.emit('np:charge', {
       atMs: payload.atMs,
-      amount: amount * gainPerHead,
-      value: state.read().berserker.np,
+      amount: gainedPoints,
+      value: valuePoints,
+      max: maxPoints,
     });
   });
 
@@ -46,8 +91,9 @@ export function createNpSystem({
 
   function release() {
     const snapshot = state.read();
-    if (snapshot.berserker.np < 1) {
-      return { accepted: false, reason: 'np-not-ready' };
+    const status = getStatus(snapshot);
+    if (!status.ready) {
+      return { accepted: false, reason: 'np-not-ready', status };
     }
 
     const startsAt = snapshot.time.simulationTimeMs;
@@ -76,8 +122,9 @@ export function createNpSystem({
 
   return {
     release,
+    getStatus,
     isReady() {
-      return state.read().berserker.np >= 1;
+      return getStatus().ready;
     },
     destroy() {
       offCut();
