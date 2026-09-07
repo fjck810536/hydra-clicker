@@ -164,6 +164,148 @@ textarea {
   letter-spacing: 0.04em;
 }
 
+.tree-view-toggle {
+  position: absolute;
+  top: max(108px, calc(env(safe-area-inset-top) + 92px));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 4;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid rgb(164 150 255 / 38%);
+  border-radius: 999px;
+  background: rgb(15 12 24 / 84%);
+  color: inherit;
+  box-shadow: 0 0 18px rgb(128 112 190 / 10%);
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.tree-view-toggle[hidden] { display: none; }
+
+.tree-view-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  padding:
+    max(18px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
+  background:
+    linear-gradient(180deg, rgb(4 3 8 / 82%), rgb(7 5 12 / 94%)),
+    radial-gradient(circle at 50% 42%, rgb(128 112 190 / 13%), transparent 55%);
+  pointer-events: auto;
+  touch-action: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.tree-view-overlay[hidden] { display: none; }
+
+.tree-view-card {
+  position: relative;
+  display: grid;
+  width: min(100%, 390px);
+  gap: 10px;
+  padding: 20px 16px 16px;
+  border: 1px solid rgb(174 158 255 / 28%);
+  border-radius: 10px;
+  background: rgb(9 8 15 / 98%);
+  box-shadow: 0 22px 70px rgb(0 0 0 / 52%);
+  text-align: left;
+}
+
+.tree-view-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+  color: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.tree-view-kicker {
+  padding-right: 48px;
+  font-size: 0.52rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  opacity: 0.52;
+}
+
+.tree-view-card > strong {
+  padding-right: 38px;
+  font-size: clamp(1.12rem, 5.2vw, 1.48rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.tree-view-card > p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  opacity: 0.68;
+}
+
+.tree-view-stats {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.tree-view-stats div {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(255 255 255 / 3%);
+}
+
+.tree-view-stats dt {
+  font-size: 0.53rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  opacity: 0.44;
+}
+
+.tree-view-stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.tree-view-diagram {
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+  border: 1px solid rgb(164 150 255 / 15%);
+  background: rgb(118 101 190 / 5%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  opacity: 0.8;
+}
+
+.tree-view-card > small {
+  font-size: 0.5rem;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  opacity: 0.34;
+}
+
 .generation-transition {
   position: absolute;
   inset: 0;
@@ -514,6 +656,8 @@ textarea {
 .np-button:not(:disabled):active,
 .command-spell-modal-close:active,
 .command-spell-modal-purchase:not(:disabled):active,
+.tree-view-toggle:active,
+.tree-view-close:active,
 .test-tools-toggle:active,
 .test-preset-button:active,
 .test-reset-button:active {
@@ -682,6 +826,8 @@ textarea {
   .command-spell-panel { margin-bottom: 4px; padding-block: 4px; }
   .command-spell-slot { min-height: 47px; padding-block: 3px; }
   .np-button { padding-block: 7px; margin-bottom: 4px; }
+  .tree-view-card { gap: 7px; padding-block: 16px 13px; }
+  .tree-view-stats div { padding-block: 5px; }
   .subtitle { display: none; }
 }
 
