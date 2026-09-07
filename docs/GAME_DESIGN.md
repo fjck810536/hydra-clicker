@@ -1,37 +1,45 @@
-# Hydra Clicker — Game Design v0.6
+# Hydra Clicker — Game Design v0.7
 
-> Playtest 3：Hydra I 進入 seal candidate；99 kills 後首次實裝 Hydra II Intro。v0.6 修正 NP：寶解現在會暫時阻止 Hydra II 的 structural GROW +2。
+> Playtest 3：Hydra II 從單次 Intro 擴成完整 99-kill generation loop。Hydra 世代開始使用 `9^n` 邏輯頭數上限；Hydra III 目前只做登場 shell，不實作戰鬥規則。
 
 ## 1. 核心一句話
 
-玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；學會靠狂點、NP 與 Auto Slash 跑贏 regeneration 後，Hydra II 立刻把一般攻擊直覺翻面：**CUT 1 → GROW 2**。NP 則保留為玩家已學會的短時間「禁止 Hydra 生長」工具。再往後才逐步引入 Analyzer / Tree View，讓玩家發現自己操作的是一套可分析規則，而不是普通 HP bar。
+玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；學會靠狂點、NP 與 Auto Slash 跑贏 regeneration 後，Hydra II 把普通攻擊翻面成 **CUT 1 → GROW 2**。NP 則成為短時間「禁止 Hydra 生長」的解題工具。
+
+世代規模目前定義為：
+
+```text
+Hydra I   starting 9 · max 9   = 9¹
+Hydra II  starting 9 · max 81  = 9²
+Hydra III starting 9 · max 729 = 9³
+```
+
+每一個已實作世代都以 **99 kills** 作為下一代門檻；99 是「要殺幾隻」，不是 head cap。
 
 目標：
 
 1. 不懂數學也能爽玩的 clicker。
 2. Active tapping 與 idle automation 都有存在理由。
 3. 規則反轉本身要先好玩，再逐步揭露數學。
+4. 世代擴張與 View mesh cap 分離。
 
 ## 2. Hydra I — Seal Candidate
-
-目前實機基準記錄於 `docs/PLAYTEST_2.md`。
 
 核心規則：
 
 ```text
 starting heads = 9
+max heads = 9
 accepted cut = -1 head
 non-terminal cut → same head regrows after delay
 head count reaches 0 → true kill
-terminal kill → cancel pending regrowth
+99 Hydra I kills → Hydra II
 ```
 
 Regen curve：
 
 ```text
 0 kills  → 1500ms
-3 kills  → 923ms
-6 kills  → 569ms
 9 kills  → 350ms
 30 kills → 247ms
 50 kills → 174ms
@@ -39,33 +47,7 @@ Regen curve：
 99 kills → 100ms floor
 ```
 
-實機節奏：
-
-```text
-約 Hydra 6
-→ 一般雙拇指狂點開始撞牆
-
-66 accepted head cuts
-→ NP READY
-
-9 kills
-→ Auto Slash 1 APS
-
-30 kills
-→ 16 APS 已明顯改善中段
-
-40 kills
-→ 32 APS plateau
-
-66 kills
-→ 64 APS MAX
-
-約 95 kills
-→ 100ms regen wall 重新追上 Auto
-
-95→99
-→ 一次 NP 可收尾
-```
+實機節奏仍以 `docs/PLAYTEST_2.md` 為基準。
 
 ## 3. NP — 66 head charge
 
@@ -77,8 +59,6 @@ release = 0
 window = 3000ms
 ```
 
-Manual / Auto Slash 暫時同樣充能。
-
 NP 是 timed rule modifier：
 
 ```text
@@ -86,22 +66,18 @@ hydra.headGrowth = disabled
 scope = timed
 ```
 
-可跨 encounter；即使敵人剛死、場上暫時空白，只要 READY 仍可 release。
+可跨 encounter。
 
-NP 現在統一表示「Hydra 頭部生長暫停」：
+效果：
 
 ```text
 Hydra I + NP
-→ cut still works
 → delayed same-head regrowth is not scheduled
 
 Hydra II + NP
-→ cut still works
-→ immediate structural GROW +2 is suppressed
-→ CUT 1 becomes net -1 head
+→ immediate structural GROW is suppressed
+→ CUT 1 becomes net -1
 ```
-
-所以 Hydra II 正常第一刀仍是 `9 → 10`；若玩家先寶解，則第一刀會是 `9 → 8`。
 
 ## 4. Command Spell I — Auto Slash progression
 
@@ -116,120 +92,136 @@ kills  level    cost   Auto Slash
 66     Lv.MAX   132     64 APS
 ```
 
-第一令咒能力與升級跨 Hydra generation 保留，不做 prestige reset。
+第一令咒能力與升級跨 Hydra generation 保留。
 
-## 5. Hydra II Intro — Playtest 3
+## 5. Hydra II — 99-kill generation
 
-### 入口
-
-目前實驗門檻：
+### 登場
 
 ```text
 99 Hydra I kills
-→ encounter gap
-→ HYDRA II
+→ HYDRA II encounter 1
 → starting heads = 9
 ```
 
-99 是 Playtest 3 的入口，不代表永久主線門檻已定案。
+第一次登場仍保留 first-cut reveal：Auto Slash 暫停，等玩家手動第一刀。
 
-### 第一刀 reveal
-
-Hydra II 的最小規則：
+### 正常規則
 
 ```text
 CUT 1
-GROW 2 immediately
-9 → 10
-ΔH = +1
+→ GROW 2 immediately
+→ net +1
 ```
 
-`GROW 2` 是同一個 Cut Resolution 裡的 immediate spawn，不排進 delayed regrowth queue；但它仍屬於 Hydra 的 head growth，因此可被 NP 的 `hydra.headGrowth = disabled` 暫時關閉。
-
-### Auto Slash intro guard
-
-玩家進 Hydra II 時已經可能有 64 APS。若直接讓 Auto 開著，第一秒就可能把 reveal 洗掉。
-
-因此只在 Hydra II 的第一刀做一次 intro guard：
+但 Hydra II 有邏輯上限：
 
 ```text
-Command Spell I capability remains unlocked
-Auto Slash requests temporarily paused
-↓
-player manually cuts once
-↓
-normal: 9 → 10
-NP active: 9 → 8
-↓
-intro milestone recorded
-↓
-Auto Slash resumes on later Game Clock tick
+max heads = 81 = 9²
 ```
 
-這不是永久教學鎖，也不是把已購能力關掉。
+因此接近上限時 growth 會被 cap：
 
-### Playtest 3 要回答的問題
+```text
+80 → cut 1 / grow 2 → 81
+81 → cut 1 / grow 1 → 81
+```
 
-1. 玩家看到第一刀 `9 → 10` 時，是否立刻理解「普通攻擊正在餵大問題」。
-2. 第一刀後 64 APS 恢復，頭數高速膨脹是否有喜劇／恐怖／失控感。
-3. 玩家是否自然想到「那寶解呢？」並理解 NP 可以短暫把 `GROW +2` 關掉。
-4. Visible 99 cap 出現前，玩家是否有足夠時間理解頭數正在增加。
-5. 玩家何時自然產生「我需要數據」的需求；這將決定 Analyzer v0.1 何時登場。
+它不會長到 82。
 
-## 6. Hydra II 暫時不做的事
+### NP kill window
 
-Playtest 3 Intro 先不加入：
+NP active：
 
-- 第二令咒。
-- Auto NP。
-- 新素材／新貨幣。
-- Hydra II kill condition。
-- 完整 Tree structure。
-- Analyzer。
-- Prestige/reset。
+```text
+head growth disabled
+↓
+CUT 1
+→ GROW 0
+→ net -1
+```
 
-先只驗證規則反轉與 NP 解題是否成立。
+當最後一頭被砍掉：
+
+```text
+1 → 0
+→ Hydra II true kill
+```
+
+之後生成下一隻 Hydra II，仍從 9 頭開始。
+
+### 世代完成
+
+```text
+Hydra II encounter 1 ... 99
+↓
+kill encounter 99
+↓
+HYDRA III
+```
+
+也就是 Hydra II 本身要殺 99 隻。
+
+## 6. Hydra III — shell only
+
+目前只實作登場資料與安全停機：
+
+```text
+starting heads = 9
+max heads = 729 = 9³
+encounter = 1
+Auto Slash = paused
+combat rule = not implemented yet
+```
+
+玩家可以看到 Hydra III 登場，但目前不進一步結算其戰鬥。
+
+這不是 Hydra III 正式規則，只是確保 generation progression 可以走到下一個設計節點而不讓 runtime crash。
 
 ## 7. Analyzer / Tree View 候選下一步
 
-若 Hydra II reveal 成立，Analyzer v0.1 可第一次顯示：
+Hydra II 已開始提供自然的分析需求：
 
 ```text
 HEADS
 CUTS / SEC
 SPAWN / SEC
 NET GROWTH
+MAX HEADS
 ```
 
-再進一步顯示：
-
-```text
-CUT 1
-SPAWN 2
-ΔH = +1
-```
-
-Analyzer 應在玩家真的需要理解失控時出現，不在開場硬塞數學 UI。
+Hydra III 之後才真正開始需要超過 99 顆頭的 logical / compressed representation。
 
 ## 8. Logical Heads ≠ Visible Heads
 
+View contract 不變：
+
 ```text
-logical head count
-可能非常巨大
-↓ projection
-visible head meshes ≤ 99
+logical 0–99 → same visible count
+logical 100+ → visible 99
 ```
 
-Hydra II 正是第一個會快速碰到這條工程邊界的 generation。View 不得以 99 mesh cap 截斷真正 logical heads。
+因此：
+
+```text
+Hydra II max = 81
+→ 永遠不會碰 visible cap
+→ 不需要為 Hydra II 重做目前視覺
+
+Hydra III max = 729
+→ 第一次可能 logical > 99
+→ 畫面仍只顯示最多 99 顆
+```
+
+View 不得以 visible 99 反推 logical head cap。
 
 ## 9. 目前刻意未決
 
-- Hydra I 0 heads = kill 是否永久化。
-- Hydra II 99-kill 入口是否永久化。
-- Hydra II 最終 kill / termination rule。
+- Hydra III 正式 cut / growth / termination rule。
+- Hydra III 的 729 上限如何與真正 tree structure 對應。
 - Command Spell II 功能。
 - Analyzer 出場節點。
 - Prestige / Offline Progress。
 - 真正 Kirby–Paris 規則在哪一代完整出現。
 
-原則：**先讓規則反轉好玩，再讓數學變深。**
+原則：**世代數學可以長大，畫面不必暴力建立每一顆頭。**
