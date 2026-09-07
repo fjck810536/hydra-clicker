@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.12
+# Hydra Clicker — Architecture v0.13
 
-> v0.12 在 Playtest 4 chapter presentation 上加入 Playtest 4.1 NP time-stop application policy：NP 的 Hydra rule modifier 不變，但 active NP window 會暫停 Auto Slash；Manual Input 保留。NP expiry 由 Game Clock emit `np:ended`，View 只負責演出時間恢復。
+> v0.13 對齊 Playtest 4.2：保留 Playtest 4.1 的 NP time-stop policy，新增 NP simulation-time countdown projection，以及 Command Spell II Lv.1 prototype 的 NP-only manual multistrike。Combat 仍逐 strike resolve；View 只把同一 request 投影成可見三連斬。Save schema 不變。
 
 ## 1. Top-level flow
 
@@ -107,7 +107,7 @@ Command Spell I capability 保留；Hydra II 第一次登場且 milestone 缺失
 
 ## 9. NP rule boundary
 
-NP 的 Hydra rule modifier **沒有因時停改型**：
+NP 的 Hydra rule modifier沒有因時停／令咒 II 改型：
 
 ```text
 66 heads = READY
@@ -116,19 +116,31 @@ hydra.headGrowth = disabled
 ```
 
 Hydra I：不排 delayed regrowth。  
-Hydra II：`headsSpawned = 0`，因此 Manual Cut 可真正把頭數砍低／砍到 0。
+Hydra II：`headsSpawned = 0`，因此 Manual Cut 可真正把頭數砍低／砍到0。
 
 NP 期間砍掉的頭不會在 expiry 後補回。
 
-## 10. Playtest 4.1 NP time-stop application policy
+## 10. NP time-stop application policy
 
-`NP System` 現在提供：
+`NP System` 提供：
 
 ```js
 np.isActive(snapshot)
+np.getWindowStatus(snapshot)
 ```
 
-它只判斷 simulation-time 上是否存在 active `source: 'np'` timed modifier。
+`getWindowStatus` 回傳：
+
+```js
+{
+  active,
+  startsAt,
+  endsAt,
+  remainingMs
+}
+```
+
+這些都從 simulation-time timed modifiers 導出；`remainingMs` 不是額外 persistent state。
 
 Core 注入 Auto Slash policy：
 
@@ -146,44 +158,83 @@ AND NP window NOT active
 ```text
 NP active
 → Auto accumulator reset / no auto requests
-→ Manual Input remains untouched
+→ Manual Input remains available
 
 NP ends
 → Auto can accumulate again on later Game Clock ticks
 ```
 
-這不是 Hydra rule modifier 的新 target，也不是 Auto Slash System 裡寫 `if (np)`；它是 Application composition policy。
-
-未來若某個能力允許 Auto 在 NP 中工作，只需修改／擴充這個注入 policy，不必改 Hydra rule 或 Auto Slash internals。
+未來若某能力允許 Auto 在 NP 中工作，只需修改／擴充這個注入 policy，不必改 Hydra rule 或 Auto Slash internals。
 
 ## 11. NP lifecycle semantic events
 
-Release 已有：
-
 ```text
 np:released { atMs, endsAt, modifier }
-```
-
-Playtest 4.1 新增：
-
-```text
-np:ended { atMs, endedAtMs }
+np:ended    { atMs, endedAtMs }
 ```
 
 `np:ended` 由 NP System 在 `clock:tick` 清除最後一個已到期 NP window 後 emit。
-
-若未來存在重疊 NP windows：只有最後一個 active NP window 消失時才 emit time-resume semantic event。
 
 View consumption：
 
 ```text
 np:released → 寶具解放 / ナインライブズ / 射殺す百頭 card
+active      → small GameClock-derived countdown
 np:ended    → TIME RESUMES / 時は動き出す cue
 ```
 
-Presentation animation 不決定 NP 開始／結束時間。
+Presentation 不決定 NP 開始／結束時間。
 
-## 12. View boundary
+## 12. Playtest 4.2 Command Spell II prototype boundary
+
+玩家端第一段技法暫定為：
+
+```text
+NP inactive
+→ manual tap → strikeCount 1
+
+NP active + milestone command-spell-2-lv1
+→ manual tap → strikeCount 3
+```
+
+Ownership 分工：
+
+```text
+Data
+→ prototype effect magnitude = 3
+
+Progression State
+→ existing milestone container records prototype unlock
+
+Core / Application
+→ reads NP active + milestone
+→ chooses default Manual Attack strikeCount
+
+Manual Input
+→ emits the requested positive strikeCount
+
+Combat
+→ loops through strikes one by one
+→ each strike gets its own rule resolution / semantic events
+→ terminal kill stops the batch
+
+Berserker View
+→ reads semantic request metadata
+→ shows one rapid visible multi-strike combo
+```
+
+禁止：
+
+```text
+Command Spell II → heads -= 3
+View animation → schedule three gameplay cuts
+Hydra Rule → know Command Spell II name
+Manual Input → know NP or command-spell milestone
+```
+
+正式 unlock kills / Humanity Evil cost 尚未決，因此 prototype 只透過 TEST session milestone 開啟。TEST suppression prevents it from entering the player's normal save.
+
+## 13. View boundary
 
 Head pool contract不變：
 
@@ -194,17 +245,21 @@ logical 100+ → visible 99
 
 Hydra II max81 不碰 visual cap；Hydra III max729 可以 >99，但 View 仍最多99 meshes。
 
-NP phase overlay `pointer-events:none`，不能阻擋 Manual Cut。
+NP phase overlay 與 timer 都 `pointer-events:none`，不能阻擋 Manual Cut。
 
-## 13. Persistence
+Berserker multi-strike animation consumes semantic outcomes/request metadata only；它不決定 damage 或 strike timing in logic。
+
+## 14. Persistence
 
 State schema 仍為1，沒有 migration。
 
-NP active state仍由既有 timed modifier + simulation timeline 保存；`np:ended` 是 runtime semantic event，不是需要保存的新 state。
+NP active state仍由既有 timed modifier + simulation timeline 保存；`remainingMs` 是 derived projection，`np:ended` 是 runtime semantic event。
 
-Playtest4/4.1 的 chapter overlay、NP card、resume cue、palette 都不進 Save。
+Command Spell II prototype 使用既有 `progression.milestones` 容器，不新增 field；目前只由 non-persistent TEST session 開啟。
 
-## 14. Dependency direction
+Playtest4 chapter overlay、NP card、timer、resume cue、palette、multi-strike animation 都不進 Save。
+
+## 15. Dependency direction
 
 允許：
 
@@ -221,23 +276,28 @@ save → serializable logical state
 
 ```text
 View → mutate encounter / head state
-NP animation → determine modifier expiry
+NP animation / timer → determine modifier expiry
 Auto Slash System → hardcode NP/Fate names
 NP System → directly disable Auto Slash internals
+Manual Input → inspect command-spell progression
+Command Spell II → direct Hydra mutation
 transition overlay → pause GameClock
 ```
 
-## 15. Current stage
+## 16. Current stage
 
 ```text
-Hydra I 99-kill generation        ✅
-Hydra II 81-head / 99-kill loop  ✅
-Hydra III 9-head / max729 shell  ✅
-Playtest 4 chapter presentation   ✅
-Playtest 4.1 NP time stop         ✅
-Hydra II cap hit presentation    ⛔ next candidate
-Hydra III combat rule            ⛔ not yet
-Analyzer                          ⛔ not yet
+Hydra I 99-kill generation                 ✅
+Hydra II 81-head / 99-kill loop           ✅
+Hydra III 9-head / max729 shell           ✅
+Playtest 4 chapter presentation            ✅
+Playtest 4.1 NP time stop                  ✅
+Playtest 4.2 NP countdown                  ✅
+Command Spell II Lv.1 ×3 TEST prototype    ✅
+Command Spell II formal economy            ⛔ undecided
+Hydra II cap hit presentation              ⛔ candidate
+Hydra III combat rule                      ⛔ not yet
+Analyzer                                   ⛔ not yet
 ```
 
 最後檢查：
