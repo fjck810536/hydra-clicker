@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.14
+# Hydra Clicker — Architecture v0.15
 
-> v0.14 對齊 Playtest 4.3：Command Spell II 從 TEST prototype 升為正式 progression System；它投影 NP max / duration / NP-only manual strike count，NP System 仍獨立擁有 charge / release / timed modifier lifecycle。Humanity Evil 改為 generation-aware true-kill reward。Save schema 維持1。
+> v0.15 對齊 Playtest 4.4：Command Spell I Lv.1–6 改為 sequential prerequisite + Humanity Evil affordability 驅動，不再另外使用 kill reveal gate。Lv.7 / 729 APS 保留為可表示的等級，但正式價格 pending，因此正常 purchase 不可用。Save schema 維持1。
 
 ## 1. Top-level flow
 
@@ -116,30 +116,62 @@ Command Spell I capability 跨世代保留；Hydra II 第一次登場且 milesto
 
 ```text
 current level
-kill gate
+sequential prerequisite
 Humanity Evil affordability
+optional legacy/content kill gate when a level explicitly defines one
 purchase / spend
+pending-price rejection
 Auto Slash capability
 baseAttacksPerSecond projection
 legacy curve reconciliation
 ```
 
-Data curve：
+Current Data curve：
 
 ```text
-APS  1 / 3 / 9 / 27 / 81 / 243 / 729
-cost 99 / 198 / 396 / 891 / 2673 / 8019 / 24057
+APS   1 / 3 / 9 / 27 / 81 / 243 / 729
+cost 99 / 33 / 66 / 99 / 1782 / 2178 / TBD
 ```
 
-N2 未選，因此現有 kill reveal gates 暫留：
+Lv.1–6 的 `requiredHydraKills` 為 `null`，因此沒有額外 kill gate：
 
 ```text
-9 / 12 / 16 / 22 / 30 / 40 / 66 lifetime kills
+previous level owned
+AND balance >= cost
+→ available
 ```
+
+自然節奏來自 economy 本身：
+
+```text
+Hydra I ~9 / 12 / 18 / 27 kills → 1 / 3 / 9 / 27 APS
+Hydra II automation-only ~30 kills → 81 APS
+Hydra II automation-only ~96 kills → 243 APS
+```
+
+這些不是 System 硬編碼的 kill thresholds。
+
+729 APS level 仍存在於 Data，因為：
+
+- TEST 需要它；
+- 已擁有的 729 save 必須可表示；
+- Hydra III 最終會使用這個 APS landmark。
+
+但目前：
+
+```text
+level 7 cost = null
+purchasePending = true
+→ getStatus().pricePending = true
+→ available = false
+→ purchase() returns reason: price-pending
+```
+
+System 不自己替 Hydra III 發明價格。
+
+Legacy tuning migration 只在真正存在舊 Command Spell I upgrade milestones 時觸發，並映射到 `new APS <= stored old APS` 的最高節點，避免舊 level number 直接變成免費高 APS。若 save 本來就是一致的 729 APS owned state，則保留。
 
 System 不直接攻擊 Hydra；它只改 capability / APS state。
-
-Legacy tuning migration 只在真正存在舊 Command Spell I upgrade milestones 時觸發，並映射到 `new APS <= stored old APS` 的最高節點，避免舊 level number 直接變成免費 729 APS。
 
 ## 9. Humanity Evil boundary
 
@@ -203,7 +235,7 @@ Current runtime follows the canonical nine-beat order linearly. Independent thre
 
 ## 11. Dynamic NP configuration boundary
 
-NP System now accepts an injected config projection：
+NP System accepts an injected config projection：
 
 ```js
 getConfig(snapshot) -> {
@@ -351,11 +383,13 @@ Hydra II max81 不碰 visual cap；Hydra III max729 可以 >99，但 View 最多
 
 Formal footer currently exposes Command Spell I / II purchase controls as functional playtest UI；final three-slot Command Spell UI is a later player-facing milestone。
 
+For the temporary footer, a pending 729 APS purchase must render as non-actionable `PRICE TBD` rather than showing an invented Humanity Evil price。
+
 ## 17. Persistence
 
 State schema 仍為1，沒有 schema migration。
 
-New persistence reuse：
+Persistence reuse：
 
 ```text
 Command Spell I levels → existing milestones
@@ -364,7 +398,7 @@ NP gauge              → existing normalized berserker.np
 NP active window       → existing modifiers.active
 ```
 
-Only Command Spell I old tuning needs runtime reconciliation; no new Save fields are introduced。
+Only Command Spell I old tuning may need runtime reconciliation; no new Save fields are introduced。
 
 ## 18. Dependency direction
 
@@ -386,27 +420,30 @@ View → mutate encounter / head state
 NP animation / timer → determine modifier expiry
 Auto Slash System → hardcode NP/Fate names
 NP System → directly disable Auto Slash internals
-Manual Input → inspect command-spell progression
+Manual Input → inspect Command Spell progression
 Command Spell II → direct Hydra mutation
 Humanity Evil → head-cut farming
+Command Spell I System → invent pending Hydra III price
 transition overlay → pause GameClock
 ```
 
 ## 19. Current stage
 
 ```text
-Hydra I 99-kill generation                 ✅
-Hydra II 81-head / 99-kill loop           ✅
-Hydra III 9-head / max729 shell           ✅
-Playtest 4 chapter presentation            ✅
-NP time stop / countdown / multistrike     ✅
-Command Spell I powers-of-nine economy     ✅
-Command Spell II formal 9-beat economy     ✅
-Generation Humanity Evil ×3 scaling        ✅
-N2–N6                                      ⛔ unchanged this pass
-Hydra II cap hit final presentation        ⛔ later
-Hydra III combat rule                      ⛔ not yet
-Analyzer / Tree View                       ⛔ not yet
+Hydra I 99-kill generation                         ✅
+Hydra II 81-head / 99-kill loop                   ✅
+Hydra III 9-head / max729 shell                   ✅
+Playtest 4 chapter presentation                    ✅
+NP time stop / countdown / multistrike             ✅
+Generation Humanity Evil ×3 scaling                ✅
+Command Spell II formal 9-beat economy             ✅
+CS I Hydra I fast 1/3/9/27 economy                 ✅
+CS I Hydra II 81/243 allocation economy            ✅
+CS I 729 formal price                              ⛔ pending Hydra III
+Final three-slot Command Spell UI                  ⛔ next player-facing milestone
+Hydra II cap hit final presentation                ⛔ later
+Hydra III combat rule                              ⛔ not yet
+Analyzer / Tree View                               ⛔ not yet
 ```
 
 最後檢查：
