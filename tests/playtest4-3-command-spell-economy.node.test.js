@@ -13,6 +13,7 @@ function createHydraIIState({
   totalKills = 99n,
   humanityEvil = 0n,
   heads = 9n,
+  introComplete = true,
 } = {}) {
   const state = createInitialState();
   state.hydra.generation = 2;
@@ -20,7 +21,7 @@ function createHydraIIState({
   state.hydra.logicalHeadCount = heads;
   state.hydra.startingHeadCount = 9n;
   state.progression.hydraGeneration = 2;
-  state.progression.milestones.push('hydra-ii-first-manual-cut');
+  if (introComplete) state.progression.milestones.push('hydra-ii-first-manual-cut');
   state.statistics.totalHydrasKilled = totalKills;
   state.master.humanityEvil = humanityEvil;
   return state;
@@ -98,25 +99,42 @@ test('Command Spell I formal purchases are affordability-driven through 243 APS 
   runtime.destroy();
 });
 
-test('Command Spell II Data locks the confirmed nine-beat cost, reveal and NP curves', () => {
+test('Command Spell II Data locks first-cut eligibility plus the remaining kill, cost and NP curves', () => {
   const levels = HYDRA_I_PROGRESSION.commandSpellII.levels;
-  assert.deepEqual(levels.map((level) => level.requiredGenerationKills), [3n, 9n, 18n, 27n, 39n, 54n, 66n, 81n, 99n]);
+  assert.equal(HYDRA_I_PROGRESSION.commandSpellII.firstEligibilityMilestone, 'hydra-ii-first-manual-cut');
+  assert.deepEqual(levels.map((level) => level.requiredGenerationKills), [0n, 9n, 18n, 27n, 39n, 54n, 66n, 81n, 99n]);
   assert.deepEqual(levels.map((level) => level.cost), [297n, 198n, 396n, 396n, 330n, 495n, 594n, 495n, 693n]);
   assert.deepEqual(levels.map((level) => level.npManualStrikeCount), [3, 3, 3, 6, 6, 6, 9, 9, 9]);
   assert.deepEqual(levels.map((level) => level.npMaxPoints), [132, 66, 198, 396, 198, 594, 792, 396, 1188]);
   assert.deepEqual(levels.map((level) => level.npDurationMs), [3000, 3000, 9000, 9000, 9000, 27000, 27000, 27000, 81000]);
 });
 
-test('Command Spell II Lv.1 becomes purchasable after 3 Hydra II kills and preserves absolute charged NP points', () => {
-  const initialState = createHydraIIState({ totalKills: 102n, humanityEvil: 297n });
+test('Command Spell II Lv.1 unlocks on the first Hydra II reversal cut with zero Hydra II kills', () => {
+  const initialState = createHydraIIState({
+    totalKills: 99n,
+    humanityEvil: 297n,
+    introComplete: false,
+  });
   initialState.berserker.np = 0.5;
   const runtime = createHydraIGameRuntime({ initialState });
 
-  const before = runtime.commandSpellIIStatus();
-  assert.equal(before.level, 0);
-  assert.equal(before.generationKills, 3n);
-  assert.equal(before.available, true);
-  assert.equal(runtime.npStatus().points, 33);
+  const beforeCut = runtime.commandSpellIIStatus();
+  assert.equal(beforeCut.level, 0);
+  assert.equal(beforeCut.generationKills, 0n);
+  assert.equal(beforeCut.killsMet, true);
+  assert.equal(beforeCut.eligibilityMet, false);
+  assert.equal(beforeCut.available, false);
+  assert.equal(runtime.buyCommandSpellII().reason, 'eligibility-required');
+
+  runtime.manualAttack();
+  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 10n);
+  assert.equal(runtime.snapshot().statistics.totalHydrasKilled, 99n);
+
+  const afterCut = runtime.commandSpellIIStatus();
+  assert.equal(afterCut.generationKills, 0n);
+  assert.equal(afterCut.eligibilityMet, true);
+  assert.equal(afterCut.available, true);
+  assert.equal(runtime.npStatus().points, 34);
   assert.equal(runtime.npStatus().maxPoints, 66);
 
   const purchase = runtime.buyCommandSpellII();
@@ -127,9 +145,8 @@ test('Command Spell II Lv.1 becomes purchasable after 3 Hydra II kills and prese
   assert.equal(after.npManualStrikeCount, 3);
   assert.equal(after.npMaxPoints, 132);
   assert.equal(after.npDurationMs, 3000);
-  assert.equal(runtime.npStatus().points, 33);
+  assert.equal(runtime.npStatus().points, 34);
   assert.equal(runtime.npStatus().maxPoints, 132);
-  assert.equal(runtime.snapshot().berserker.np, 0.25);
   assert.equal(runtime.snapshot().master.humanityEvil, 0n);
 
   runtime.destroy();
