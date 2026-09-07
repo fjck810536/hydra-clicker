@@ -1,6 +1,6 @@
-# Hydra Clicker — Save Contract v0.2
+# Hydra Clicker — Save Contract v0.3
 
-> Persistence 只保存 logical state，不讓 Save 反過來決定遊戲規則。v0.2 補充 Playtest 2.4 的 66-point NP gauge 相容策略。
+> v0.3 補充 Playtest 3 NP modifier target 從 `hydra.regrowth` 升級為 `hydra.headGrowth` 的相容策略。State schema / save format 仍不變。
 
 ## 1. Save envelope
 
@@ -16,7 +16,7 @@
 
 `formatVersion` 與 `state.schemaVersion` 分開。
 
-目前 Playtest 2.4 **沒有**改 state schema / save format。
+目前仍沒有改 state schema / save format。
 
 ## 2. Save only logical state
 
@@ -48,7 +48,7 @@ TEST UI state
 
 ## 3. BigInt
 
-以下離散數量保持 BigInt exact round-trip：
+離散數量保持 BigInt exact round-trip：
 
 ```text
 heads
@@ -59,17 +59,17 @@ currencies
 materials
 ```
 
-原生 JSON 不支援 BigInt，因此 serializer 使用 tagged representation；不得先轉成 Number。
+Serializer 使用 tagged representation；不得先轉 Number。
 
-## 4. NP gauge compatibility — Playtest 2.4
+## 4. NP gauge compatibility
 
-玩家現在看到：
+Player-facing：
 
 ```text
 0 / 66 → 66 / 66
 ```
 
-但 persistent field 仍是既有：
+Persistent field：
 
 ```text
 state.berserker.np ∈ [0, 1]
@@ -82,16 +82,42 @@ points = round(normalized × 66)
 normalized = points / 66
 ```
 
-原因：
+舊 50% NP → 33/66。
 
-- 不新增 schema field。
-- 舊存檔可直接載入。
-- 舊 50% NP 自然變成 33/66。
-- View 不需要把 0/66 presentation cache 存下來。
+## 5. NP timed modifier target compatibility
 
-因此不要把 `berserker.np` 擅自改成 0..66 並假裝 schema 沒變。
+新 NP release 保存：
 
-## 5. Simulation time restore
+```js
+{
+  type: 'rule-modifier',
+  target: 'hydra.headGrowth',
+  effect: 'disable',
+  startsAt,
+  endsAt,
+  source: 'np',
+  scope: 'timed'
+}
+```
+
+Playtest 2 / early Playtest 3 save 可能仍有：
+
+```text
+target: hydra.regrowth
+```
+
+不做 rewrite migration，也不 bump schema。Runtime modifier resolver 將舊 `hydra.regrowth / disable` 視為 `hydra.headGrowth / disable` 的 compatibility alias，直到該 modifier 原本的 `endsAt` 到期。
+
+因此：
+
+```text
+old active NP save
+→ load exact modifier
+→ resolver interprets legacy target
+→ Hydra I / Hydra II head growth remains suppressed for remaining simulation time
+```
+
+## 6. Simulation time restore
 
 Timed state：
 
@@ -103,7 +129,7 @@ Hydra respawnAtMs
 
 都使用 simulation time。
 
-Load 時 GameClock 必須從保存的：
+Load 時 GameClock 從保存的：
 
 ```text
 state.time.simulationTimeMs
@@ -112,7 +138,7 @@ state.time.tick
 
 繼續，不能重設為 0。
 
-## 6. No Offline Progress
+## 7. No Offline Progress
 
 `savedAtEpochMs` 目前只是 metadata。
 
@@ -122,18 +148,9 @@ state.time.tick
 → simulation 從離開點繼續
 ```
 
-目前不補算：
+目前不補算 Auto Slash、Hydra growth、NP duration、Facility production。
 
-```text
-Auto Slash
-Hydra regrowth
-NP duration
-Facility production
-```
-
-未來 Offline Farming 必須成為獨立 system + contract + tests。
-
-## 7. Browser storage
+## 8. Browser storage
 
 目前：
 
@@ -141,8 +158,6 @@ Facility production
 localStorage
 key = hydra-clicker:save:v1
 ```
-
-`save.js` 只依賴 Storage-like adapter，不依賴 DOM / Babylon。
 
 Browser lifecycle：
 
@@ -154,9 +169,9 @@ visibility hidden save
 pagehide final save
 ```
 
-TEST → RESET SAVE 會先 suppress persistence，再 clear storage，避免 pagehide 把舊 snapshot 寫回。
+TEST preset session 會 `suppressPersistence = true`，不覆蓋玩家正常 save。
 
-## 8. Load failure
+## 9. Load failure
 
 以下情況不得套半套 state：
 
@@ -170,7 +185,7 @@ storage unavailable
 
 Browser 可以 warning 後 fresh start。
 
-## 9. Tests
+## 10. Tests
 
 至少保持：
 
@@ -178,14 +193,15 @@ Browser 可以 warning 後 fresh start。
 BigInt exact round-trip
 normalized NP ratio round-trip
 old np=0.5 → runtime projection 33/66
+active timed modifiers round-trip
+legacy hydra.regrowth NP target remains effective after load
 base APS / Command Spell milestones round-trip
 pending regrowth preserves remaining simulation delay
-timed NP modifier resumes on saved simulation timeline
 8 real-world hours away → no offline simulation
 Save core imports no Babylon / DOM gameplay View
 ```
 
-## 10. 修改 Save 前先問
+## 11. 修改 Save 前先問
 
 1. 這是 logical state 還是 presentation cache？
 2. 這個時間是 simulation 還是 wall clock？
