@@ -316,13 +316,20 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
   if (!payload.resolution.accepted) return;
 
   const snapshot = runtime.snapshot();
-  const strikeCount = payload.request?.source === 'manual'
-    ? payload.request.strikeCount ?? 1
-    : 1;
+  const isManual = payload.request?.source === 'manual';
+  const strikeCount = isManual ? payload.request.strikeCount ?? 1 : 1;
+
+  if (isManual && strikeCount > 1) {
+    // Combat emits one semantic resolution per strike. The View projects the
+    // whole manual request once, on strike 0, as a visibly discrete combo.
+    if (payload.strikeIndex === 0) {
+      berserkerView.playMultiAttack({ count: strikeCount });
+    }
+    return;
+  }
+
   berserkerView.playAttack({
-    speed: strikeCount > 1
-      ? Math.max(snapshot.berserker.baseAttacksPerSecond, strikeCount * 4)
-      : snapshot.berserker.baseAttacksPerSecond,
+    speed: snapshot.berserker.baseAttacksPerSecond,
   });
 });
 const offCut = runtime.events.on('head:cut', ({ payload }) => {
