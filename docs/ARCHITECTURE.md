@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.16
+# Hydra Clicker — Architecture v0.17
 
-> v0.16 對齊 Playtest 4.5：Command Spell 玩家端改為固定三槽 View + detail modal。View 只投影 I / II System status；Application 負責 modal purchase routing；Command Spell III 目前只有 dormant slot，不新增機制。Save schema 維持1。
+> v0.17 對齊 Playtest 4.5.1：Command Spell II 第一級改為 Hydra II first-reversal milestone + affordability，不再要求先殺 Hydra II；NP active window 禁止自充與重複 release；Command Spell modal 成功購買後自動關閉，並支援 backdrop dismiss。Save schema 維持1。
 
 ## 1. Top-level flow
 
@@ -104,11 +104,32 @@ Gen III cool violet shell
 
 NP red tint 優先；palette 不參與 gameplay。
 
-## 7. Hydra II first-cut Auto guard
+## 7. Hydra II first-cut semantic milestone
 
-Command Spell I capability 跨世代保留；Hydra II 第一次登場且 milestone 缺失時 Auto pause，accepted manual cut 後恢復。
+Command Spell I capability 跨世代保留；Hydra II 第一次登場且 `hydra-ii-first-manual-cut` milestone 缺失時 Auto pause，accepted manual cut 後恢復。
 
-這個 policy 與 NP time-stop policy 均由 Core composition 注入；Auto Slash System 不知道 Hydra II 或 NP 專名。
+同一個 accepted manual cut 由 Progression emit：
+
+```text
+hydra:intro-complete {
+  generation: 2,
+  milestone: 'hydra-ii-first-manual-cut'
+}
+```
+
+這個 semantic milestone 現在同時是 Command Spell II Lv.1 的 gameplay eligibility trigger：
+
+```text
+Hydra II encounter1 · 9 heads
+→ first manual cut resolves 9→10
+→ milestone written + hydra:intro-complete emitted
+→ CS II System observes milestone
+→ if Humanity Evil >= 297, Lv.1 becomes available immediately
+```
+
+因此 CS II 第一級需要 **0 Hydra II kills**，避免「必須先殺第一隻蛇二才拿得到解法」的軟鎖。
+
+Auto guard 與 NP time-stop policy 均由 Core composition 注入；Auto Slash System 不知道 Hydra II 或 NP 專名。
 
 ## 8. Command Spell I boundary
 
@@ -205,7 +226,8 @@ cap stall → Humanity Evil
 
 ```text
 canonical level 0..9
-Hydra II generation-local reveal kills
+first-reversal gameplay eligibility
+Hydra II generation-local reveal kills for Lv.2+
 Humanity Evil affordability
 purchase / spend
 current NP manual strike count
@@ -217,6 +239,7 @@ State storage 沿用：
 
 ```text
 progression.milestones
+hydra-ii-first-manual-cut
 command-spell-2-lv1 ... command-spell-2-lv9
 ```
 
@@ -225,11 +248,23 @@ command-spell-2-lv1 ... command-spell-2-lv9
 Canonical Data：
 
 ```text
-reveal 3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99 Hydra II kills
+Lv1 eligibility = hydra-ii-first-manual-cut milestone + 0 Hydra II kills
+Lv2+ reveal kills = 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99
 strikes 3 / 3 / 3 / 6 / 6 / 6 / 9 / 9 / 9
 NP max 132 / 66 / 198 / 396 / 198 / 594 / 792 / 396 / 1188
 duration 3 / 3 / 9 / 9 / 9 / 27 / 27 / 27 / 81 s
 ```
+
+Status separates：
+
+```text
+eligibilityMet   ← first Hydra II reversal milestone / existing ownership
+killsMet         ← current level's generation-local kill gate
+canAfford        ← Humanity Evil balance
+available        ← all required conditions
+```
+
+Before the first reversal cut, even a rich player sees slot II as dormant. After the cut, if balance >=297, it becomes NEW immediately while Hydra II encounter1 is still alive。
 
 Current runtime follows the canonical nine-beat order linearly. Independent three-branch purchasing is not implemented until an order-independent NP requirement composition rule exists in player-facing spec。
 
@@ -258,17 +293,27 @@ base progression
 
 Explicit runtime test overrides (`npMaxPoints`, `npPointsPerHead`, `npDurationMs`) retain priority。
 
-NP System still owns：
+NP System owns：
 
 ```text
 normalized gauge storage
-head:cut charge
+head:cut charge outside active NP
 READY decision
-release
+release guard
 hydra.headGrowth timed modifier
 np:ended cleanup
 window status
 ```
+
+Active-window invariant：
+
+```text
+NP inactive + accepted head:cut → charge normally
+NP active   + accepted head:cut → no NP charge
+NP active   + release()          → rejected: np-already-active
+```
+
+This guarantees at most one active NP release window from ordinary gameplay and prevents CS II long-duration upgrades from self-sustaining permanent time stop。
 
 Command Spell II does **not** create or edit Hydra modifiers directly。
 
@@ -312,11 +357,13 @@ NP active：
 Auto Slash paused by Core policy
 Manual Input remains available
 Core asks Command Spell II status for default NP strikeCount
+NP charge is paused
+second release is rejected
 ```
 
 Ordinary time always defaults manual `strikeCount=1`。
 
-A TIME upgrade affects future releases. An already-active NP window keeps the release-time `endsAt` and is never extended by a later purchase。
+A TIME upgrade affects future releases. An already-active NP window keeps the release-time `endsAt` and is never extended by a later purchase or nested release。
 
 ## 14. Combat / multistrike boundary
 
@@ -406,8 +453,20 @@ slot tap
 → modal
 → PURCHASE / LV UP
 → app.js calls runtime.buyCommandSpellI() / buyCommandSpellII()
-→ Systems validate affordability / prerequisites and spend
+→ Systems validate eligibility / kill gates / affordability and spend
+→ accepted purchase closes modal
 ```
+
+Modal interaction contract：
+
+```text
+successful purchase → close
+44×44 px close target → close
+pointerup on backdrop root itself → close
+pointerup inside modal card → keep open
+```
+
+CS II modal title is `「快點……再快點……！」`。Its CURRENT / NEXT each expose the complete technique tuple (`×N · NP M · Ns`) so sawtooth requirement changes are not hidden taxes。
 
 View 不直接改 currency、milestone、APS 或 NP config。
 
@@ -426,6 +485,7 @@ Persistence reuse：
 ```text
 Command Spell I levels → existing milestones
 Command Spell II levels → existing milestones
+CS II first eligibility → existing hydra-ii-first-manual-cut milestone
 NP gauge              → existing normalized berserker.np
 NP active window       → existing modifiers.active
 ```
@@ -456,6 +516,9 @@ Auto Slash System → hardcode NP/Fate names
 NP System → directly disable Auto Slash internals
 Manual Input → inspect Command Spell progression
 Command Spell II → direct Hydra mutation
+Command Spell II Lv1 → require a Hydra II kill
+active NP → charge next NP
+active NP → stack another release window
 Humanity Evil → head-cut farming
 Command Spell I System → invent pending Hydra III price
 transition overlay → pause GameClock
@@ -469,13 +532,15 @@ Hydra II 81-head / 99-kill loop                   ✅
 Hydra III 9-head / max729 shell                   ✅
 Playtest 4 chapter presentation                    ✅
 NP time stop / countdown / multistrike             ✅
+NP no-self-charge / no-nested-release seal         ✅
 Generation Humanity Evil ×3 scaling                ✅
+Command Spell II first-cut anti-softlock unlock    ✅
 Command Spell II formal 9-beat economy             ✅
 CS I Hydra I fast 1/3/9/27 economy                 ✅
 CS I Hydra II 81/243 allocation economy            ✅
 CS I 729 formal price                              ⛔ pending Hydra III
 Fixed three-slot Command Spell panel               ✅
-Command Spell detail modal / purchase routing      ✅
+Command Spell detail modal / mobile dismissal UX   ✅
 Command Spell III gameplay                         ⛔ dormant slot only
 Combat HUD three-icon Command Spell group          ⛔ later
 Hydra II cap hit final presentation                ⛔ later
