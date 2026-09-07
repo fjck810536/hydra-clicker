@@ -24,7 +24,7 @@ test('NP cannot release before the 66-point gauge is full', () => {
   runtime.destroy();
 });
 
-test('each accepted head cut gives +1 NP and 66 heads fill the gauge', () => {
+test('each accepted head cut gives +1 NP and 66 heads fill the gauge outside NP', () => {
   const runtime = createHydraIGameRuntime({ regenDelayMs: 10000 });
 
   cutHeadsAcrossEncounters(runtime, 65);
@@ -104,9 +104,36 @@ test('NP window suppresses new regrowth while Hydra I itself owns terminal death
   assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
   assert.equal(snapshot.statistics.totalHydrasKilled, 1n);
   assert.equal(kills.length, 1);
-  assert.equal(runtime.npStatus().points, 9);
+  assert.equal(runtime.npStatus().points, 0);
 
   offKilled();
+  runtime.destroy();
+});
+
+test('cuts during an active NP window do not charge the next NP and a second release is rejected', () => {
+  const runtime = createHydraIGameRuntime({
+    regenDelayMs: 10000,
+    npDurationMs: 3000,
+  });
+
+  runtime.state.update((draft) => {
+    draft.berserker.np = 1;
+  });
+  const first = runtime.releaseNp();
+  assert.equal(first.accepted, true);
+
+  for (let i = 0; i < 3; i += 1) runtime.manualAttack();
+  assert.equal(runtime.npStatus().points, 0);
+
+  runtime.state.update((draft) => {
+    draft.berserker.np = 1;
+  });
+  const second = runtime.releaseNp();
+  assert.equal(second.accepted, false);
+  assert.equal(second.reason, 'np-already-active');
+  assert.equal(runtime.snapshot().statistics.totalNpReleases, 1n);
+  assert.equal(runtime.snapshot().modifiers.active.filter((modifier) => modifier.source === 'np').length, 1);
+
   runtime.destroy();
 });
 
@@ -142,6 +169,7 @@ test('one NP window survives respawns and can cover multiple Hydra kills', () =>
   snapshot = runtime.snapshot();
   assert.equal(snapshot.hydra.logicalHeadCount, 8n);
   assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
+  assert.equal(runtime.npStatus().points, 0);
 
   runtime.advance(1000);
   runtime.advance(1000);
