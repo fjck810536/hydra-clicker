@@ -109,10 +109,50 @@ export function createTestPresets({ state, events, progression } = {}) {
     return Object.freeze(payload);
   }
 
+  function startHydraIIAtCap() {
+    const config = progression.generations?.[2];
+    const intro = progression.hydraIIIntro;
+    if (!config || typeof config.maxHeads !== 'bigint' || typeof config.startingHeads !== 'bigint') {
+      throw new TypeError('Hydra II generation data is unavailable.');
+    }
+
+    state.update((draft) => {
+      draft.hydra.generation = 2;
+      draft.hydra.encounter = 1n;
+      draft.hydra.logicalHeadCount = config.maxHeads;
+      draft.hydra.startingHeadCount = config.startingHeads;
+      draft.hydra.turn = config.maxHeads - config.startingHeads;
+      draft.hydra.pendingRegrowth = [];
+      draft.hydra.defeated = false;
+      draft.hydra.respawnAtMs = null;
+
+      draft.progression.hydraGeneration = 2;
+      if (intro?.firstManualCutMilestone) {
+        addMilestone(draft, intro.firstManualCutMilestone);
+      }
+
+      // Keep generation statistics internally plausible for HUD/debug output,
+      // without granting corresponding currency in this non-persistent test session.
+      draft.statistics.totalHydrasKilled = 99n;
+      draft.berserker.np = 0;
+      draft.modifiers.active = [];
+    });
+
+    const payload = {
+      preset: 'hydra-ii-at-cap',
+      generation: 2,
+      encounter: 1n,
+      heads: config.maxHeads,
+    };
+    events.emit('test:preset-applied', payload);
+    return Object.freeze(payload);
+  }
+
   return Object.freeze({
     maxCommandSpellI,
     commandSpellIILv1,
     readyNp,
     startHydraIEncounter98,
+    startHydraIIAtCap,
   });
 }
