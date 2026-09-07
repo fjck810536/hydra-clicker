@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.15
+# Hydra Clicker — Block Contracts v0.16
 
-> v0.15 對齊 Playtest 4：Hydra II 81-head / 99-kill loop 不變，新增 generation-local HUD projection、semantic chapter transition 與 generation stage palette。
+> v0.16 對齊 Playtest 4.1：NP Hydra rule modifier 不變，但 active NP window 現在會透過 Core-injected policy 暫停 Auto Slash；Manual Input 保留。NP expiry 新增 `np:ended` semantic event，View 用它演時間恢復。
 
 ## 1. Attack Request
 
@@ -103,7 +103,7 @@ resolveCut → accepted false
 state unchanged
 ```
 
-## 7. Rule Context / NP
+## 7. Rule Context / NP modifier
 
 Modifier resolver：
 
@@ -114,16 +114,63 @@ Modifier resolver：
 }
 ```
 
-NP：
+NP release：
 
 ```text
 66/66 READY
-release → 3s hydra.headGrowth disable
+→ 3s hydra.headGrowth disable
 Hydra I  → no delayed regrowth
 Hydra II → no structural spawn
 ```
 
-## 8. Auto Slash
+Current modifier remains：
+
+```js
+{
+  type: 'rule-modifier',
+  target: 'hydra.headGrowth',
+  effect: 'disable',
+  startsAt,
+  endsAt,
+  source: 'np',
+  scope: 'timed'
+}
+```
+
+## 8. NP active lifecycle
+
+NP System exposes：
+
+```js
+isActive(snapshot) -> boolean
+```
+
+Definition：
+
+```text
+there exists source:'np' modifier
+AND startsAt <= simulationTime < endsAt
+```
+
+NP expiry is processed on `clock:tick`.
+
+When the final active NP window expires：
+
+```js
+{
+  type: 'np:ended',
+  payload: {
+    atMs,
+    endedAtMs
+  }
+}
+```
+
+If future NP windows overlap, removing one expired window does not emit `np:ended` while another NP window remains active。
+
+## 9. Auto Slash — Playtest 4.1 time-stop policy
+
+Base requirements：
 
 ```text
 autoSlash capability
@@ -131,14 +178,28 @@ AND Hydra attackable
 AND heads > 0
 ```
 
-Additional policies：
+Injected policies：
 
 ```text
 Hydra II first manual-cut milestone missing → Auto paused
+NP window active                           → Auto paused
 Hydra III shell                            → Auto paused
 ```
 
-## 9. Encounter / Generation Progression
+While NP active：
+
+```text
+Auto Slash produces no attack requests
+Auto accumulator resets while disabled
+purchased capability / APS remain unchanged
+Manual Input remains accepted
+```
+
+When NP ends, Auto Slash resumes accumulating on later Game Clock ticks。
+
+Auto Slash System itself does not import or name NP；Core composition supplies the policy。
+
+## 10. Encounter / Generation Progression
 
 ```text
 Hydra I kill #99
@@ -153,14 +214,9 @@ Hydra II encounter 99 defeated
 
 Generation-local progress uses existing `hydra.encounter` + `hydra.defeated`; no persistent local kill counter。
 
-## 10. Generation Progress View Projection
+## 11. Generation Progress View Projection
 
-Input：
-
-```text
-logical snapshot
-+ generation config
-```
+Input：logical snapshot + generation config。
 
 Output：
 
@@ -181,60 +237,15 @@ alive    → completedKills = encounter - 1
 defeated → completedKills = encounter
 ```
 
-Examples：
+Player HUD consumes this projection；lifetime kills remain Statistics / TEST data。
 
-```text
-Hydra II encounter 1 alive   → 0/99
-Hydra II encounter 37 alive  → 36/99
-Hydra II encounter 37 dead   → 37/99
-Hydra III shell              → targetKills = null
-```
+## 12. Generation Transition View
 
-Player HUD consumes this projection；`statistics.totalHydrasKilled` 不直接當本世代進度。
+Trigger：`hydra:generation-changed`。
 
-TEST panel 可以顯示 lifetime `TOTAL KILLS`。
+Contract：CSS animation only、pointer-events none、`animationend` closes overlay、no gameplay setTimeout、no GameClock pause。
 
-## 11. Generation Transition View
-
-Trigger：
-
-```text
-hydra:generation-changed
-```
-
-View output example：
-
-```text
-NEXT GENERATION
-HYDRA II
-START 9 · MAX 81 · KILL 99
-```
-
-Contract：
-
-```text
-CSS animation only
-pointer-events none
-animationend closes overlay
-no gameplay setTimeout
-no GameClock pause
-```
-
-Hydra III shell：
-
-```text
-START 9 · MAX 729 · RULE PENDING
-```
-
-## 12. Generation Stage Appearance
-
-Input：
-
-```text
-snapshot.hydra.generation
-```
-
-View-only palette：
+## 13. Generation Stage Appearance
 
 ```text
 I   neutral dark
@@ -244,9 +255,32 @@ III cool violet
 
 NP active red tint has priority；NP ends → restore current generation palette。
 
-No rule/state mutation。
+## 14. NP Phase View
 
-## 13. head:cut semantic event
+Triggers：
+
+```text
+np:released
+→ 寶具解放
+→ ナインライブズ
+→ 射殺す百頭
+
+np:ended
+→ TIME RESUMES
+→ 時は動き出す
+```
+
+Contract：
+
+```text
+View-only
+CSS animation
+pointer-events none
+animationend hides card
+no setTimeout controls NP lifecycle
+```
+
+## 15. head:cut semantic event
 
 ```js
 {
@@ -272,7 +306,7 @@ Hydra II + NP      → CUT 1
 terminal NP cut    → CUT 1 · HYDRA DOWN
 ```
 
-## 14. Command Spell I
+## 16. Command Spell I
 
 ```text
 kills  level    cost   Auto Slash
@@ -285,7 +319,9 @@ kills  level    cost   Auto Slash
 66     Lv.MAX   132     64 APS
 ```
 
-## 15. View / Head Pool
+Playtest 4.1 does not remove or respec this capability；it only pauses Auto while NP is active。
+
+## 17. View / Head Pool
 
 Contract unchanged：
 
@@ -295,15 +331,11 @@ logical 100+ → visible 99
 ```
 
 ```text
-Hydra II max81  → visible ≤81
+Hydra II max81   → visible ≤81
 Hydra III max729 → visible ≤99
 ```
 
-Chapter HUD / transition / palette 不得修改 logical head state。
-
-## 16. TEST Tools
-
-目前：
+## 18. TEST Tools
 
 ```text
 MAX COMMAND SPELL
@@ -315,35 +347,35 @@ TOTAL KILLS readout
 
 Presets 是 session-only，不覆蓋正常 save。
 
-## 17. Save
+## 19. Save
 
-State schema 仍為 1。
+State schema仍為1。
 
-Playtest 4 新增內容全部是 derived presentation：
+NP time-stop 不新增 persistent field：active state由既有 timed modifier + simulation timeline 決定；`np:ended` 是 runtime semantic event，不存檔。
 
-```text
-generation progress projection  not saved
-transition active state          not saved
-stage palette                    not saved
-```
-
-## 18. Required tests
+## 20. Required tests
 
 ```text
+NP time stop:
+active NP + Auto unlocked + advance clock → zero auto cuts
+active NP + manual attack → accepted
+Hydra II active NP: 9 → 8, spawned=0
+heads cut during NP remain cut after expiry
+expiry → np:ended exactly once
+next ordinary Hydra II cut after expiry → GROW +2 resumes
+Auto resumes after expiry
+NP phase overlay is pointer-events none / CSS-only
+
 Hydra II:
 9 normal cut → 10
 81 normal cut → 81
 1 + headGrowth disabled → 0 + killed
-encounter 99 kill → Hydra III at 9
+encounter99 kill → Hydra III at9
 
 View:
 Hydra II encounter1 alive → 0/99
 Hydra II encounter37 dead → 37/99
 Hydra III targetKills=null
-lifetime kills live only in statistics / TEST
-transition uses semantic event + CSS animation
-transition does not schedule gameplay timeout
-stage has generation palette with NP override
 logical81 → visible81
 logical729 → visible99
 ```
