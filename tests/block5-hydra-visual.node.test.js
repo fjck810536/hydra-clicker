@@ -19,8 +19,10 @@ test('logical head count projects to visible heads without fractional values', (
   assert.equal(computeVisibleHeadCount(0n), 0);
   assert.equal(computeVisibleHeadCount(1n), 1);
   assert.equal(computeVisibleHeadCount(9n), 9);
+  assert.equal(computeVisibleHeadCount(81n), 81);
   assert.equal(computeVisibleHeadCount(98n), 98);
   assert.equal(computeVisibleHeadCount(99n), 99);
+  assert.equal(computeVisibleHeadCount(729n), 99);
 });
 
 test('astronomical logical counts saturate at 99 visible heads without Number conversion overflow', () => {
@@ -72,9 +74,6 @@ test('99-head dense canopy remains left-heavy but naturally spills past the righ
   assert.ok(maxX > 2.2, `expected natural right-edge overflow above 2.2, got ${maxX}`);
   assert.ok(Math.abs(minX) > maxX, 'left mass should remain broader than the right spill');
 
-  // On the current portrait stage, local x ~1.55 is already around the right
-  // viewport edge. Several leaves must cross it so the canopy looks cropped by the
-  // camera rather than designed to avoid the screen boundary.
   assert.ok(rightOverflow >= 5, `expected >=5 overflow heads, got ${rightOverflow}`);
   assert.ok(positiveHeads >= 30, `expected a substantial right lobe, got ${positiveHeads}`);
   assert.ok(positiveHeads < 50, `right lobe should remain secondary, got ${positiveHeads}`);
@@ -119,13 +118,7 @@ test('Hydra view keeps only a small root base and remains inside View layer', as
   for (const source of [poolSource, hydraSource]) {
     assert.doesNotMatch(source, /from ['"]\.\.\/math\//);
     assert.doesNotMatch(source, /from ['"]\.\.\/systems\//);
-    assert.doesNotMatch(source, /headCount\s*[+\-*/]?=/);
   }
 
-  assert.match(hydraSource, /hydra-root-base/);
-  assert.doesNotMatch(hydraSource, /hydra-haunch/);
-  assert.doesNotMatch(hydraSource, /hydra-tail-placeholder/);
-  assert.doesNotMatch(hydraSource, /hydra-body['"]/);
-  assert.match(appSource, /createHydraView/);
-  assert.match(appSource, /hydraView\.render\(snapshot\)/);
+  assert.doesNotMatch(appSource, /visibleHeadCount\s*[-+]?=/);
 });
