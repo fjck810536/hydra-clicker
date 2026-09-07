@@ -14,7 +14,8 @@ const AUTOSAVE_INTERVAL_MS = 5000;
 const app = document.querySelector('[data-app]');
 const canvas = document.querySelector('#battle-canvas');
 const npButton = document.querySelector('[data-np-button]');
-const commandSpellButton = document.querySelector('[data-command-spell-button]');
+const commandSpellIButton = document.querySelector('[data-command-spell-button]');
+const commandSpellIIButton = document.querySelector('[data-command-spell-ii-button]');
 const generationTransitionRoot = document.querySelector('[data-generation-transition]');
 const npPhaseRoot = document.querySelector('[data-np-phase]');
 const npTimerRoot = document.querySelector('[data-np-timer]');
@@ -34,7 +35,8 @@ if (
   !app
   || !canvas
   || !npButton
-  || !commandSpellButton
+  || !commandSpellIButton
+  || !commandSpellIIButton
   || !generationTransitionRoot
   || !npPhaseRoot
   || !npTimerRoot
@@ -58,6 +60,11 @@ function formatGeneration(generation) {
   if (generation === 2) return 'II';
   if (generation === 3) return 'III';
   return String(generation);
+}
+
+function formatDurationMs(durationMs) {
+  const seconds = durationMs / 1000;
+  return Number.isInteger(seconds) ? `${seconds}s` : `${seconds.toFixed(1)}s`;
 }
 
 function bindFixedControl(button, handler) {
@@ -192,12 +199,13 @@ const renderSnapshot = () => {
   const introPending = isHydraIIIntroPending(snapshot);
   const npWindow = runtime.npWindowStatus();
   const npActive = npWindow.active;
-  const spellII = runtime.commandSpellIIPrototypeStatus();
+  const spellII = runtime.commandSpellIIStatus();
   const generationConfig = getGenerationConfig(snapshot);
   const generationProgress = projectGenerationProgress(snapshot, generationConfig);
 
   hud.render(snapshot, {
     commandSpellI: runtime.commandSpellIStatus(),
+    commandSpellII: spellII,
     np: runtime.npStatus(),
     npActive,
     hydraIIIntroPending: introPending,
@@ -238,17 +246,19 @@ const handleNpPress = () => {
 };
 const unbindNpButton = bindFixedControl(npButton, handleNpPress);
 
-const handleCommandSpellPress = () => {
+const handleCommandSpellIPress = () => {
   const result = runtime.buyCommandSpellI();
-  if (result.accepted) {
-    persistNow();
-    hud.setStatus(result.level === 1
-      ? 'COMMAND SPELL I Lv.1 · AUTO SLASH UNLOCKED'
-      : `COMMAND SPELL I Lv.${result.level} · ${result.status.attacksPerSecond} APS`);
-  }
+  if (result.accepted) persistNow();
   renderSnapshot();
 };
-const unbindCommandSpellButton = bindFixedControl(commandSpellButton, handleCommandSpellPress);
+const unbindCommandSpellIButton = bindFixedControl(commandSpellIButton, handleCommandSpellIPress);
+
+const handleCommandSpellIIPress = () => {
+  const result = runtime.buyCommandSpellII();
+  if (result.accepted) persistNow();
+  renderSnapshot();
+};
+const unbindCommandSpellIIButton = bindFixedControl(commandSpellIIButton, handleCommandSpellIIPress);
 
 const handleTestToolsToggle = () => {
   testToolsPanel.hidden = !testToolsPanel.hidden;
@@ -293,8 +303,9 @@ const unbindTestHydraIICap = bindFixedControl(testHydraIICapButton, handleTestHy
 
 const handleTestNpReady = () => {
   enterNonPersistentTestSession();
-  const result = runtime.testPresets.readyNp();
-  hud.setStatus(`TEST · NP ${result.points}/${result.points} READY · NOT SAVED`);
+  runtime.testPresets.readyNp();
+  const status = runtime.npStatus();
+  hud.setStatus(`TEST · NP ${status.points}/${status.maxPoints} READY · NOT SAVED`);
   renderSnapshot();
 };
 const unbindTestNpReady = bindFixedControl(testNpReadyButton, handleTestNpReady);
@@ -358,9 +369,9 @@ const offRegrow = runtime.events.on('head:regrow', ({ payload }) => {
   hud.setStatus(`REGROW +${payload.amount.toString()}`);
   renderSnapshot();
 });
-const offNpReleased = runtime.events.on('np:released', () => {
+const offNpReleased = runtime.events.on('np:released', ({ payload }) => {
   npPhase.showRelease();
-  hud.setStatus('寶具解放 · TIME STOP · AUTO PAUSED · 3.0 s');
+  hud.setStatus(`寶具解放 · TIME STOP · AUTO PAUSED · ${formatDurationMs(payload.durationMs)}`);
   renderSnapshot();
 });
 const offNpEnded = runtime.events.on('np:ended', () => {
@@ -406,17 +417,29 @@ const offIntroComplete = runtime.events.on('hydra:intro-complete', () => {
   renderSnapshot();
 });
 const offSpellAvailable = runtime.events.on('command-spell:available', ({ payload }) => {
-  hud.setStatus(`COMMAND SPELL I Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.attacksPerSecond} APS`);
+  if (payload.id === 'command-spell-2') {
+    hud.setStatus(`COMMAND SPELL II Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.rewardLabel}`);
+  } else {
+    hud.setStatus(`COMMAND SPELL I Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.attacksPerSecond} APS`);
+  }
   renderSnapshot();
 });
 const offSpellUnlocked = runtime.events.on('command-spell:unlocked', ({ payload }) => {
   persistNow();
-  hud.setStatus(`AUTO SLASH ONLINE · ${payload.attacksPerSecond} APS`);
+  if (payload.id === 'command-spell-2') {
+    hud.setStatus(`COMMAND SPELL II Lv.${payload.level} · ${payload.rewardLabel} · NP ${payload.npMaxPoints}`);
+  } else {
+    hud.setStatus(`AUTO SLASH ONLINE · ${payload.attacksPerSecond} APS`);
+  }
   renderSnapshot();
 });
 const offSpellUpgraded = runtime.events.on('command-spell:upgraded', ({ payload }) => {
   persistNow();
-  hud.setStatus(`COMMAND SPELL I Lv.${payload.level} · ${payload.attacksPerSecond} APS`);
+  if (payload.id === 'command-spell-2') {
+    hud.setStatus(`COMMAND SPELL II Lv.${payload.level} · ${payload.rewardLabel} · NP ${payload.npMaxPoints}`);
+  } else {
+    hud.setStatus(`COMMAND SPELL I Lv.${payload.level} · ${payload.attacksPerSecond} APS`);
+  }
   renderSnapshot();
 });
 
@@ -438,7 +461,8 @@ window.addEventListener('pagehide', () => {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   unbindBattleShellGestureLock();
   unbindNpButton();
-  unbindCommandSpellButton();
+  unbindCommandSpellIButton();
+  unbindCommandSpellIIButton();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
   unbindTestCommandSpellII();
