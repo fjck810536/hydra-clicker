@@ -100,6 +100,10 @@ export function createNpSystem({
     }
 
     const snapshot = state.read();
+    // NP is the spending window, not a way to charge the next NP while time is
+    // already stopped. Charge resumes only after the active window ends.
+    if (isActive(snapshot)) return;
+
     const config = resolveConfig(snapshot);
     const maxRelevantHeads = config.pointsPerHead === 0
       ? 0
@@ -153,6 +157,9 @@ export function createNpSystem({
   function release() {
     const snapshot = state.read();
     const status = getStatus(snapshot);
+    if (isActive(snapshot)) {
+      return { accepted: false, reason: 'np-already-active', status };
+    }
     if (!status.ready) {
       return { accepted: false, reason: 'np-not-ready', status };
     }
