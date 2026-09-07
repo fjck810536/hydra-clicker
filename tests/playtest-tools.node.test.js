@@ -4,28 +4,57 @@ import { readFile } from 'node:fs/promises';
 
 import { createHydraIGameRuntime } from '../js/core/game.js';
 
-test('MAX COMMAND SPELL preset grants current Lv.MAX / 729 APS without inventing kills or currency', () => {
+test('Command Spell I TEST preset can switch exactly among Lv.1, Lv.3, Lv.6 and MAX', () => {
   const runtime = createHydraIGameRuntime();
 
   try {
     const before = runtime.snapshot();
-    const result = runtime.testPresets.maxCommandSpellI();
+    const expectations = [
+      { level: 1, aps: 1, milestones: [] },
+      { level: 3, aps: 9, milestones: [2, 3] },
+      { level: 6, aps: 243, milestones: [2, 3, 4, 5, 6] },
+      { level: 7, aps: 729, milestones: [2, 3, 4, 5, 6, 7] },
+      { level: 1, aps: 1, milestones: [] },
+    ];
+
+    for (const expected of expectations) {
+      const result = runtime.testPresets.setCommandSpellILevel(expected.level);
+      const snapshot = runtime.snapshot();
+      const status = runtime.commandSpellIStatus();
+
+      assert.equal(result.level, expected.level);
+      assert.equal(result.attacksPerSecond, expected.aps);
+      assert.equal(snapshot.master.commandSpells.autoSlash, true);
+      assert.equal(snapshot.berserker.baseAttacksPerSecond, expected.aps);
+      assert.equal(status.level, expected.level);
+
+      for (const level of [2, 3, 4, 5, 6, 7]) {
+        assert.equal(
+          snapshot.progression.milestones.includes(`command-spell-1-lv${level}`),
+          expected.milestones.includes(level),
+        );
+      }
+    }
+
     const after = runtime.snapshot();
-    const status = runtime.commandSpellIStatus();
+    assert.equal(after.statistics.totalHydrasKilled, before.statistics.totalHydrasKilled);
+    assert.equal(after.master.humanityEvil, before.master.humanityEvil);
+  } finally {
+    runtime.destroy();
+  }
+});
+
+test('legacy MAX COMMAND SPELL helper still grants current Lv.MAX / 729 APS', () => {
+  const runtime = createHydraIGameRuntime();
+
+  try {
+    const result = runtime.testPresets.maxCommandSpellI();
+    const snapshot = runtime.snapshot();
 
     assert.equal(result.level, 7);
     assert.equal(result.attacksPerSecond, 729);
-    assert.equal(after.master.commandSpells.autoSlash, true);
-    assert.equal(after.berserker.baseAttacksPerSecond, 729);
-    assert.equal(status.level, 7);
-    assert.equal(status.maxed, true);
-
-    assert.equal(after.statistics.totalHydrasKilled, before.statistics.totalHydrasKilled);
-    assert.equal(after.master.humanityEvil, before.master.humanityEvil);
-
-    for (const level of [2, 3, 4, 5, 6, 7]) {
-      assert.ok(after.progression.milestones.includes(`command-spell-1-lv${level}`));
-    }
+    assert.equal(snapshot.berserker.baseAttacksPerSecond, 729);
+    assert.equal(runtime.commandSpellIStatus().maxed, true);
   } finally {
     runtime.destroy();
   }
@@ -55,32 +84,35 @@ test('START HYDRA #98 preset means 97 completed kills and a fresh Hydra I encoun
   }
 });
 
-test('playtest presets compose: max spell survives jumping to Hydra #98', () => {
+test('playtest presets compose: selected Command Spell I level survives jumping to Hydra #98', () => {
   const runtime = createHydraIGameRuntime();
 
   try {
-    runtime.testPresets.maxCommandSpellI();
+    runtime.testPresets.setCommandSpellILevel(6);
     runtime.testPresets.startHydraIEncounter98();
 
     const snapshot = runtime.snapshot();
     assert.equal(snapshot.statistics.totalHydrasKilled, 97n);
     assert.equal(snapshot.hydra.encounter, 98n);
     assert.equal(snapshot.master.commandSpells.autoSlash, true);
-    assert.equal(snapshot.berserker.baseAttacksPerSecond, 729);
-    assert.equal(runtime.commandSpellIStatus().maxed, true);
+    assert.equal(snapshot.berserker.baseAttacksPerSecond, 243);
+    assert.equal(runtime.commandSpellIStatus().level, 6);
   } finally {
     runtime.destroy();
   }
 });
 
-test('browser TEST preset handlers switch the session to non-persistent mode', async () => {
+test('browser TEST Command Spell I control cycles 1 → 3 → 6 → MAX in non-persistent mode', async () => {
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
   assert.match(appSource, /enterNonPersistentTestSession\(\)/);
   assert.match(appSource, /suppressPersistence\s*=\s*true/);
-  assert.match(appSource, /runtime\.testPresets\.maxCommandSpellI\(\)/);
+  assert.match(appSource, /COMMAND_SPELL_I_TEST_LEVELS\s*=\s*Object\.freeze\(\[1, 3, 6, 7\]\)/);
+  assert.match(appSource, /runtime\.testPresets\.setCommandSpellILevel\(level\)/);
+  assert.match(appSource, /commandSpellITestCursor\s*=\s*\(commandSpellITestCursor \+ 1\)/);
   assert.match(appSource, /runtime\.testPresets\.startHydraIEncounter98\(\)/);
   assert.match(indexSource, /data-test-command-spell-max/);
+  assert.match(indexSource, /CS I TEST · 1 → 3 → 6 → MAX/);
   assert.match(indexSource, /data-test-hydra-98/);
 });
