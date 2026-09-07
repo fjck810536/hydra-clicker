@@ -34,37 +34,60 @@ test('visual projection rejects Number/floating logical head counts', () => {
   assert.throws(() => computeVisibleHeadCount(-1n), /BigInt/);
 });
 
-test('first nine head slots fill the fan interior instead of tracing a V outline', () => {
+test('first nine heads already form a tall canopy while retaining low root-adjacent heads', () => {
   const poses = Array.from({ length: 9 }, (_, index) => getHeadSlotPose(index));
+  const minY = Math.min(...poses.map((pose) => pose.y));
+  const maxY = Math.max(...poses.map((pose) => pose.y));
 
-  const interior = poses.filter((pose) => Math.abs(pose.x) < 0.55);
-  const outer = poses.filter((pose) => Math.abs(pose.x) > 0.8);
-  const low = poses.filter((pose) => pose.y < 1.45);
-  const high = poses.filter((pose) => pose.y > 1.9);
-
-  // A filled sector needs both central/interior heads and outer-edge heads,
-  // distributed across multiple radii rather than only two rising diagonals.
-  assert.ok(interior.length >= 4, `expected >=4 interior heads, got ${interior.length}`);
-  assert.ok(outer.length >= 2, `expected >=2 outer heads, got ${outer.length}`);
-  assert.ok(low.length >= 2, `expected >=2 inner-radius heads, got ${low.length}`);
-  assert.ok(high.length >= 2, `expected >=2 outer-radius heads, got ${high.length}`);
-
-  assert.ok(poses.some((pose) => Math.abs(pose.rotationZ) < 0.05));
-  assert.ok(poses.some((pose) => pose.rotationZ > 0.4));
-  assert.ok(poses.some((pose) => pose.rotationZ < -0.4));
+  // Keep the old lower visual band, but let the crown rise far enough to run
+  // underneath the portrait HUD.
+  assert.ok(minY < 1.5, `expected a low head below 1.5, got ${minY}`);
+  assert.ok(maxY > 5.4, `expected a tall head above 5.4, got ${maxY}`);
+  assert.ok(maxY - minY > 4, 'expected a much taller canopy span');
 });
 
-test('head slot poses are deterministic and finite across the entire visible pool', () => {
+test('99-head canopy is strongly left-biased and constrained on the right edge', () => {
+  const poses = Array.from({ length: 99 }, (_, index) => getHeadSlotPose(index));
+  const minX = Math.min(...poses.map((pose) => pose.x));
+  const maxX = Math.max(...poses.map((pose) => pose.x));
+  const positiveHeads = poses.filter((pose) => pose.x > 0).length;
+
+  assert.ok(minX < -3.5, `expected broad left canopy below -3.5, got ${minX}`);
+  assert.ok(maxX < 1.1, `expected right canopy constrained below 1.1, got ${maxX}`);
+  assert.ok(Math.abs(minX) > maxX * 3, 'left screen-space spread should dominate right spread');
+
+  // Right-side heads still exist so the silhouette reads as a fan/canopy rather
+  // than a one-sided curtain, but they are a minority.
+  assert.ok(positiveHeads >= 10, `expected some right-side heads, got ${positiveHeads}`);
+  assert.ok(positiveHeads < 35, `expected right-side heads to remain a minority, got ${positiveHeads}`);
+});
+
+test('head slots fill canopy depth and carry finite radial neck geometry', () => {
+  const poses = Array.from({ length: 99 }, (_, index) => getHeadSlotPose(index));
+  const minZ = Math.min(...poses.map((pose) => pose.z));
+  const maxZ = Math.max(...poses.map((pose) => pose.z));
+
+  assert.ok(maxZ - minZ > 0.5, 'expected a folded 3D canopy rather than a planar fan');
+
   for (const index of [0, 4, 8, 9, 50, 98]) {
     const pose = getHeadSlotPose(index);
     assert.ok(Number.isFinite(pose.x));
     assert.ok(Number.isFinite(pose.y));
     assert.ok(Number.isFinite(pose.z));
     assert.ok(Number.isFinite(pose.rotationZ));
+    assert.ok(Number.isFinite(pose.neckLength));
+    assert.ok(pose.neckLength > 0);
   }
 
   assert.deepEqual(getHeadSlotPose(0), getHeadSlotPose(0));
   assert.throws(() => getHeadSlotPose(99), /0 to 98/);
+});
+
+test('top HUD stays above the battle canvas so tall Hydra heads are occluded by panels', async () => {
+  const css = await readFile(new URL('../css/style.css', import.meta.url), 'utf8');
+
+  assert.match(css, /\.top-hud,[\s\S]*z-index:\s*2/);
+  assert.match(css, /\.battle-canvas\s*\{[\s\S]*position:\s*absolute/);
 });
 
 test('Hydra view keeps only a small root base and remains inside View layer', async () => {
