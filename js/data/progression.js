@@ -45,17 +45,12 @@ export function getHydraIRegenDelayMs(
     ? minAtKills
     : Number(totalHydrasKilled);
 
-  // Phase A: the first nine kills teach the player that regeneration is
-  // accelerating quickly. Exponential interpolation hits exactly 350ms at kill 9.
   if (cappedKills <= kill9) {
     const progress = cappedKills / kill9;
     const ratio = kill9DelayMs / baseDelayMs;
     return Math.round(baseDelayMs * (ratio ** progress));
   }
 
-  // Phase B: regeneration keeps getting faster, but each additional kill buys
-  // less speed than the previous one. A squared remaining-distance curve gives
-  // a smooth flattening tail and reaches the logical 100ms floor at kill 99.
   const tailProgress = (minAtKills - cappedKills) / (minAtKills - kill9);
   const curvedDelay = minDelayMs
     + (kill9DelayMs - minDelayMs) * (tailProgress ** 2);
@@ -70,7 +65,6 @@ const COMMAND_SPELL_I_LEVELS = Object.freeze([
   Object.freeze({ level: 4, requiredHydraKills: 22n, cost: 44n, attacksPerSecond: 8 }),
   Object.freeze({ level: 5, requiredHydraKills: 30n, cost: 66n, attacksPerSecond: 16 }),
   Object.freeze({ level: 6, requiredHydraKills: 40n, cost: 88n, attacksPerSecond: 32 }),
-  // Playtest 2.4: deliberately leave a long 32 APS plateau, then peak at kill 66.
   Object.freeze({ level: 7, requiredHydraKills: 66n, cost: 132n, attacksPerSecond: 64 }),
 ]);
 
@@ -87,7 +81,6 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
   commandSpellI: Object.freeze({
     id: 'command-spell-1',
     displayName: 'Command Spell I',
-    // Keep the original Level 1 fields available for old contracts/data readers.
     requiredHydraKills: 9n,
     cost: Object.freeze({
       currency: 'humanity-evil',
@@ -95,5 +88,10 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     }),
     unlocks: Object.freeze(['combat.autoSlash']),
     levels: COMMAND_SPELL_I_LEVELS,
+  }),
+  hydraIIIntro: Object.freeze({
+    unlockAtHydraKills: 99n,
+    generation: 2,
+    firstManualCutMilestone: 'hydra-ii-first-manual-cut',
   }),
 });
