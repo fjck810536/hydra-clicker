@@ -9,6 +9,7 @@ import { createNpSystem } from '../systems/np.js';
 import { createHumanityEvilSystem } from '../systems/humanity-evil.js';
 import { createCommandSpellSystem } from '../systems/command-spells.js';
 import { createHydraIProgressionSystem } from '../systems/progression.js';
+import { isRegrowthEnabled } from '../systems/modifiers.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
 import {
   HYDRA_I_PROGRESSION,
@@ -89,14 +90,6 @@ export function createHydraIGameRuntime({
   };
 
   const regrowth = createHydraRegrowthSystem(core);
-  const combat = createCombatSystem({
-    ...core,
-    getRule: () => rule,
-    getRuleContext: (snapshot) => ({
-      regrowthDelayMs: resolveCurrentRegenDelayMs(snapshot),
-    }),
-  });
-  const autoSlash = createAutoSlashSystem(core);
   const np = createNpSystem({
     ...core,
     gainPerHead: npGainPerHead,
@@ -110,10 +103,27 @@ export function createHydraIGameRuntime({
     ...core,
     definition: progression.commandSpellI,
   });
+
+  // Progression must observe clock ticks before Auto Slash. During burst windows,
+  // a 100ms respawn can therefore be attacked on the same tick it becomes due.
   const hydraProgression = createHydraIProgressionSystem({
     ...core,
     respawnDelayMs: progression.respawnDelayMs,
+    getRespawnDelayMs: (snapshot, payload) => (
+      !isRegrowthEnabled(snapshot.modifiers.active, payload.atMs)
+        ? progression.burstRespawnDelayMs ?? progression.respawnDelayMs
+        : progression.respawnDelayMs
+    ),
   });
+
+  const combat = createCombatSystem({
+    ...core,
+    getRule: () => rule,
+    getRuleContext: (snapshot) => ({
+      regrowthDelayMs: resolveCurrentRegenDelayMs(snapshot),
+    }),
+  });
+  const autoSlash = createAutoSlashSystem(core);
   const manual = createManualAttackInput(core);
 
   return {
@@ -145,12 +155,12 @@ export function createHydraIGameRuntime({
       hydraProgression,
     }),
     destroy() {
+      autoSlash.destroy();
+      combat.destroy();
       hydraProgression.destroy();
       commandSpells.destroy();
       humanityEvil.destroy();
       np.destroy();
-      autoSlash.destroy();
-      combat.destroy();
       regrowth.destroy();
       core.destroy();
     },
