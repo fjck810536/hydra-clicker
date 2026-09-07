@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.11
+# Hydra Clicker — Block Contracts v0.12
 
-> v0.11 對齊 Playtest 3 Hydra II Intro，並補上 session-only TEST preset contract。這是積木之間的資料插頭，不是最終 API。
+> v0.12 對齊 Playtest 3 Hydra II Intro，並補上 session-only TEST preset contract。這是積木之間的資料插頭，不是最終 API。
 
 ## 1. Attack Request
 
@@ -190,7 +190,7 @@ points = round(normalized × 66)
 
 Duration = 3000ms；可跨 encounters。
 
-NP READY 時，即使 Hydra defeated / respawn gap 也允許 release。
+NP READY 時，即使 Hydra defeated / respawn gap 也允許 release；Hydra II 也允許 release，但 structural `headsSpawned` 不讀 `hydra.regrowth`，所以寶解不會阻止 `CUT 1 → GROW +2`。
 
 ## 10. Auto Slash
 
@@ -338,16 +338,25 @@ START HYDRA #98
 → completed kills = 97
 → heads = 9
 → clean pending regrowth / NP modifier state
+
+NP READY
+→ berserker.np = 1 normalized
+→ player-facing gauge = 66/66 READY
+→ 不改 kills / cuts / currency / encounter
 ```
 
-兩個 preset 可以任意順序疊用，例如：
+presets 可以任意順序疊用，例如：
 
 ```text
 MAX COMMAND SPELL
 ↓
 START HYDRA #98
 ↓
+NP READY
+↓
 64 APS remains active at Hydra I #98
+↓
+enter Hydra II and release NP immediately
 ```
 
 重要邊界：
@@ -388,6 +397,7 @@ NP:
 65 cuts → not ready
 66 cuts → ready
 release → timed modifier
+Hydra II + NP active + cut → 9 → 10 structural growth still occurs
 
 Command Spell I:
 1,2,4,8,16,32,64 APS
@@ -409,6 +419,7 @@ next tick → Auto resumes and logical heads increase
 TEST presets:
 MAX COMMAND SPELL → Lv.MAX / 64 APS without changing kills or currency
 START HYDRA #98 → 97 completed kills + fresh encounter 98
+NP READY → 66/66 without changing combat progression
 presets compose without resetting each other's targeted state
 browser TEST session suppresses persistence
 
