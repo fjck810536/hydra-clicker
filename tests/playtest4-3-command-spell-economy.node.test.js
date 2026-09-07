@@ -109,7 +109,7 @@ test('Command Spell II Data locks the confirmed nine-beat cost, reveal and NP cu
 
 test('Command Spell II Lv.1 becomes purchasable after 3 Hydra II kills and preserves absolute charged NP points', () => {
   const initialState = createHydraIIState({ totalKills: 102n, humanityEvil: 297n });
-  initialState.berserker.np = 0.5; // 33 / 66 points before the upgrade.
+  initialState.berserker.np = 0.5;
   const runtime = createHydraIGameRuntime({ initialState });
 
   const before = runtime.commandSpellIIStatus();
@@ -175,17 +175,24 @@ test('buying all nine Command Spell II beats produces the canonical sawtooth gau
   runtime.destroy();
 });
 
-test('formal player UI purchases both Command Spell lines through runtime APIs', async () => {
+test('formal player UI routes both Command Spell lines through fixed slots and one purchase modal', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
-  const hudSource = await readFile(new URL('../js/view/hud-view.js', import.meta.url), 'utf8');
+  const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
 
-  assert.match(html, /data-command-spell-button/);
-  assert.match(html, /data-command-spell-ii-button/);
+  assert.match(html, /data-command-spell-slot="1"/);
+  assert.match(html, /data-command-spell-slot="2"/);
+  assert.match(html, /data-command-spell-slot="3"/);
+  assert.match(html, /data-command-spell-modal/);
+  assert.match(html, /data-command-spell-purchase/);
+  assert.doesNotMatch(html, /data-command-spell-button/);
+  assert.doesNotMatch(html, /data-command-spell-ii-button/);
+
+  assert.match(appSource, /commandSpellPanel\.currentOpenSpellId\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellI\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellII\(\)/);
   assert.match(appSource, /runtime\.commandSpellIIStatus\(\)/);
   assert.doesNotMatch(appSource, /state\.update/);
-  assert.doesNotMatch(hudSource, /from ['"]\.\.\/systems\//);
-  assert.doesNotMatch(hudSource, /from ['"]\.\.\/math\//);
+  assert.doesNotMatch(panelSource, /from ['"]\.\.\/systems\//);
+  assert.doesNotMatch(panelSource, /from ['"]\.\.\/math\//);
 });
