@@ -38,8 +38,6 @@ function bindFixedControl(button, handler) {
     handler();
   };
 
-  // Pointer-generated click is suppressed so Safari never gets a second
-  // synthesized tap to use for smart zoom. detail === 0 preserves keyboard activation.
   const handleClick = (event) => {
     event.preventDefault();
     if (event.detail === 0) handler();
@@ -66,15 +64,7 @@ function bindFixedControl(button, handler) {
 
 function bindBattleShellGestureLock(root) {
   const preventDefault = (event) => event.preventDefault();
-
-  // iOS Safari can still enter smart-zoom / page-zoom paths from touchend on
-  // non-button HUD areas even when the canvas and controls each use touch-action:none.
-  // The battle shell never needs browser-generated touch clicks, so prevent touchend
-  // defaults at the shell boundary. Pointer events still deliver gameplay commands.
-  const preventTouchEnd = (event) => {
-    event.preventDefault();
-  };
-
+  const preventTouchEnd = (event) => event.preventDefault();
   const preventMultiTouch = (event) => {
     if (event.touches?.length > 1) event.preventDefault();
   };
@@ -134,6 +124,13 @@ runtime ??= createHydraIGameRuntime();
 
 const hud = createHudView({ root: app });
 
+function isHydraIIIntroPending(snapshot) {
+  const intro = runtime.progression.hydraIIIntro;
+  return intro != null
+    && snapshot.hydra.generation === intro.generation
+    && !snapshot.progression.milestones.includes(intro.firstManualCutMilestone);
+}
+
 function persistNow() {
   if (suppressPersistence || !saveStore) return false;
 
@@ -165,16 +162,22 @@ const berserkerView = createBerserkerView({
 
 const renderSnapshot = () => {
   const snapshot = runtime.snapshot();
+  const introPending = isHydraIIIntroPending(snapshot);
   hud.render(snapshot, {
     commandSpellI: runtime.commandSpellIStatus(),
     np: runtime.npStatus(),
+    hydraIIIntroPending: introPending,
   });
   hydraView.render(snapshot);
   stage.setNpActive(isNpWindowActive(snapshot));
-  regenDelayReadout.textContent = `${runtime.currentRegenDelayMs()} ms`;
-  autoApsReadout.textContent = snapshot.master.commandSpells.autoSlash
-    ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-    : 'LOCKED';
+
+  const regenDelayMs = runtime.currentRegenDelayMs();
+  regenDelayReadout.textContent = regenDelayMs == null ? 'STRUCTURAL' : `${regenDelayMs} ms`;
+  autoApsReadout.textContent = introPending
+    ? 'PAUSED · TAP'
+    : snapshot.master.commandSpells.autoSlash
+      ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+      : 'LOCKED';
 };
 
 const handleNpPress = () => {
@@ -235,9 +238,14 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
   });
 });
 const offCut = runtime.events.on('head:cut', ({ payload }) => {
-  hud.setStatus(payload.killed
-    ? `CUT ${payload.amount.toString()} · HYDRA DOWN`
-    : `CUT ${payload.amount.toString()}`);
+  if (payload.spawned > 0n) {
+    const net = payload.spawned - payload.amount;
+    hud.setStatus(`CUT ${payload.amount.toString()} · GROW +${payload.spawned.toString()} · Δ +${net.toString()}`);
+  } else {
+    hud.setStatus(payload.killed
+      ? `CUT ${payload.amount.toString()} · HYDRA DOWN`
+      : `CUT ${payload.amount.toString()}`);
+  }
   renderSnapshot();
 });
 const offRegrow = runtime.events.on('head:regrow', ({ payload }) => {
@@ -247,8 +255,8 @@ const offRegrow = runtime.events.on('head:regrow', ({ payload }) => {
 const offNpReleased = runtime.events.on('np:released', () => {
   renderSnapshot();
 });
-const offKilled = runtime.events.on('hydra:killed', () => {
-  hud.setStatus('HYDRA I DEFEATED');
+const offKilled = runtime.events.on('hydra:killed', ({ payload }) => {
+  hud.setStatus(`HYDRA ${payload.generation === 1 ? 'I' : 'II'} DEFEATED`);
   renderSnapshot();
 });
 const offCurrencyGain = runtime.events.on('currency:gain', ({ payload }) => {
@@ -259,7 +267,16 @@ const offCurrencyGain = runtime.events.on('currency:gain', ({ payload }) => {
   }
 });
 const offRespawned = runtime.events.on('hydra:respawned', ({ payload }) => {
-  hud.setStatus(`HYDRA I · ENCOUNTER ${payload.encounter.toString()}`);
+  hud.setStatus(`HYDRA ${payload.generation === 1 ? 'I' : 'II'} · ENCOUNTER ${payload.encounter.toString()}`);
+  renderSnapshot();
+});
+const offGenerationChanged = runtime.events.on('hydra:generation-changed', ({ payload }) => {
+  persistNow();
+  hud.setStatus(`HYDRA ${payload.generation === 2 ? 'II' : payload.generation} · AUTO PAUSED · TAP TO CUT`);
+  renderSnapshot();
+});
+const offIntroComplete = runtime.events.on('hydra:intro-complete', () => {
+  persistNow();
   renderSnapshot();
 });
 const offSpellAvailable = runtime.events.on('command-spell:available', ({ payload }) => {
@@ -306,6 +323,8 @@ window.addEventListener('pagehide', () => {
   offKilled();
   offCurrencyGain();
   offRespawned();
+  offGenerationChanged();
+  offIntroComplete();
   offSpellAvailable();
   offSpellUnlocked();
   offSpellUpgraded();
