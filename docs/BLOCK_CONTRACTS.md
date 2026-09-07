@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.21
+# Hydra Clicker — Block Contracts v0.22
 
-> v0.21 對齊 Playtest 4.5.1：Command Spell II Lv.1 以 Hydra II first-reversal milestone + affordability 取得資格，0 Hydra II kills；NP active cuts 不充能且 nested release 被拒絕；Command Spell modal 增加 successful-purchase auto-close、44px close target 與 backdrop dismiss。State schema 仍為1。
+> Playtest 5：Hydra III 成為正式 `CUT 1 → GROW +2` / cap729 世代；logical heads 第一次到 100 時由 Progression 解鎖 observation-only Tree View；Command Spell III 以 Hydra III 第一次 NP release 取得 eligibility，將 Command Spell I Auto Slash 以 1/9 → 1/3 → FULL 比例帶入 NP。正式 CS III 價格仍 TBD。State schema 維持1。
 
 ## 1. Attack Request
 
@@ -20,43 +20,46 @@ Current application projection：
 
 ```text
 ordinary manual tap          → strikeCount 1
-NP + CS II STRIKE I          → strikeCount 3
-NP + CS II STRIKE II         → strikeCount 6
-NP + CS II STRIKE III        → strikeCount 9
+NP + CS II STRIKE I          → manual strikeCount 3
+NP + CS II STRIKE II         → manual strikeCount 6
+NP + CS II STRIKE III        → manual strikeCount 9
+Auto Slash inside/outside NP → Auto System 自己產生 strikeCount；不繼承 CS II manual multiplier
 ```
 
 ## 2. Cut Resolution
 
 ```js
 {
-  accepted: true,
+  accepted,
   ruleId,
   turnBefore,
   turnAfter,
-  headsRemoved: 1n,
-  headsSpawned: 0n,
-  materialsProduced: 0n,
-  regrowth: [],
-  cancelPendingRegrowth: false,
-  depleted: false,
-  killed: false,
-  effects: []
+  headsRemoved,
+  headsSpawned,
+  materialsProduced,
+  regrowth,
+  cancelPendingRegrowth,
+  depleted,
+  killed,
+  effects
 }
 ```
 
-Hydra Model：
+Hydra Model applies：
 
 ```text
-heads - headsRemoved + headsSpawned
-→ pending regrowth scheduling
+logicalHeads - headsRemoved + headsSpawned
+→ schedule any delayed regrowth
 ```
+
+View / animation never decides this result。
 
 ## 3. Generation scale Data
 
 ```text
-Gen I   starting 9 · max 9   · 99 kills to next
-Gen II  starting 9 · max 81  · 99 kills to next
-Gen III starting 9 · max 729 · next rule pending
+Gen I   starting9 · max9   · 99 kills to next
+Gen II  starting9 · max81  · 99 kills to next
+Gen III starting9 · max729 · next generation pending
 ```
 
 `maxHeads` 是 logical Data，不是 View mesh cap。
@@ -64,7 +67,7 @@ Gen III starting 9 · max 729 · next rule pending
 ## 4. Hydra I Rule
 
 ```text
-remaining > 0 + head growth enabled
+normal non-terminal cut
 → remove head
 → schedule same-head regrowth
 
@@ -78,81 +81,82 @@ remaining = 0
 
 ## 5. Hydra II Rule
 
-Normal：
-
 ```text
+normal:
 CUT 1
-→ remove 1
-→ desire GROW +2
-→ clamp against maxHeads 81
-```
+→ GROW 2 immediately
+→ clamp to maxHeads81
 
-Examples：
-
-```text
 9  → 10
 80 → 81
 81 → 81
 ```
 
-NP / head growth suppressed：
+NP / generic head-growth suppression：
 
 ```text
-CUT 1
-→ headsSpawned = 0
+headsSpawned = 0
 → net -1
 → 1 → 0 = true kill
 ```
 
-## 6. Hydra III shell rule
+## 6. Hydra III Rule
+
+Hydra III 沿用同一種 structural law，但使用 generation-specific cap729：
 
 ```text
-generation = 3
-startingHeads = 9
-maxHeadCount = 729
-resolveCut → accepted false
-state unchanged
+normal:
+CUT 1
+→ GROW 2 immediately
+→ clamp to maxHeads729
+
+9   → 10
+728 → 729
+729 → 729
 ```
+
+NP / generic head-growth suppression：
+
+```text
+headsSpawned = 0
+→ net -1
+→ 1 → 0 = true kill
+```
+
+Hydra III true kill：
+
+```text
+→ +99 Humanity Evil
+→ no Hydra IV transition yet
+→ next encounter remains Hydra III, fresh9
+```
+
+`createHydraShellRule()` 只保留給未來尚未實作世代，不再代表 Hydra III。
 
 ## 7. Humanity Evil reward
 
 Humanity Evil System consumes only `hydra:killed`。
 
-Core-injected reward：
-
 ```text
-11 × 3^(generation - 1)
-```
-
-```text
+reward = 11 × 3^(generation - 1)
 Gen I   11
 Gen II  33
 Gen III 99
 Gen IV 297
 ```
 
-`currency:gain` payload includes `generation`。
-
 Forbidden reward inputs：
 
 ```text
 head:cut
 headsSpawned
-cap stall time
+cap stall
+visible mesh count
 ```
 
 ## 8. Rule Context / NP modifier
 
-Modifier resolver：
-
-```js
-{
-  headGrowthEnabled: true | false,
-  regrowthEnabled: true | false
-}
-```
-
-NP release creates：
+NP release creates generic rule modifier：
 
 ```js
 {
@@ -166,8 +170,26 @@ NP release creates：
 }
 ```
 
-Hydra I → no new delayed regrowth。  
-Hydra II → no structural spawn。
+Resolver projects：
+
+```js
+{
+  headGrowthEnabled: false,
+  regrowthEnabled: false
+}
+```
+
+Affected：
+
+```text
+Hydra I delayed same-head regrowth
+Hydra II immediate structural GROW
+Hydra III immediate structural GROW
+```
+
+Cut itself remains legal。
+
+Legacy `target:'hydra.regrowth'` remains compatibility alias。
 
 ## 9. NP dynamic configuration
 
@@ -181,16 +203,14 @@ getConfig(snapshot) -> {
 }
 ```
 
-Current Core composition：
+Core composition：
 
 ```text
-Command Spell II status → maxPoints / durationMs
-base NP Data             → pointsPerHead
+CS II status → maxPoints / durationMs
+base Data    → pointsPerHead
 ```
 
-Explicit runtime test overrides retain priority。
-
-`getStatus()` contract remains：
+`getStatus()`：
 
 ```js
 {
@@ -201,9 +221,9 @@ Explicit runtime test overrides retain priority。
 }
 ```
 
-## 10. NP active lifecycle / countdown
+## 10. NP lifecycle / active-window seal
 
-NP System exposes：
+NP exposes：
 
 ```js
 isActive(snapshot)
@@ -215,44 +235,26 @@ getWindowStatus(snapshot) -> {
 }
 ```
 
-Release semantic event：
+Semantic lifecycle：
 
 ```js
-np:released {
-  atMs,
-  endsAt,
-  durationMs,
-  maxPoints,
-  modifier
-}
+np:released { atMs, endsAt, durationMs, maxPoints, modifier }
+np:ended    { atMs, endedAtMs }
 ```
 
-Expiry：
-
-```js
-np:ended {
-  atMs,
-  endedAtMs
-}
-```
-
-`remainingMs` 是 simulation-time derived projection，不是 persistent field。
-
-TIME upgrade affects future release configuration only；active modifier keeps its fixed `endsAt`。
-
-Active-window seal：
+Invariant：
 
 ```text
-head:cut while NP inactive → charge according to current config
-head:cut while NP active   → zero NP charge
-release while NP active    → { accepted:false, reason:'np-already-active' }
+NP inactive + accepted head:cut → charge normally
+NP active   + accepted head:cut → zero NP charge
+NP active   + release()          → rejected: np-already-active
 ```
 
-Normal gameplay must not stack a second NP modifier on top of an active NP window。
+At most one ordinary active NP release window。Expiry is GameClock-derived, never animation-derived。
 
 ## 11. NP gauge preservation on CS II purchase
 
-Because Save stores `berserker.np` normalized 0..1, a gauge-max change must preserve absolute charged points：
+Save stores normalized `berserker.np`，but max-point upgrades preserve absolute charge：
 
 ```text
 oldPoints = round(oldNormalized × oldMax)
@@ -263,12 +265,17 @@ newNormalized = newPoints / newMax
 Example：
 
 ```text
-33/66 → buy Lv.1 → 33/132
+33/66 → buy Lv1 max132 → 33/132
 ```
 
-Do not preserve percentage and thereby grant free NP。
+## 12. Auto Slash / NP policy
 
-## 12. Auto Slash — time-stop policy
+Auto Slash System only receives generic injected functions：
+
+```js
+isEnabled(snapshot)
+getAttacksPerSecond(snapshot)
+```
 
 Base requirements：
 
@@ -276,62 +283,78 @@ Base requirements：
 autoSlash capability
 AND Hydra attackable
 AND heads > 0
+AND generation playable
+AND Hydra II intro guard satisfied
 ```
 
-Injected policies：
+Core composition：
 
 ```text
-Hydra II first manual-cut milestone missing → Auto paused
-NP window active                           → Auto paused
-Hydra III shell                            → Auto paused
+NP inactive
+→ enabled normally
+→ effective APS = Command Spell I base APS
+
+NP active + CS III fraction 0
+→ Auto disabled
+→ accumulator reset while disabled
+
+NP active + CS III fraction > 0
+→ Auto enabled
+→ effective APS = CS I base APS × CS III fraction
 ```
 
-While NP active：
-
-```text
-Auto Slash produces no attack requests
-Auto accumulator resets while disabled
-purchased capability / APS remain unchanged
-Manual Input remains accepted
-NP charge remains paused
-```
-
-Auto Slash System itself does not import or name NP；Core supplies policy。
+Auto Slash System itself must not import/name NP or Command Spell III。
 
 ## 13. Encounter / Generation Progression
 
 ```text
 Hydra I kill #99
-→ Hydra II encounter 1 · heads 9
+→ Hydra II encounter1 · heads9
 
-Hydra II true kill n
-→ next Hydra II encounter · heads 9
+Hydra II encounter99 kill
+→ Hydra III encounter1 · heads9
 
-Hydra II encounter 99 defeated
-→ Hydra III encounter 1 · heads 9
+Hydra III kill
+→ Hydra III next encounter · heads9
 ```
-
-Generation-local player progress uses `hydra.encounter + defeated`；no new persistent local kill counter。
 
 Hydra II first accepted manual cut writes：
 
 ```text
-progression.milestones += hydra-ii-first-manual-cut
+hydra-ii-first-manual-cut
 ```
 
-and emits：
+and emits `hydra:intro-complete`。Same milestone is consumed by Auto intro guard and CS II first eligibility without direct System-to-System mutation。
+
+## 14. Tree View unlock milestone
+
+Hydra III first representation threshold：
+
+```text
+99 logical
+→ accepted normal cut resolves
+→ logical state becomes100
+→ Progression sees gen3 + logicalHeads >=100
+→ progression.treeViewUnlocked = true
+→ emit tree-view:unlocked
+```
+
+Event：
 
 ```js
-hydra:intro-complete {
+tree-view:unlocked {
   atMs,
-  generation: 2,
-  milestone: 'hydra-ii-first-manual-cut'
+  generation: 3,
+  logicalHeads: 100n,
+  threshold: 100n
 }
 ```
 
-The same milestone may be consumed by multiple downstream Systems (Auto intro guard completion, CS II first eligibility) without direct System-to-System mutation。
+Progression owns unlock. View must never infer the milestone from Babylon mesh count and write it back。
 
-## 14. Generation Progress View Projection
+## 15. Generation Progress View
+
+Projection：
 
 ```js
 {
@@ -343,159 +366,64 @@ The same milestone may be consumed by multiple downstream Systems (Auto intro gu
 }
 ```
 
-```text
-alive    → completedKills = encounter - 1
-defeated → completedKills = encounter
-```
+Hydra III `targetKills = null` because Hydra IV transition is not defined。
 
-## 15. Generation Transition / Appearance
+## 16. Head Pool / Tree View projection
 
-`hydra:generation-changed` → CSS-only transition, pointer-events none, no GameClock pause。
+Head Pool contract：
 
 ```text
-I   neutral dark
-II  subtle yellow-green
-III cool violet
+logical 0–99 → same visible count
+logical100+  → visible99
 ```
 
-NP red tint has priority。
-
-## 16. NP Phase / Timer View
-
-```text
-np:released
-→ 寶具解放
-→ ナインライブズ
-→ 射殺す百頭
-
-np:ended
-→ TIME RESUMES
-→ 時は動き出す
-```
-
-Timer consumes：
-
-```text
-runtime.npWindowStatus()
-runtime.commandSpellIIStatus().npManualStrikeCount
-```
-
-Example：
-
-```text
-TIME STOP
-8.4 s
-MANUAL ×6
-```
-
-View-only；no View timer controls lifecycle。
-
-## 17. head:cut semantic event
+Tree View v0 consumes snapshot only：
 
 ```js
-{
-  atMs,
-  source,
-  amount: headsRemoved,
-  spawned: headsSpawned,
-  turn,
-  depleted,
-  killed
+projectTreeView(snapshot, { visibleHeadCap:99n, maxHeads }) -> {
+  unlocked,
+  generation,
+  logicalHeads,
+  visibleHeads,
+  overflowHeads,
+  visibleHeadCap,
+  maxHeads
 }
 ```
 
-A multi-strike manual request emits separate `attack:resolved` / `head:cut` events per accepted strike。Terminal kill stops later strikes in the same request。
+Examples：
 
-NP charge consumer must inspect active NP lifecycle before crediting this event。
+```text
+logical100 → visible99 · overflow1
+logical729 → visible99 · overflow630
+```
 
-## 18. Command Spell I
+Tree View v0 is observation-only：
+
+```text
+NO node targeting
+NO attack request
+NO state.update
+NO Math/System/Core import
+```
+
+## 17. Command Spell I
 
 Current Data：
 
-| Lv | Chapter role | Cost | APS | requiredHydraKills |
-|---:|---|---:|---:|---:|
-| 1 | Hydra I | 99 | 1 | null |
-| 2 | Hydra I | 33 | 3 | null |
-| 3 | Hydra I | 66 | 9 | null |
-| 4 | Hydra I | 99 | 27 | null |
-| 5 | Hydra II | 1782 | 81 | null |
-| 6 | Hydra II | 2178 | 243 | null |
-| 7 | Hydra III | **TBD** | 729 | null |
+| Lv | Cost | APS |
+|---:|---:|---:|
+| 1 | 99 | 1 |
+| 2 | 33 | 3 |
+| 3 | 66 | 9 |
+| 4 | 99 | 27 |
+| 5 | 1782 | 81 |
+| 6 | 2178 | 243 |
+| 7 | **TBD** | 729 |
 
-Lv.1～6 availability：
+Lv1–6：sequential prerequisite + affordability only。Lv7 has `cost:null / purchasePending:true` and formal purchase rejects `price-pending`。
 
-```text
-previous level owned
-AND Humanity Evil >= cost
-→ available
-```
-
-因此 `killsMet` 對這些等級固定為 true；自然購買點來自 currency economy，不是另一層 kill gate。
-
-Status contract includes：
-
-```js
-{
-  level,
-  nextLevel,
-  attacksPerSecond,
-  nextAttacksPerSecond,
-  killsMet,
-  canAfford,
-  pricePending,
-  available,
-  requiredHydraKills,
-  cost,
-  balance
-}
-```
-
-Lv.7 current Data：
-
-```js
-{
-  level: 7,
-  attacksPerSecond: 729,
-  cost: null,
-  purchasePending: true,
-  intendedGeneration: 3
-}
-```
-
-因此 normal status：
-
-```text
-pricePending = true
-available = false
-cost = null
-```
-
-`purchase()` must return：
-
-```js
-{ accepted: false, reason: 'price-pending', status }
-```
-
-TEST / old owned saves may still place the player at Lv.7 / 729 APS；that state is valid and reads as MAX。
-
-Purchase changes only：
-
-```text
-Humanity Evil balance
-master.commandSpells.autoSlash capability
-berserker.baseAttacksPerSecond
-command-spell-1-lvN milestones
-```
-
-Legacy upgraded saves map conservatively by stored APS, not old level number。
-
-## 19. Command Spell II
-
-Base：
-
-```text
-manual ×1 · NP66 · 3s
-```
+## 18. Command Spell II
 
 Player-facing title：
 
@@ -503,187 +431,156 @@ Player-facing title：
 「快點……再快點……！」
 ```
 
-Formal canonical levels：
+Base：`manual×1 · NP66 · 3s`
 
-| Lv | Branch | Eligibility / Hydra II kills | Cost | NP max | Manual NP | Duration |
-|---:|---|---|---:|---:|---:|---:|
-| 1 | STRIKE | `hydra-ii-first-manual-cut` · **0 kills** | 297 | 132 | ×3 | 3s |
-| 2 | EFF I | 9 kills | 198 | 66 | ×3 | 3s |
-| 3 | TIME | 18 kills | 396 | 198 | ×3 | 9s |
-| 4 | STRIKE | 27 kills | 396 | 396 | ×6 | 9s |
-| 5 | EFF II | 39 kills | 330 | 198 | ×6 | 9s |
-| 6 | TIME | 54 kills | 495 | 594 | ×6 | 27s |
-| 7 | STRIKE | 66 kills | 594 | 792 | ×9 | 27s |
-| 8 | EFF III | 81 kills | 495 | 396 | ×9 | 27s |
-| 9 | TIME · MAX | 99 kills | 693 | 1188 | ×9 | 81s |
+| Lv | Eligibility | Cost | NP max | Manual NP | Duration |
+|---:|---|---:|---:|---:|---:|
+| 1 | Hydra II first reversal · 0 kills | 297 | 132 | ×3 | 3s |
+| 2 | 9 kills | 198 | 66 | ×3 | 3s |
+| 3 | 18 kills | 396 | 198 | ×3 | 9s |
+| 4 | 27 kills | 396 | 396 | ×6 | 9s |
+| 5 | 39 kills | 330 | 198 | ×6 | 9s |
+| 6 | 54 kills | 495 | 594 | ×6 | 27s |
+| 7 | 66 kills | 594 | 792 | ×9 | 27s |
+| 8 | 81 kills | 495 | 396 | ×9 | 27s |
+| 9 | 99 kills | 693 | 1188 | ×9 | 81s |
 
-First purchase availability：
+CS II multistrike modifies **manual input only**。Auto requests never inherit ×3/×6/×9。
+
+## 19. Command Spell III
+
+Player-facing title：
 
 ```text
-Hydra generation >= II
-AND hydra-ii-first-manual-cut milestone exists
-AND Humanity Evil >= 297
-→ available
+「這裡怎麼沒有 SKIP???」
 ```
 
-It must be possible before killing Hydra II encounter1。
+First gameplay eligibility：
 
-Status contract includes：
+```text
+first np:released while current Hydra generation === 3
+→ add hydra-iii-first-np-release milestone
+→ emit command-spell:eligible { id:'command-spell-3', ... }
+```
+
+No Hydra III kill, CS II MAX, or specific CS I APS is required。
+
+Status contract：
 
 ```js
 {
+  id: 'command-spell-3',
+  eligible,
+  unlocked,
   level,
-  generationKills,
-  eligibilityMet,
-  killsMet,
+  maxLevel,
+  maxed,
+  autoNpNumerator,
+  autoNpDenominator,
+  autoNpFraction,
+  autoNpAps,
+  nextLevel,
+  nextRewardLabel,
+  nextAutoNpNumerator,
+  nextAutoNpDenominator,
+  nextAutoNpFraction,
+  nextAutoNpAps,
+  cost,
+  pricePending,
+  balance,
   canAfford,
-  available,
-  npManualStrikeCount,
-  npMaxPoints,
-  npDurationMs,
-  nextNpManualStrikeCount,
-  nextNpMaxPoints,
-  nextNpDurationMs,
-  ...
+  available
 }
 ```
 
-Purchase rejection priority for Lv.1：
+Mechanic ladder：
 
 ```text
-missing first-cut milestone → eligibility-required
-then kill requirement       → kills-required
-then currency               → insufficient-humanity-evil
+base → 0
+Lv1  → CS I APS × 1/9 inside NP
+Lv2  → CS I APS × 1/3 inside NP
+Lv3  → CS I APS × 1 inside NP
 ```
 
-Formal System owns availability / purchase / current NP configuration projection。
-
-State milestones：
+All current formal costs are：
 
 ```text
-hydra-ii-first-manual-cut
-command-spell-2-lv1 ... command-spell-2-lv9
+cost = null
+purchasePending = true
 ```
 
-Current implementation follows canonical order linearly。Independent cross-branch purchase composition remains unimplemented until player-facing NP-requirement composition is specified。
+Therefore normal purchase is rejected `price-pending`。TEST may set Lv1/Lv2/Lv3 using existing milestones without changing Humanity Evil, kills or CS I APS。
 
-## 20. View / Head Pool
+## 20. Command Spell panel / modal
 
-```text
-logical 0–99 → same visible count
-logical 100+ → visible 99
-```
+Fixed slots：
 
 ```text
-Hydra II max81   → visible ≤81
-Hydra III max729 → visible ≤99
-```
-
-## 21. Player Controls / Command Spell panel / TEST Tools
-
-Formal player controls：
-
-```text
-令咒
 [ I ] [ II ] [ III ]
-
-寶具解放
 ```
 
-Command Spell slot projection states：
+Projection states：
 
 ```text
-dormant    = gameplay eligibility and/or first affordability not met
-available  = first purchase is currently eligible + affordable; display NEW
-owned-dim  = already owned but next upgrade unavailable / unaffordable / price pending
-affordable = owned and next upgrade can be purchased; display LV UP
-max        = completed owned state
+dormant    = not revealed / not first-available
+available  = real purchasable NEW
+owned-dim  = information available, but next purchase unavailable / unaffordable / price pending
+affordable = owned + next level purchasable
+max        = completed
 ```
 
-For Command Spell II specifically：
+CS III special pending state：
 
 ```text
-before Hydra II first reversal cut → dormant even if rich
-after first reversal cut + balance >=297 → NEW
+before Hydra III first NP → dormant / disabled
+after first NP + formal price still TBD
+→ NEW · PRICE TBD
+→ owned-dim visual treatment
+→ clickable for detail
+→ purchase button disabled
 ```
 
-Slot I / II remain clickable after ownership even when dim so the detail modal can still explain current / next / cost。Before first availability they remain dormant and non-clickable。
+This prevents a pending prototype from visually claiming affordability。
 
-Command Spell III is currently：
+Purchase routing belongs to Application：
 
 ```text
-dormant
-non-clickable
-no System
-no gameplay effect
+runtime.buyCommandSpellI()
+runtime.buyCommandSpellII()
+runtime.buyCommandSpellIII()
 ```
 
-Detail modal contract：
+View never spends currency or writes milestones。
 
-```text
-name / quote
-current level
-CURRENT
-NEXT
-COST
-concise description
-PURCHASE / LV UP / MAX / PRICE TBD
-close
-```
+Modal mobile dismissal：successful purchase closes; close target >=44×44; backdrop closes; inside-card tap does not。
 
-CS II CURRENT / NEXT each show the complete technique tuple：
+## 21. NP Phase / Timer View
 
-```text
-×N · NP M · Ns
-```
+Timer consumes simulation-time derived `npWindowStatus()` + CS II manual strike count。It displays manual technique even if CS III Auto is running; CS III Auto rate is surfaced separately in HUD/CSIII detail。
 
-so a TIME / STRIKE upgrade cannot hide its NP requirement increase。
+No View timer controls lifecycle。
 
-Purchase path：
+## 22. TEST Tools
 
-```text
-slot tap → View opens modal
-modal purchase → Application resolves open spell id
-→ runtime.buyCommandSpellI() / runtime.buyCommandSpellII()
-→ System validates and spends
-→ accepted purchase → modal closes automatically
-```
-
-Dismissal：
-
-```text
-close × target >= 44×44 px → close
-backdrop root tap          → close
-inside-card tap            → no backdrop close
-```
-
-Forbidden：
-
-```text
-View → draft.master.humanityEvil -= cost
-View → set milestones / APS / NP config
-slot tap → immediate purchase without modal action
-inside-card tap → accidental dismiss by bubbling
-```
-
-CS I 243 → 729 pending state remains visible as `PRICE TBD` with disabled modal action。TEST / already-owned 729 may read MAX。
-
-TEST remains session-only：
+Session-only / non-persistent paths include：
 
 ```text
 CS I TEST · 1 → 3 → 6 → MAX
-COMMAND SPELL II · ×3 NP
 人類惡 +999
+COMMAND SPELL II · ×3 NP
+CS III TEST · 1 → 2 → MAX
 START HYDRA #98
 HYDRA II · 81 HEADS
+HYDRA III · 99 HEADS
 NP READY
 RESET SAVE
-TOTAL KILLS
 ```
 
-TEST presets do not invent normal-save kill progress and do not persist over the player's normal save。
+`HYDRA III · 99 HEADS` exists specifically to test one-cut `99→100` Tree reveal。
 
-## 22. Save
+TEST presets must not invent corresponding normal economy rewards and must not overwrite the player's persisted normal save。
+
+## 23. Save
 
 State schema remains **1**。
 
@@ -691,76 +588,51 @@ Reused persistent fields：
 
 ```text
 progression.milestones
-berserker.np normalized gauge
-modifiers.active timed NP window
+progression.treeViewUnlocked
+berserker.np
+modifiers.active
 master.humanityEvil
 berserker.baseAttacksPerSecond
 ```
 
-No UI/modal state is persistent。No Offline Progress added。
+No new persistent field. No Offline Progress。
 
-## 23. Required tests
+## 24. Required tests
 
 ```text
-Economy:
-Humanity Evil generations 1..4 → 11 / 33 / 99 / 297
-Hydra II true kill → +33
-no head-cut Humanity Evil path
+Hydra III:
+9→10
+728→729
+729→729
+NP suppressed 1→0 true kill
+true kill → +99 HE
+next encounter remains gen3 fresh9
 
-Command Spell I:
-APS → 1 / 3 / 9 / 27 / 81 / 243 / 729
-formal cost → 99 / 33 / 66 / 99 / 1782 / 2178 / TBD
-Lv1–6 requiredHydraKills = null
-affordability alone may unlock the next sequential purchase
-formal purchases stop at 243
-next 729 status → pricePending true / available false
-purchase 729 → reason price-pending
-legacy old-curve save cannot gain free 729 APS
-TEST can still set 729 APS
-owned 729 remains valid / MAX
+Tree View:
+99→100 unlock exactly via logical state
+logical100 → visible99 / overflow1
+logical729 → visible99 / overflow630
+View imports no Systems/Core and never state.update
 
-Command Spell II:
-Lv1 requiredGenerationKills = 0
-Lv1 before first Hydra II manual cut → eligibilityMet false / unavailable
-Lv1 first Hydra II cut 9→10 with 0 Hydra II kills → eligibilityMet true
-first cut + balance297 → Lv1 purchasable while encounter1 alive
-Lv2+ reveal Hydra II kills → 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99
-NP max → 132 / 66 / 198 / 396 / 198 / 594 / 792 / 396 / 1188
-manual NP strike → 3 / 3 / 3 / 6 / 6 / 6 / 9 / 9 / 9
-duration → 3 / 3 / 9 / 9 / 9 / 27 / 27 / 27 / 81 s
-33/66 charged + Lv1 purchase → 33/132
-Lv9 full gauge release → 81s fixed window
-outside NP → manual tap remains strikeCount1
-inside NP → current CSII strike count
+CS III:
+first gen3 NP release → eligibility milestone/event
+before CSIII + NP → Auto0
+CS I 9 APS + Lv1 → 1 APS in NP
+CS I 9 APS + Lv2 → 3 APS in NP
+CS I 9 APS + MAX → 9 APS in NP
+Auto does not inherit CSII manual×3
+formal costs null → purchase reason price-pending
+TEST progression changes no HE / kills / base CS I APS
 
-Command Spell panel:
-exactly three fixed slots
-I / II first-eligible+affordable → available NEW
-owned but poor → owned-dim and still clickable
-owned + affordable → LV UP state
-MAX distinct from dormant / dim
-243 APS next729 → PRICE TBD and no purchase
-III → dormant / disabled
-CSII title → 「快點……再快點……！」
-CSII NEXT exposes strike / NP requirement / duration
-successful purchase → modal closes
-close target >=44px
-backdrop tap closes; card tap does not
-View imports no Systems / Math / Core
-View never spends Humanity Evil
-Application modal action routes to runtime purchase APIs
+NP:
+active cuts do not recharge
+nested release rejected
+head growth suppressed in Hydra I/II/III
 
-NP time stop:
-active NP + Auto unlocked → zero auto cuts
-Hydra II + active NP → structural growth suppressed
-active NP cuts → zero NP charge
-active NP second release → np-already-active / no extra modifier
-expiry → normal Hydra law / Auto / NP charge resume
-
-View:
-NP timer is simulation-time driven / pointer-events none
-logical81 → visible81
-logical729 → visible99
+UI:
+CS III pre-eligibility dormant
+eligible + price pending → NEW / PRICE TBD / dim / clickable detail / no purchase
+Tree View unlock button and observational overlay exist
 ```
 
-核心原則：**怪遊戲，正常架構。**
+核心原則：**怪遊戲，正常架構；數字可以逃出畫面，邏輯不能逃出邊界。**
