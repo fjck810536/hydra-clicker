@@ -13,6 +13,8 @@ const npButton = document.querySelector('[data-np-button]');
 const commandSpellButton = document.querySelector('[data-command-spell-button]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
+const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
+const testHydra98Button = document.querySelector('[data-test-hydra-98]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
 const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
 const autoApsReadout = document.querySelector('[data-test-auto-aps]');
@@ -24,6 +26,8 @@ if (
   || !commandSpellButton
   || !testToolsToggle
   || !testToolsPanel
+  || !testCommandSpellMaxButton
+  || !testHydra98Button
   || !resetSaveButton
   || !regenDelayReadout
   || !autoApsReadout
@@ -206,6 +210,28 @@ const handleTestToolsToggle = () => {
 };
 const unbindTestToolsToggle = bindFixedControl(testToolsToggle, handleTestToolsToggle);
 
+function enterNonPersistentTestSession() {
+  // Test presets intentionally never overwrite the player's real save. Reloading
+  // the page restores the last persisted normal session.
+  suppressPersistence = true;
+}
+
+const handleTestCommandSpellMax = () => {
+  enterNonPersistentTestSession();
+  const result = runtime.testPresets.maxCommandSpellI();
+  hud.setStatus(`TEST · COMMAND SPELL I Lv.MAX · ${result.attacksPerSecond} APS · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestCommandSpellMax = bindFixedControl(testCommandSpellMaxButton, handleTestCommandSpellMax);
+
+const handleTestHydra98 = () => {
+  enterNonPersistentTestSession();
+  runtime.testPresets.startHydraIEncounter98();
+  hud.setStatus('TEST · HYDRA I #98 · 97 KILLS COMPLETE · NOT SAVED');
+  renderSnapshot();
+};
+const unbindTestHydra98 = bindFixedControl(testHydra98Button, handleTestHydra98);
+
 const handleResetSave = () => {
   suppressPersistence = true;
   try {
@@ -314,6 +340,8 @@ window.addEventListener('pagehide', () => {
   unbindNpButton();
   unbindCommandSpellButton();
   unbindTestToolsToggle();
+  unbindTestCommandSpellMax();
+  unbindTestHydra98();
   unbindResetSave();
   offTick();
   offAttackResolved();
