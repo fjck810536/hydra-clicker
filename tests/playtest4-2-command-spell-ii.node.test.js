@@ -87,6 +87,29 @@ test('Command Spell II Lv.1 turns one NP manual tap into three separately resolv
   runtime.destroy();
 });
 
+test('Hydra II cap preset isolates the intended 81-head NP technique playtest', () => {
+  const runtime = createHydraIGameRuntime();
+  runtime.testPresets.commandSpellIILv1();
+  const cap = runtime.testPresets.startHydraIIAtCap();
+
+  let snapshot = runtime.snapshot();
+  assert.equal(cap.preset, 'hydra-ii-at-cap');
+  assert.equal(cap.heads, 81n);
+  assert.equal(snapshot.hydra.generation, 2);
+  assert.equal(snapshot.hydra.logicalHeadCount, 81n);
+  assert.equal(snapshot.hydra.encounter, 1n);
+  assert.ok(snapshot.progression.milestones.includes('hydra-ii-first-manual-cut'));
+  assert.equal(runtime.commandSpellIIPrototypeStatus().unlocked, true);
+
+  runtime.testPresets.readyNp();
+  assert.equal(runtime.releaseNp().accepted, true);
+  runtime.manualAttack();
+  snapshot = runtime.snapshot();
+  assert.equal(snapshot.hydra.logicalHeadCount, 78n);
+
+  runtime.destroy();
+});
+
 test('Command Spell II TEST preset is session-style progression only and invents no economy', () => {
   const runtime = createHydraIGameRuntime();
   const before = runtime.snapshot();
@@ -103,7 +126,7 @@ test('Command Spell II TEST preset is session-style progression only and invents
   runtime.destroy();
 });
 
-test('player shell exposes a compact NP timer and a non-persistent Command Spell II test control', async () => {
+test('player shell exposes compact NP timing and non-persistent Playtest 4.2 controls', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const css = await readFile(new URL('../css/style.css', import.meta.url), 'utf8');
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
@@ -112,10 +135,12 @@ test('player shell exposes a compact NP timer and a non-persistent Command Spell
   assert.match(html, /data-np-timer/);
   assert.match(html, /data-np-timer-value/);
   assert.match(html, /data-test-command-spell-ii/);
+  assert.match(html, /data-test-hydra-ii-cap/);
   assert.match(css, /\.np-timer[\s\S]*pointer-events:\s*none/);
   assert.match(css, /font-variant-numeric:\s*tabular-nums/);
   assert.match(appSource, /runtime\.npWindowStatus\(\)/);
   assert.match(appSource, /runtime\.testPresets\.commandSpellIILv1\(\)/);
+  assert.match(appSource, /runtime\.testPresets\.startHydraIIAtCap\(\)/);
   assert.match(appSource, /enterNonPersistentTestSession\(\)/);
   assert.match(timerSource, /toFixed\(1\)/);
   assert.doesNotMatch(timerSource, /setTimeout/);
