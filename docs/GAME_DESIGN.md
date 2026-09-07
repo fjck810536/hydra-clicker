@@ -1,10 +1,10 @@
-# Hydra Clicker — Game Design v0.10
+# Hydra Clicker — Game Design v0.11
 
-> Playtest 4.2：保留 Playtest 4.1 的 3 秒 manual-only NP 時停，不因 Hydra II「砍不動」立刻拉長時間；先依玩家端設計加入可見倒數，以及 Command Spell II Lv.1 的 NP-only「1 tap → 3 discrete cuts」prototype。正式價格與解鎖節點仍未決。
+> Playtest 4.3：把 `02_player_facing` 已確認的 Command Spell I / II 曲線正式同步到遊戲。人類惡採世代 ×3 掉落；Command Spell I 改為 powers-of-nine APS；Command Spell II 從 TEST prototype 升為正式 9-beat NP progression。N2–N6 本輪不動。
 
 ## 1. 核心一句話
 
-玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；學會靠狂點、NP 與 Auto Slash 跑贏 regeneration 後，Hydra II 把普通攻擊翻面成 **CUT 1 → GROW 2**。NP 則成為短時間「Hydra 法則與自動時間都暫停」的手動爆發窗，後續技法再讓玩家學會如何利用這三秒。
+玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；學會靠狂點、NP 與 Auto Slash 跑贏 regeneration 後，Hydra II 把普通攻擊翻面成 **CUT 1 → GROW 2**。NP 則成為短時間「Hydra 法則與自動時間都暫停」的手動爆發窗，Command Spell II 再逐步擴張這個特殊技法狀態。
 
 世代規模目前定義為：
 
@@ -23,6 +23,7 @@ Hydra III starting 9 · max 729 = 9³
 3. 規則反轉本身要先好玩，再逐步揭露數學。
 4. 世代擴張與 View mesh cap 分離。
 5. 玩家先感覺「進入下一幕」，再去理解背後數學。
+6. Humanity Evil 第一次在 Hydra II 形成令咒 I / II 的資源分配壓力。
 
 ## 2. Hydra I — Seal Candidate
 
@@ -50,7 +51,9 @@ Regen curve：
 
 實機節奏仍以 `docs/PLAYTEST_2.md` 為基準。
 
-## 3. NP — 66 head charge / time-stop window
+## 3. NP — dynamic gauge / time-stop window
+
+基礎狀態：
 
 ```text
 NP MAX = 66
@@ -59,6 +62,8 @@ NP MAX = 66
 release = 0
 window = 3000ms
 ```
+
+Command Spell II 會改變未來 NP 的 `maxPoints`、`durationMs` 與 NP-only manual strike count；NP System 本身仍負責 charge / release / active window lifecycle。
 
 NP 對 Hydra rule 的效果由 timed modifier 表達：
 
@@ -77,7 +82,7 @@ Hydra I + NP
 
 Hydra II + NP
 → immediate structural GROW is suppressed
-→ CUT 1 becomes net -1
+→ each resolved cut becomes net -1
 ```
 
 玩家端「時停」行為：
@@ -87,7 +92,7 @@ NP active
 → Auto Slash 暫停
 → 已購 Auto capability / APS 不消失
 → Manual Cut 仍可使用
-→ 玩家親手利用 3 秒把頭數往下砍
+→ Command Spell II STRIKE 決定每次 tap 解析幾刀
 
 NP ends
 → emit time-resume semantic cue
@@ -97,11 +102,9 @@ NP ends
 
 NP 期間砍掉的頭不是延後債務；window 結束時不會補回。
 
-Playtest 4.2 暫時繼續保留 **3 秒**。Hydra II 純手砍感到「砍不動」先視為可能的 progression pressure，而不是直接判定 duration 錯誤。
-
 ### 可見倒數
 
-NP active 時額外顯示 compact timer：
+NP active 時顯示 compact timer，例如：
 
 ```text
 TIME STOP
@@ -109,9 +112,11 @@ TIME STOP
 MANUAL ×1
 ```
 
-以 GameClock / modifier deadline 投影剩餘時間；不是 CSS 自己倒數。Command Spell II prototype 啟用時顯示 `MANUAL ×3`。
+升級後可顯示 `MANUAL ×3 / ×6 / ×9`，倒數由 GameClock / modifier deadline 投影，不由 CSS 控制 lifecycle。
 
-目前寶解 presentation 原型：
+N5 本輪未選，因此顯示精度維持既有 **0.1 s**。
+
+寶解 presentation：
 
 ```text
 寶具解放
@@ -119,79 +124,120 @@ MANUAL ×1
 射殺す百頭
 ```
 
-NP 結束時短暫提示：
+NP 結束：
 
 ```text
 TIME RESUMES
 時は動き出す
 ```
 
-所有動畫只負責 presentation；真正 3 秒生命週期仍由 Game Clock 決定。
+所有動畫只負責 presentation。
 
-## 4. Command Spell I — current core Auto Slash progression
+## 4. Command Spell I — cross-generation APS progression
+
+玩家端曲線正式改為：
 
 ```text
-kills  level    cost   Auto Slash
-9      Lv.1      99      1 APS
-12     Lv.2      22      2 APS
-16     Lv.3      33      4 APS
-22     Lv.4      44      8 APS
-30     Lv.5      66     16 APS
-40     Lv.6      88     32 APS
-66     Lv.MAX   132     64 APS
+1 → 3 → 9 → 27 → 81 → 243 → 729 APS
 ```
+
+價格：
+
+```text
+99 / 198 / 396 / 891 / 2673 / 8019 / 24057 人類惡
+```
+
+N2 本輪未選，因此**舊 reveal gates 暫時保留**：
+
+```text
+9 / 12 / 16 / 22 / 30 / 40 / 66 lifetime Hydra kills
+```
+
+這些只決定何時可見／可買；真正跨世代節奏主要由新價格造成。
 
 第一令咒能力與升級跨 Hydra generation 保留。
 
-NP 時停會暫停這個既有 Auto capability，但不移除它。未來若玩家端令咒設計要求「讓 Auto 重新進入時停」，應新增／解鎖對應 policy 或 capability，而不是取消目前的時停基準。
+NP 時停會暫停 Auto capability，但不移除它。普通時間的高 APS 在 Hydra II 仍是雙面刃：它同時增加切割、NP 充能與 Hydra 的切割誘發增殖壓力。
 
-## 5. Command Spell II — Lv.1 prototype only
+舊版已升級存檔採保守遷移：不按照舊 level number 免費灌成新 729 APS，而映射到不高於舊實際 APS 的新節點。
 
-目前只把玩家端相對明確的第一段效果做成 TEST prototype：
+## 5. Command Spell II — formal NP progression
 
-```text
-NP inactive
-→ 1 tap = 1 manual cut
-
-NP active + Command Spell II Lv.1 prototype
-→ 1 tap = 3 manual strikes
-→ Combat 逐刀 resolve
-→ 3 個 separate head:cut events
-```
-
-Hydra II + NP：
+基礎：
 
 ```text
-9
-→ tap
-→ 8
-→ 7
-→ 6
+1 cut / tap · 3 s · 66 NP
 ```
 
-這不是 `heads -= 3` 的 bulk damage；每一刀仍服從 Hydra Rule，若中途 true kill，Combat 在 killing strike 停止 batch。
+正式 canonical 9-beat：
 
-View 把同一個 3-strike manual request 投影成短促三連斬；動畫不決定傷害。
+| Lv | Beat | Cost | NP requirement | NP manual | Duration |
+|---:|---|---:|---:|---:|---:|
+| 1 | STRIKE | 297 | 132 | ×3 | 3 s |
+| 2 | EFFICIENCY I | 198 | 66 | ×3 | 3 s |
+| 3 | TIME | 396 | 198 | ×3 | 9 s |
+| 4 | STRIKE | 396 | 396 | ×6 | 9 s |
+| 5 | EFFICIENCY II | 330 | 198 | ×6 | 9 s |
+| 6 | TIME | 495 | 594 | ×6 | 27 s |
+| 7 | STRIKE | 594 | 792 | ×9 | 27 s |
+| 8 | EFFICIENCY III | 495 | 396 | ×9 | 27 s |
+| 9 | TIME · MAX | 693 | 1188 | ×9 | 81 s |
 
-### 此輪不固定正式 progression
-
-暫時只用既有 milestone 容器：
+Hydra II reveal cadence：
 
 ```text
-command-spell-2-lv1
+3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99 Hydra II kills
 ```
 
-並由 TEST session 開啟。現在**不**決定：
+Canonical NP requirement rhythm：
 
-- 正式解鎖於 Hydra II 第幾隻。
-- Humanity Evil 價格。
-- 是否有 ×6 / ×9。
-- 是否延長 NP duration。
-- 是否有後續令咒讓 Auto Slash 重新進入 TIME STOP。
+```text
+66 → 132 → 66 → 198 → 396 → 198 → 594 → 792 → 396 → 1188
+```
 
-先實測 ×3 是否讓三秒變得好玩，再用玩家自然產生需求的時間點決定經濟。
+Multistrike 仍只在 NP / time stop 中生效：
 
-## 6. Hydra II — 99-kill generation
+```text
+ordinary time → 1 tap = 1 cut
+NP             → 1 tap = 3 / 6 / 9 separate cut resolutions
+```
+
+每刀都會產生自己的 semantic cut；中途 true kill 時 batch 在 killing strike 停止。
+
+TIME upgrade 只影響**下一次**寶解。已經 active 的 NP modifier 有 release 當下固定的 `endsAt`，不會買升級後在半途中突然延長。
+
+NP max 改變時保留**實際已充點數**，而不是保留百分比。例如：
+
+```text
+33 / 66
+buy STRIKE I
+→ 33 / 132
+```
+
+目前 runtime 依 canonical 9-beat 線性購買。玩家端另有三 branch 自由購買構想，但尚未定義跨 branch 任意購買順序時的 NP requirement composition；實作不自行發明公式。
+
+## 6. Humanity Evil — true-kill economy
+
+Humanity Evil 只由 true Hydra kill 取得，不由 head cut / spawn / cap farming 取得。
+
+正式世代曲線：
+
+```text
+Humanity Evil / kill = 11 × 3^(generation - 1)
+```
+
+因此：
+
+```text
+Hydra I   11
+Hydra II  33
+Hydra III 99
+Hydra IV 297
+```
+
+NP 是 encounter 內的切頭循環資源；Humanity Evil 是跨 encounter / 跨世代長期資源。
+
+## 7. Hydra II — 99-kill generation
 
 ### 登場
 
@@ -217,7 +263,7 @@ Hydra II 邏輯上限：
 max heads = 81 = 9²
 ```
 
-接近上限時 growth 被 cap：
+接近上限：
 
 ```text
 80 → cut 1 / grow 2 → 81
@@ -226,25 +272,24 @@ max heads = 81 = 9²
 
 ### NP kill window
 
-NP active：
-
 ```text
 head growth disabled
 Auto Slash paused
 ↓
-manual CUT
+manual CUT / multistrike
 → GROW 0
 → net -1 per resolved strike
 ```
 
-最後一頭被砍掉：
+最後一頭：
 
 ```text
 1 → 0
 → Hydra II true kill
+→ +33 人類惡
 ```
 
-下一隻 Hydra II 重新從 9 頭開始；同一 NP window 若仍有效，可跨 encounter 繼續禁止生長，但 Auto 仍保持暫停，直到 NP 真正結束。
+下一隻 Hydra II 重新從 9 頭開始；同一 NP window 若仍有效，可以跨 encounter 繼續禁止生長。
 
 ### 世代完成
 
@@ -256,7 +301,7 @@ kill encounter 99
 HYDRA III
 ```
 
-## 7. Hydra III — shell only
+## 8. Hydra III — shell only
 
 目前只實作登場資料與安全停機：
 
@@ -270,7 +315,7 @@ combat rule = not implemented yet
 
 玩家可以看到 Hydra III 登場，但目前不進一步結算其戰鬥。
 
-## 8. Playtest 4 chapter presentation
+## 9. Playtest 4 chapter presentation
 
 Hydra II 已有玩家端章節層：
 
@@ -282,16 +327,19 @@ Hydra II 已有玩家端章節層：
 
 切幕與 palette 都不改 logical state，也不暫停 GameClock。
 
-## 9. Playtest 4.2 要回答的問題
+## 10. Playtest 4.3 要回答的問題
 
-1. `×3` 是否把 Hydra II 從「完全砍不動」推成「差一點／有機會」的三秒窗。
-2. 可見 `3.0 → 0.0` 是否讓寶解更緊張、更好笑，而不是干擾連點。
-3. 手機上一點三刀是否真的讀成三次斬擊。
-4. 81-cap 的 `81 → 81 → 81` 與 NP 中往下掉的對比是否更清楚。
-5. 若 ×3 成立，玩家究竟在哪個 Hydra II 進度自然想要它；以此決定正式解鎖節點與價格。
-6. 暫時是否仍應維持 3 秒，而不是先 buff duration。
+1. Hydra I 在新 1 / 3 / 9 APS 前段是否比舊 doubling tree 更自然。
+2. 新價格是否自然讓 27 / 81 APS 成為跨世代目標，而不是 Hydra I 內清空的 tutorial tree。
+3. Hydra II +33 人類惡是否讓每次 true kill 都有明顯經濟價值。
+4. 玩家是否真的感到「買普通時間 APS」與「買 NP power」之間的資源拉扯。
+5. 132→66→198… 的 NP requirement sawtooth 是否讀成壓力／舒緩，而不是莫名其妙改條。
+6. 9s / 27s / 81s 時停在 manual-only policy 下是否仍然好玩。
+7. ×6 / ×9 在 iPhone 上是否仍能讀成多刀，而不是視覺噪音。
 
-## 10. Analyzer / Tree View 候選後續
+詳細契約見 `docs/PLAYTEST_4_3.md`。
+
+## 11. Analyzer / Tree View 候選後續
 
 Hydra II 已開始提供自然的分析需求：
 
@@ -303,9 +351,9 @@ NET GROWTH
 MAX HEADS
 ```
 
-但 Playtest 4.2 仍先不加入。只有當玩家真的因 Hydra II / III 規則需要「看懂系統」時再登場。
+但此輪仍不加入。只有當玩家真的因 Hydra II / III 規則需要「看懂系統」時再登場。
 
-## 11. Logical Heads ≠ Visible Heads
+## 12. Logical Heads ≠ Visible Heads
 
 View contract 不變：
 
@@ -325,16 +373,24 @@ Hydra III max = 729
 → 畫面仍只顯示最多 99 顆
 ```
 
-## 12. 目前刻意未決
+## 13. 目前刻意未決
 
-- NP 基礎時間是否繼續維持 3 秒。
-- Command Spell II 的正式 unlock / cost / 完整 level curve。
-- Hydra II 81-cap 的最終 hit / replacement 演出。
+本輪 user 未選、所以不改：
+
+- N2：Command Spell I 新 reveal / availability thresholds。
+- N3：Hydra II 81 以下的增生 presentation delay。
+- N4：Hydra II 81-cap replacement timing。
+- N5：NP countdown display precision（暫留 0.1s）。
+- N6：Tree View 第一個正式 reveal point。
+
+其他仍未決：
+
+- Hydra II 81-cap 最終 hit / replacement 演出。
+- Command Spell II 三 branch 若允許自由購買時的 NP requirement composition rule。
 - Hydra III 正式 cut / growth / termination rule。
 - Hydra III 的 729 上限如何與真正 tree structure 對應。
 - Analyzer 出場節點。
-- Hydra II 99 隻中段是否需要新事件／升級節點。
 - Prestige / Offline Progress。
 - 真正 Kirby–Paris 規則在哪一代完整出現。
 
-原則：**先確認技法讓三秒變得好玩，再決定技法要賣多少錢。**
+原則：**先讓新的經濟曲線真的跑起來，再由實機決定下一個數字。**
