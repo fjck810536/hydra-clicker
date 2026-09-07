@@ -8,9 +8,20 @@ function formatPercent(value) {
 
 function formatCommandSpell(status) {
   if (!status) return 'COMMAND SPELL I';
-  if (status.purchased) return 'COMMAND SPELL I · OWNED';
-  if (status.available) return `COMMAND SPELL I · BUY ${formatInteger(status.cost)}`;
-  return `COMMAND SPELL I · ${formatInteger(status.kills)}/${formatInteger(status.requiredHydraKills)} KILLS`;
+
+  if (status.maxed) {
+    return `COMMAND SPELL I · Lv.MAX · ${status.attacksPerSecond} APS`;
+  }
+
+  if (status.available) {
+    return `COMMAND SPELL I · Lv.${status.nextLevel} · BUY ${formatInteger(status.cost)} · ${status.nextAttacksPerSecond} APS`;
+  }
+
+  if (status.level === 0) {
+    return `COMMAND SPELL I · ${formatInteger(status.kills)}/${formatInteger(status.requiredHydraKills)} KILLS`;
+  }
+
+  return `COMMAND SPELL I · Lv.${status.level} · NEXT ${formatInteger(status.requiredHydraKills)} KILLS`;
 }
 
 export function createHudView({ root } = {}) {
@@ -44,7 +55,9 @@ export function createHudView({ root } = {}) {
       npValue.textContent = npReady ? 'READY' : npPercent;
       npButton.textContent = npReady ? 'NP · RELEASE' : `NP · ${npPercent}`;
       npButton.disabled = !npReady || snapshot.hydra.defeated;
-      autoSlash.textContent = snapshot.master.commandSpells.autoSlash ? 'ON' : 'LOCKED';
+      autoSlash.textContent = snapshot.master.commandSpells.autoSlash
+        ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+        : 'LOCKED';
 
       commandSpellButton.textContent = formatCommandSpell(commandSpellI);
       commandSpellButton.disabled = !commandSpellI?.available;
