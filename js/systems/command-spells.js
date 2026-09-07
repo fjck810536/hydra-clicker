@@ -37,6 +37,13 @@ function milestoneId(definition, level) {
   return `${definition.id}-lv${level}`;
 }
 
+function parseMilestoneLevel(definition, id) {
+  const prefix = `${definition.id}-lv`;
+  if (typeof id !== 'string' || !id.startsWith(prefix)) return null;
+  const level = Number(id.slice(prefix.length));
+  return Number.isInteger(level) && level > 0 ? level : null;
+}
+
 function getCurrentLevel(snapshot, definition) {
   if (!snapshot.master.commandSpells.autoSlash) return 0;
 
@@ -59,6 +66,26 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
     throw new TypeError('Command Spell system requires an event bus.');
   }
   assertDefinition(definition);
+
+  // Playtest tuning may remove levels. Preserve already-earned lower milestones,
+  // but clamp saves that still carry an obsolete level above the current MAX.
+  // This specifically migrates the old Lv.8 / 128 APS experiment to 64 APS MAX
+  // without introducing a new state schema version.
+  const initialSnapshot = state.read();
+  const maxDefinition = definition.levels.at(-1);
+  const hasObsoleteHigherLevel = initialSnapshot.progression.milestones.some((id) => {
+    const level = parseMilestoneLevel(definition, id);
+    return level != null && level > maxDefinition.level;
+  });
+  if (
+    initialSnapshot.master.commandSpells.autoSlash
+    && hasObsoleteHigherLevel
+    && initialSnapshot.berserker.baseAttacksPerSecond > maxDefinition.attacksPerSecond
+  ) {
+    state.update((draft) => {
+      draft.berserker.baseAttacksPerSecond = maxDefinition.attacksPerSecond;
+    });
+  }
 
   let announcedLevel = null;
 
