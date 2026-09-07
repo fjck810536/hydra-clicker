@@ -22,6 +22,13 @@ function normalizedToPoints(value, maxPoints) {
   return Math.min(maxPoints, Math.max(0, Math.round(clamp01(value) * maxPoints)));
 }
 
+function isNpModifierActive(modifier, nowMs) {
+  if (!modifier || modifier.source !== 'np') return false;
+  const startsAt = modifier.startsAt ?? 0;
+  const endsAt = modifier.endsAt ?? Infinity;
+  return startsAt <= nowMs && nowMs < endsAt;
+}
+
 export function createNpSystem({
   state,
   events,
@@ -45,6 +52,11 @@ export function createNpSystem({
       ready: points >= maxPoints,
       normalized: points / maxPoints,
     });
+  }
+
+  function isActive(snapshot = state.read()) {
+    const nowMs = snapshot.time.simulationTimeMs;
+    return snapshot.modifiers.active.some((modifier) => isNpModifierActive(modifier, nowMs));
   }
 
   const offCut = events.on('head:cut', ({ payload }) => {
@@ -78,11 +90,30 @@ export function createNpSystem({
   });
 
   const offTick = events.on('clock:tick', ({ payload: tick }) => {
+    const expiredNpModifiers = [];
+    let npStillActive = false;
+
     state.update((draft) => {
       draft.modifiers.active = draft.modifiers.active.filter((modifier) => {
-        return modifier.endsAt == null || tick.nowMs < modifier.endsAt;
+        const expired = modifier.endsAt != null && tick.nowMs >= modifier.endsAt;
+        if (expired && modifier.source === 'np') expiredNpModifiers.push(modifier);
+        return !expired;
       });
+
+      npStillActive = draft.modifiers.active.some((modifier) => (
+        isNpModifierActive(modifier, tick.nowMs)
+      ));
     });
+
+    // `np:ended` is semantic lifecycle output for presentation and application
+    // policies. If windows overlap, time only resumes when the final active NP
+    // window is gone.
+    if (expiredNpModifiers.length > 0 && !npStillActive) {
+      events.emit('np:ended', {
+        atMs: tick.nowMs,
+        endedAtMs: Math.max(...expiredNpModifiers.map((modifier) => modifier.endsAt ?? tick.nowMs)),
+      });
+    }
   });
 
   function release() {
@@ -119,6 +150,7 @@ export function createNpSystem({
   return {
     release,
     getStatus,
+    isActive,
     isReady() {
       return getStatus().ready;
     },
