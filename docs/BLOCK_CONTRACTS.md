@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.17
+# Hydra Clicker — Block Contracts v0.18
 
-> v0.17 對齊 Playtest 4.2：NP lifecycle 額外提供 simulation-time countdown projection；Manual Attack Request 正式允許 `strikeCount > 1`；Command Spell II Lv.1 prototype 只在 NP active 時把一個 manual tap 投影成 3 個逐刀結算的 strikes。正式經濟仍未固定。
+> v0.18 對齊 Playtest 4.3：Command Spell I 採正式 powers-of-nine APS / price curve；Command Spell II 成為正式 9-level progression block；NP configuration 可由 CS II 動態投影；Humanity Evil reward 改為 generation-aware。State schema 仍為1。
 
 ## 1. Attack Request
 
@@ -14,13 +14,15 @@
 }
 ```
 
-`strikeCount` 是正整數；Combat 必須逐 strike resolve，而不是先乘成 bulk damage。
+`strikeCount` 是正整數；Combat 必須逐 strike resolve，不得先乘成 bulk damage。
 
-Playtest 4.2：
+Current application projection：
 
 ```text
 ordinary manual tap          → strikeCount 1
-NP + Command Spell II Lv.1   → strikeCount 3
+NP + CS II STRIKE I          → strikeCount 3
+NP + CS II STRIKE II         → strikeCount 6
+NP + CS II STRIKE III        → strikeCount 9
 ```
 
 ## 2. Cut Resolution
@@ -112,7 +114,34 @@ resolveCut → accepted false
 state unchanged
 ```
 
-## 7. Rule Context / NP modifier
+## 7. Humanity Evil reward
+
+Humanity Evil System consumes only `hydra:killed`。
+
+Core-injected reward：
+
+```text
+11 × 3^(generation - 1)
+```
+
+```text
+Gen I   11
+Gen II  33
+Gen III 99
+Gen IV 297
+```
+
+`currency:gain` payload includes `generation`。
+
+Forbidden reward inputs：
+
+```text
+head:cut
+headsSpawned
+cap stall time
+```
+
+## 8. Rule Context / NP modifier
 
 Modifier resolver：
 
@@ -123,16 +152,7 @@ Modifier resolver：
 }
 ```
 
-NP release：
-
-```text
-66/66 READY
-→ 3s hydra.headGrowth disable
-Hydra I  → no delayed regrowth
-Hydra II → no structural spawn
-```
-
-Current modifier remains：
+NP release creates：
 
 ```js
 {
@@ -146,13 +166,47 @@ Current modifier remains：
 }
 ```
 
-## 8. NP active lifecycle / countdown projection
+Hydra I → no new delayed regrowth。  
+Hydra II → no structural spawn。
+
+## 9. NP dynamic configuration
+
+NP System accepts：
+
+```js
+getConfig(snapshot) -> {
+  maxPoints,
+  pointsPerHead,
+  durationMs
+}
+```
+
+Current Core composition：
+
+```text
+Command Spell II status → maxPoints / durationMs
+base NP Data             → pointsPerHead
+```
+
+Explicit runtime test overrides retain priority。
+
+`getStatus()` contract remains：
+
+```js
+{
+  points,
+  maxPoints,
+  ready,
+  normalized
+}
+```
+
+## 10. NP active lifecycle / countdown
 
 NP System exposes：
 
 ```js
-isActive(snapshot) -> boolean
-
+isActive(snapshot)
 getWindowStatus(snapshot) -> {
   active,
   startsAt,
@@ -161,32 +215,50 @@ getWindowStatus(snapshot) -> {
 }
 ```
 
-Definition：
-
-```text
-there exists source:'np' modifier
-AND startsAt <= simulationTime < endsAt
-```
-
-`remainingMs` is derived from the active modifier deadline and current simulation time. It is not saved as a separate field and View does not own the countdown.
-
-NP expiry is processed on `clock:tick`.
-
-When the final active NP window expires：
+Release semantic event：
 
 ```js
-{
-  type: 'np:ended',
-  payload: {
-    atMs,
-    endedAtMs
-  }
+np:released {
+  atMs,
+  endsAt,
+  durationMs,
+  maxPoints,
+  modifier
 }
 ```
 
-If future NP windows overlap, removing one expired window does not emit `np:ended` while another NP window remains active。
+Expiry：
 
-## 9. Auto Slash — time-stop policy
+```js
+np:ended {
+  atMs,
+  endedAtMs
+}
+```
+
+`remainingMs` 是 simulation-time derived projection，不是 persistent field。
+
+TIME upgrade affects future release configuration only；active modifier keeps its fixed `endsAt`。
+
+## 11. NP gauge preservation on CS II purchase
+
+Because Save stores `berserker.np` normalized 0..1, a gauge-max change must preserve absolute charged points：
+
+```text
+oldPoints = round(oldNormalized × oldMax)
+newPoints = min(oldPoints, newMax)
+newNormalized = newPoints / newMax
+```
+
+Example：
+
+```text
+33/66 → buy Lv.1 → 33/132
+```
+
+Do not preserve percentage and thereby grant free NP。
+
+## 12. Auto Slash — time-stop policy
 
 Base requirements：
 
@@ -213,11 +285,9 @@ purchased capability / APS remain unchanged
 Manual Input remains accepted
 ```
 
-When NP ends, Auto Slash resumes accumulating on later Game Clock ticks。
+Auto Slash System itself does not import or name NP；Core supplies policy。
 
-Auto Slash System itself does not import or name NP；Core composition supplies the policy。
-
-## 10. Encounter / Generation Progression
+## 13. Encounter / Generation Progression
 
 ```text
 Hydra I kill #99
@@ -230,13 +300,9 @@ Hydra II encounter 99 defeated
 → Hydra III encounter 1 · heads 9
 ```
 
-Generation-local progress uses existing `hydra.encounter` + `hydra.defeated`; no persistent local kill counter。
+Generation-local player progress uses `hydra.encounter + defeated`；no new persistent local kill counter。
 
-## 11. Generation Progress View Projection
-
-Input：logical snapshot + generation config。
-
-Output：
+## 14. Generation Progress View Projection
 
 ```js
 {
@@ -248,22 +314,14 @@ Output：
 }
 ```
 
-Projection：
-
 ```text
 alive    → completedKills = encounter - 1
 defeated → completedKills = encounter
 ```
 
-Player HUD consumes this projection；lifetime kills remain Statistics / TEST data。
+## 15. Generation Transition / Appearance
 
-## 12. Generation Transition View
-
-Trigger：`hydra:generation-changed`。
-
-Contract：CSS animation only、pointer-events none、`animationend` closes overlay、no gameplay setTimeout、no GameClock pause。
-
-## 13. Generation Stage Appearance
+`hydra:generation-changed` → CSS-only transition, pointer-events none, no GameClock pause。
 
 ```text
 I   neutral dark
@@ -271,11 +329,9 @@ II  subtle yellow-green
 III cool violet
 ```
 
-NP active red tint has priority；NP ends → restore current generation palette。
+NP red tint has priority。
 
-## 14. NP Phase / Timer View
-
-Phase triggers：
+## 16. NP Phase / Timer View
 
 ```text
 np:released
@@ -288,103 +344,99 @@ np:ended
 → 時は動き出す
 ```
 
-Timer input：
+Timer consumes：
 
 ```text
 runtime.npWindowStatus()
-+ current NP manual strike count
+runtime.commandSpellIIStatus().npManualStrikeCount
 ```
 
-Timer output example：
+Example：
 
 ```text
 TIME STOP
-2.4 s
-MANUAL ×3
+8.4 s
+MANUAL ×6
 ```
 
-Contract：
+View-only；no View timer controls lifecycle。
 
-```text
-View-only
-pointer-events none
-phase card CSS animation only
-countdown reads simulation-time projection
-no View timer controls NP lifecycle
-```
-
-## 15. head:cut semantic event
+## 17. head:cut semantic event
 
 ```js
 {
-  type: 'head:cut',
-  payload: {
-    atMs,
-    source,
-    amount: headsRemoved,
-    spawned: headsSpawned,
-    turn,
-    depleted,
-    killed
-  }
+  atMs,
+  source,
+  amount: headsRemoved,
+  spawned: headsSpawned,
+  turn,
+  depleted,
+  killed
 }
 ```
 
-Presentation examples：
+A multi-strike manual request emits separate `attack:resolved` / `head:cut` events per accepted strike。Terminal kill stops later strikes in the same request。
+
+## 18. Command Spell I
+
+Confirmed Data：
+
+| Existing reveal kills* | Lv | Cost | APS |
+|---:|---:|---:|---:|
+| 9 | 1 | 99 | 1 |
+| 12 | 2 | 198 | 3 |
+| 16 | 3 | 396 | 9 |
+| 22 | 4 | 891 | 27 |
+| 30 | 5 | 2673 | 81 |
+| 40 | 6 | 8019 | 243 |
+| 66 | MAX | 24057 | 729 |
+
+`*` N2 was not selected this pass, so old reveal gates intentionally remain temporary。
+
+Purchase changes only：
 
 ```text
-Hydra II normal    → CUT 1 · GROW +2 · Δ +1
-Hydra II cap 81    → CUT 1 · GROW +1 · Δ 0
-Hydra II + NP      → CUT 1
-terminal NP cut    → CUT 1 · HYDRA DOWN
+Humanity Evil balance
+master.commandSpells.autoSlash capability
+berserker.baseAttacksPerSecond
+command-spell-1-lvN milestones
 ```
 
-A manual `strikeCount:3` request emits up to three separate `attack:resolved` / `head:cut` events. Terminal kill stops later strikes in the same request.
+Legacy upgraded saves map conservatively by stored APS, not old level number。
 
-## 16. Command Spell I
+## 19. Command Spell II
+
+Base：
 
 ```text
-kills  level    cost   Auto Slash
-9      Lv.1      99      1 APS
-12     Lv.2      22      2 APS
-16     Lv.3      33      4 APS
-22     Lv.4      44      8 APS
-30     Lv.5      66     16 APS
-40     Lv.6      88     32 APS
-66     Lv.MAX   132     64 APS
+manual ×1 · NP66 · 3s
 ```
 
-NP time-stop does not remove or respec this capability；it only pauses Auto while NP is active。
+Formal canonical levels：
 
-## 17. Command Spell II — Lv.1 prototype
+| Lv | Branch | Hydra II kills | Cost | NP max | Manual NP | Duration |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | STRIKE | 3 | 297 | 132 | ×3 | 3s |
+| 2 | EFF I | 9 | 198 | 66 | ×3 | 3s |
+| 3 | TIME | 18 | 396 | 198 | ×3 | 9s |
+| 4 | STRIKE | 27 | 396 | 396 | ×6 | 9s |
+| 5 | EFF II | 39 | 330 | 198 | ×6 | 9s |
+| 6 | TIME | 54 | 495 | 594 | ×6 | 27s |
+| 7 | STRIKE | 66 | 594 | 792 | ×9 | 27s |
+| 8 | EFF III | 81 | 495 | 396 | ×9 | 27s |
+| 9 | TIME · MAX | 99 | 693 | 1188 | ×9 | 81s |
 
-Prototype Data：
+Formal System owns availability / purchase / current NP configuration projection。
 
-```js
-{
-  id: 'command-spell-2',
-  firstLevelMilestone: 'command-spell-2-lv1',
-  npManualStrikeCount: 3
-}
-```
-
-Core application projection：
+State milestones：
 
 ```text
-milestone missing            → manual tap strikeCount 1
-milestone present + NP off   → manual tap strikeCount 1
-milestone present + NP on    → manual tap strikeCount 3
+command-spell-2-lv1 ... command-spell-2-lv9
 ```
 
-This prototype does **not** define formal unlock kills or Humanity Evil cost yet.
+Current implementation follows canonical order linearly。Independent cross-branch purchase composition remains unimplemented until player-facing NP-requirement composition is specified。
 
-The milestone uses the existing `progression.milestones` container; no state schema bump.
-
-Berserker View consumes the semantic request only for presentation and renders a visible rapid multi-strike. It never schedules the logical strikes.
-
-## 18. View / Head Pool
-
-Contract unchanged：
+## 20. View / Head Pool
 
 ```text
 logical 0–99 → same visible count
@@ -396,61 +448,78 @@ Hydra II max81   → visible ≤81
 Hydra III max729 → visible ≤99
 ```
 
-## 19. TEST Tools
+## 21. Player Controls / TEST Tools
+
+Formal footer：
+
+```text
+COMMAND SPELL I purchase
+COMMAND SPELL II purchase
+寶具解放
+```
+
+TEST remains session-only：
 
 ```text
 MAX COMMAND SPELL
 COMMAND SPELL II · ×3 NP
 START HYDRA #98
+HYDRA II · 81 HEADS
 NP READY
 RESET SAVE
-TOTAL KILLS readout
+TOTAL KILLS
 ```
 
-Presets 是 session-only，不覆蓋正常 save。
+TEST presets do not invent normal-save currency / kill progress。
 
-Command Spell II TEST preset may add `command-spell-2-lv1`, but must not invent lifetime kills, Humanity Evil or APS。
+## 22. Save
 
-## 20. Save
+State schema remains **1**。
 
-State schema仍為1。
-
-NP time-stop 不新增 persistent field：active state由既有 timed modifier + simulation timeline 決定；`np:ended` 是 runtime semantic event，不存檔。
-
-Command Spell II prototype uses existing `progression.milestones`; TEST sessions suppress persistence, so the temporary unlock is not written to the player's normal save.
-
-## 21. Required tests
+Reused persistent fields：
 
 ```text
+progression.milestones
+berserker.np normalized gauge
+modifiers.active timed NP window
+master.humanityEvil
+berserker.baseAttacksPerSecond
+```
+
+No Offline Progress added。
+
+## 23. Required tests
+
+```text
+Economy:
+Humanity Evil generations 1..4 → 11 / 33 / 99 / 297
+Hydra II true kill → +33
+no head-cut Humanity Evil path
+
+Command Spell I:
+APS → 1 / 3 / 9 / 27 / 81 / 243 / 729
+cost → 99 / 198 / 396 / 891 / 2673 / 8019 / 24057
+N2 reveal gates unchanged this pass
+legacy old-curve save cannot gain free 729 APS
+MAX TEST → 729 APS
+
+Command Spell II:
+reveal Hydra II kills → 3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99
+NP max → 132 / 66 / 198 / 396 / 198 / 594 / 792 / 396 / 1188
+manual NP strike → 3 / 3 / 3 / 6 / 6 / 6 / 9 / 9 / 9
+duration → 3 / 3 / 9 / 9 / 9 / 27 / 27 / 27 / 81 s
+33/66 charged + Lv1 purchase → 33/132
+Lv9 full gauge release → 81s fixed window
+outside NP → manual tap remains strikeCount1
+inside NP → current CSII strike count
+
 NP time stop:
-active NP + Auto unlocked + advance clock → zero auto cuts
-active NP + manual attack → accepted
-Hydra II active NP: 9 → 8, spawned=0
-heads cut during NP remain cut after expiry
-expiry → np:ended exactly once
-next ordinary Hydra II cut after expiry → GROW +2 resumes
-Auto resumes after expiry
-
-Playtest 4.2:
-NP release at t0 → remainingMs 3000
-advance 100ms → remainingMs 2900
-outside NP + CSII prototype → tap = 1 cut
-inside NP + CSII prototype → request strikeCount 3
-Hydra II 9 + NP + ×3 tap → 6 via 3 separate cuts
-TEST CSII unlock changes no kills / Humanity Evil / APS
-NP timer pointer-events none and simulation-time driven
-Berserker View projects multistrike without changing gameplay
-
-Hydra II:
-9 normal cut → 10
-81 normal cut → 81
-1 + headGrowth disabled → 0 + killed
-encounter99 kill → Hydra III at9
+active NP + Auto unlocked → zero auto cuts
+Hydra II + active NP → structural growth suppressed
+expiry → normal Hydra law / Auto resume
 
 View:
-Hydra II encounter1 alive → 0/99
-Hydra II encounter37 dead → 37/99
-Hydra III targetKills=null
+NP timer is simulation-time driven / pointer-events none
 logical81 → visible81
 logical729 → visible99
 ```
