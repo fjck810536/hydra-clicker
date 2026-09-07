@@ -22,6 +22,7 @@ const npTimerRoot = document.querySelector('[data-np-timer]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
+const testHumanityEvil999Button = document.querySelector('[data-test-humanity-evil-999]');
 const testCommandSpellIIButton = document.querySelector('[data-test-command-spell-ii]');
 const testHydra98Button = document.querySelector('[data-test-hydra-98]');
 const testHydraIICapButton = document.querySelector('[data-test-hydra-ii-cap]');
@@ -43,6 +44,7 @@ if (
   || !testToolsToggle
   || !testToolsPanel
   || !testCommandSpellMaxButton
+  || !testHumanityEvil999Button
   || !testCommandSpellIIButton
   || !testHydra98Button
   || !testHydraIICapButton
@@ -288,6 +290,14 @@ const handleTestCommandSpellMax = () => {
 };
 const unbindTestCommandSpellMax = bindFixedControl(testCommandSpellMaxButton, handleTestCommandSpellMax);
 
+const handleTestHumanityEvil999 = () => {
+  enterNonPersistentTestSession();
+  const result = runtime.testPresets.addHumanityEvil999();
+  hud.setStatus(`TEST · 人類惡 +999 · BALANCE ${result.balance.toString()} · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestHumanityEvil999 = bindFixedControl(testHumanityEvil999Button, handleTestHumanityEvil999);
+
 const handleTestCommandSpellII = () => {
   enterNonPersistentTestSession();
   const result = runtime.testPresets.commandSpellIILv1();
@@ -476,6 +486,7 @@ window.addEventListener('pagehide', () => {
   unbindCommandSpellIIButton();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
+  unbindTestHumanityEvil999();
   unbindTestCommandSpellII();
   unbindTestHydra98();
   unbindTestHydraIICap();
