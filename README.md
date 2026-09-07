@@ -2,62 +2,79 @@
 
 拔—灑卡，幹死那頭海德拉！
 
-一個瀏覽器上直接玩的低模 Hydra clicker / incremental game 原型。
+瀏覽器上的低模 Hydra clicker / incremental game 原型。iOS Safari portrait-first，Babylon.js 只負責 View；Hydra 規則、進程與 Save 都可 headless 測試。
 
-目前方向：固定側視角低模狂戰士持續斬擊 Hydra；前期是 Hydra 周回 clicker，中期把增殖轉化為素材農場，後期逐步解鎖 Tree View 與數學分析儀。
-
-## Current Design
+## Current Arc
 
 ```text
 Hydra I
-會復原，但砍到 0 就能討伐
+會復原；學會跑贏 regen
 ↓
 Command Spell I
-解鎖 Auto Slash
+Auto Slash 1 → 64 APS
 ↓
-Command Spell I upgrades
-逐步把 Auto Slash 從 1 APS 推到 64 APS
+99 kills
 ↓
-Hydra II
-CUT 1 → GROW 2
+Hydra II Intro
+第一刀：CUT 1 → GROW 2
+9 → 10
 ↓
-Command Spell II
-保留給之後測試（Auto NP 尚未實裝）
+Auto Slash 恢復
+看玩家剛建立的屠宰機開始把 Hydra 越砍越大
 ↓
-Hydra III / Analyzer / Tree View
+Analyzer / Tree View（尚未實裝）
 ```
-
-Hydra I → II → III 暫時不是傳統 prestige/reset；已購買的自動化與主要能力保留，只是 Hydra 規則逐代變化。
 
 ## Playtest Status
 
 ```text
-Phase 3 Blocks 1–9      ✅
-iPhone Playtest 1       ✅
-Hydra I Tuning A–E      ✅
-Playtest 2.1 Tools      ✅
-Playtest 2.2 Tuning     ✅
-Playtest 2.3 APS Curve  ✅
-Playtest 2.4 NP / APS   ✅
-Core CI                  ✅
-iPhone Playtest 2.4     ← NEXT
-Hydra II                 ⛔ not yet
+Hydra I Playtest 2 seal candidate ✅
+NP 66-point gauge               ✅
+Command Spell I 64 APS MAX      ✅
+iOS zoom issue                  ✅ resolved
+Playtest 3 Hydra II Intro       ✅ implemented
+Core CI                         ✅
+iPhone Playtest 3               ← NEXT
+Analyzer                        ⛔ not yet
+Command Spell II                ⛔ not yet
 ```
 
-目前 Playtest 2.4 tuning：
+## Hydra I Seal Candidate
 
-- **iOS zoom lock**：battle shell capture phase 阻止 touchend、multi-touch、dblclick 與 iOS gesture defaults；實機回報目前已正常。
-- **Hydra I**：`0 heads → killed`，terminal cut 清除 pending regrowth。
-- **NP gauge**：玩家看到 `0/66 → 66/66`；每砍 1 顆 head 固定 `+1 NP`，66 READY。存檔仍保存舊有 `0..1` normalized ratio，因此舊存檔可直接相容，例如舊 50% 會投影成 `33/66`。
-- **NP burst**：3.0 秒 `hydra.regrowth = disabled`，可跨 encounter；active 時背景／地面暗紅。
-- **Respawn**：普通 `300ms`；NP / regrowth-disabled burst `100ms`。
-- **Regen Curve**：`0→1500ms / 9→350ms / 99→100ms floor`；第 9 隻後逐隻繼續惡化但增幅遞減。
-- **Command Spell I**：第一令咒本身 Lv.1 → Lv.MAX；刻意保留 40→66 的 32 APS 高原，66 kills 才升到 64 APS MAX。
-- **TEST panel**：顯示 `REGEN xxx ms`、`AUTO xxx APS`，並提供 `RESET SAVE`。
-- **Hydra View**：只留小 root base；九頭越高越向左右外擴。
-- **Berserker**：正式 B叔 art pass 暫緩到玩法節奏穩定後。
+實機基準：
 
-### Command Spell I Playtest Curve
+```text
+約 Hydra 6
+→ 一般雙拇指快速點擊開始撞上 regen
+
+66 accepted head cuts
+→ NP READY
+
+9 / 12 / 16 / 22 / 30 / 40 / 66 kills
+→ 1 / 2 / 4 / 8 / 16 / 32 / 64 APS
+
+約 95 kills
+→ 64 APS 開始撞上 100ms regen floor
+
+95 → 99
+→ 一次 NP 可收尾
+```
+
+完整紀錄：[`docs/PLAYTEST_2.md`](docs/PLAYTEST_2.md)
+
+### NP
+
+```text
+0/66
+1 accepted head cut = +1
+66/66 = READY
+release = 0
+3.0s hydra.regrowth suppression
+```
+
+NP 可跨 encounter；READY 時即使場上暫時沒有 Hydra 也能 release。
+
+### Command Spell I
 
 ```text
 kills  level    cost   Auto Slash
@@ -70,108 +87,87 @@ kills  level    cost   Auto Slash
 66     Lv.MAX   132     64 APS
 ```
 
-Lv.1 後總升級成本 `385 人類惡`；第 9→66 隻以目前 `11 人類惡/kill` 會新增 `627`，因此理論上可沿途買滿並留下 `242`。
+40→66 故意留 32 APS plateau；舊 128 APS 實驗已撤回。
 
-### Current regen reference points
+## Playtest 3 — Hydra II Intro
 
-```text
-0 kills   → 1500 ms
-1 kill    → 1276 ms
-3 kills   → 923 ms
-6 kills   → 569 ms
-9 kills   → 350 ms
-30 kills  → 247 ms
-50 kills  → 174 ms
-66 kills  → 134 ms
-99 kills  → 100 ms floor
-```
-
-### Current active / idle hypothesis
-
-Playtest 2.4 目前想保留這個自然節奏：
+目前實驗入口：
 
 ```text
-前期 active tapping
-→ 大約 60 多顆 head 後拿到第一發 NP
-→ 玩家有時間理解 regen / NP 關係
-
-中期 Command Spell I
-→ Auto Slash 越來越強
-→ NP 仍然靠實際砍頭累積，不再 8 顆頭就免費 READY
-
-66 kills
-→ 64 APS MAX
-→ Auto 可以一路壓到末段
-→ 約 95 附近自然撞牆
-→ 一次 NP 可完成 95→99
+99 Hydra I kills
+→ HYDRA II
+→ 9 heads
 ```
 
-這是 playtest hypothesis，不是永久平衡。
+Hydra II 最小規則：
 
-## Docs / 積木編程規格
+```text
+CUT 1
+→ remove 1
+→ spawn 2 immediately
+→ ΔH = +1
+```
 
-- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲進程與 Hydra I 規則。
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Persistence 分層。
-- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、令咒升級、Save、Test Tools 等插頭。
-- [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 支援、科技、設施、Buff 的共用 Effect / Modifier 架構。
-- [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari portrait、battle-shell gesture lock 與 render boundary。
-- [`docs/SAVE_CONTRACT.md`](docs/SAVE_CONTRACT.md) — BigInt-safe persistence、Clock restore、offline progress boundary。
-- [`docs/PLAYTEST_1.md`](docs/PLAYTEST_1.md) — 第一次 iPhone 實機試玩原始觀察。
-- [`docs/PATCH_PLAN_HYDRA_I_TUNING.md`](docs/PATCH_PLAN_HYDRA_I_TUNING.md) — 第一次 tuning patch。
-- [`AGENTS.md`](AGENTS.md) — 給 ChatGPT、Codex、Claude Code 與未來 contributor 的施工守則。
+第一刀前，已購買的 Auto Slash **不會被移除**，但 attack request 暫停一次：
+
+```text
+HYDRA II · 9 heads
+AUTO PAUSED · TAP
+↓
+manual cut
+↓
+9 → 10
+CUT 1 · GROW +2 · Δ +1
+↓
+intro milestone
+↓
+Auto Slash resumes next Game Clock tick
+```
+
+現行 NP 只關閉 Hydra I 類型的 delayed `hydra.regrowth`；Hydra II 的 immediate `headsSpawned` 不受影響。這是 Playtest 3 刻意要測的「舊解法失效」。
+
+Hydra II 暫時沒有正式 kill condition、第二令咒、新經濟或 Analyzer；先只測規則反轉是否有趣。
 
 ## Engineering Principles
 
-1. **Hydra Math 不依賴 Babylon.js / DOM。**
-2. **Logical head count != rendered head count。** 畫面最多 99 heads。
-3. **離散數量維持整數。** heads / kills / currencies 等使用 `BigInt`。
-4. **View 只演出。** Mesh / animation / particle 不決定遊戲規則。
-5. **Gameplay Time 服從 GameClock。** 不依賴 FPS，不散落 gameplay `setTimeout()`。
-6. **Fate 梗與角色名是可替換 presentation/data。** 核心規則不依賴角色名稱。
-7. **Effect / Modifier 是支援、科技、設施與 Buff 的共同插頭。**
-8. **iOS portrait first。** Battle shell 禁 browser page zoom / scroll gesture；未來 Drawer 另定 interaction surface。
-9. **NP 是 generic Rule Modifier。** timed 3s `hydra.regrowth = disabled`，跨 encounter 存續到 `endsAt`。
-10. **NP gauge 與 persistence representation 分離。** 玩家看到 66-point gauge；Save 仍保存 normalized ratio。
-11. **Progression 不藏進 Combat。** kill、經濟、respawn、capability 分層處理。
-12. **再生曲線是 Data / rule context。** Combat 不知道第幾殺。
-13. **第一令咒升級是 progression milestone。** System 不直接命令 Auto Slash，只更新 capability/stat/milestone。
-14. **Save 只保存 logical state。** BigInt 精確 round trip；offline progress 明確為 OFF。
-15. **`depleted` 與 `killed` 概念仍分離。** Playtest 2 的 Hydra I 暫時令 0 heads 同時成立。
+1. Hydra Math 不依賴 Babylon / DOM。
+2. Logical heads != visible heads；畫面最多 99 heads。
+3. Heads / kills / currencies 使用 BigInt。
+4. Cut Resolution 明確區分 `headsRemoved`、`headsSpawned`、delayed `regrowth`。
+5. Game Clock 與 render FPS 分離。
+6. NP 是 generic timed rule modifier，不直接改 Hydra heads。
+7. Progression 決定 generation / encounter；Combat 不決定主線。
+8. Auto Slash intro guard 由 Core 注入 policy；Auto Slash System 不硬寫 Hydra II。
+9. Save 只保存 logical state；offline progress 仍 OFF。
+10. Fate 梗是可替換 presentation/data，不進核心規則。
+
+## Docs
+
+- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 目前玩法與 Hydra II Intro。
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — generation rule selection / progression / first-cut guard。
+- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Cut Resolution、NP、Auto、Hydra II contracts。
+- [`docs/PLAYTEST_2.md`](docs/PLAYTEST_2.md) — Hydra I 實機 seal candidate。
+- [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 共用 Effect / Modifier。
+- [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS portrait / gesture boundary。
+- [`docs/SAVE_CONTRACT.md`](docs/SAVE_CONTRACT.md) — Persistence / BigInt / Clock restore。
+- [`AGENTS.md`](AGENTS.md) — contributor / coding-agent 施工守則。
 
 ## Current Runtime
 
-- `index.html` — Babylon portrait stage + TEST panel
-- `css/style.css` — 100dvh / safe-area / battle-shell touch-action policy
-- `js/app.js` — runtime ↔ View / input / browser save lifecycle / gesture guard / Test Tools
-- `js/core/` — Clock / State / EventBus / Runtime / Save
-- `js/math/` — Hydra Rule / Cut Resolution / logical model
-- `js/input/` — 玩家意圖 → Attack Request
-- `js/systems/` — Combat / Auto Slash / Regrowth / Modifiers / NP / 人類惡 / Command Spell / Progression
-- `js/data/progression.js` — economy / respawn / regen / NP / Command Spell I level curve
-- `js/view/` — Battle Stage / NP tint / Hydra Head Pool / Berserker placeholder / HUD
-- `tests/*.node.test.js` — Node 核心與架構 contract tests
-- `.github/workflows/test.yml` — 每次 push 自動執行 `npm test`
-
-舊的 `js/game.js`, `js/hydra.js`, `js/heracles.js` 暫時保留供回溯；正式頁面已使用新 runtime。
-
-## Phase 3 — Complete
-
 ```text
-1 Core Clock + State
-2 Hydra I pure logic
-3 Combat / Auto Slash
-4 Babylon portrait stage
-5 Hydra visual head pool
-6 Berserker placeholder animation
-7 NP / Rule Modifier
-8 人類惡 / Command Spell I / encounter loop
-9 Save / Restore
+js/core/       Clock / State / Runtime / Save
+js/math/       Hydra I + II Rules / Cut Resolution / logical model
+js/input/      Manual Attack
+js/systems/    Combat / Auto Slash / NP / Progression / Economy
+js/data/       tuning + progression definitions
+js/view/       Babylon stage / Hydra projection / HUD
 ```
 
-Playtest 2.4 現在主要回答：
+### Playtest 3 現在只需要看
 
-1. 前期雙拇指狂點是否大約在第 6 隻附近自然撞牆，並在此前後累積到接近第一發 66 NP。
-2. `66 heads = NP READY` 是否讓前期有足夠學習／思考時間，又不至於拖。
-3. 30 kills / 16 APS 的改善是否仍成立。
-4. 40→66 的 32 APS 高原會不會太長，還是剛好讓 Hydra 重新追上。
-5. 66 kills / 64 APS MAX 是否已經夠滿；末段卡牆後一次 NP 收 95→99 是否自然。
+1. 第 99 隻後切到 Hydra II 是否夠清楚。
+2. Auto 暫停後，你是否自然會點第一刀，而不是覺得壞掉。
+3. 第一刀 `9 → 10` 是否真的形成「等等，怎麼變多了？」的瞬間。
+4. 64 APS 恢復後，頭數膨脹到 99 visible cap 的速度是否太快／剛好。
+5. 按 NP 後 Hydra II 照樣長頭，會讓你覺得有趣還是像 bug。
+6. 你是否自然開始想知道 cuts/sec / spawn/sec / net growth；如果會，下一步就是 Analyzer v0.1。
