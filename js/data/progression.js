@@ -58,14 +58,130 @@ export function getHydraIRegenDelayMs(
   return Math.max(minDelayMs, Math.round(curvedDelay));
 }
 
+export function getHumanityEvilRewardForGeneration(
+  generation,
+  {
+    basePerKill = 11n,
+    generationMultiplier = 3n,
+  } = {},
+) {
+  if (!Number.isInteger(generation) || generation < 1) {
+    throw new RangeError('generation must be a positive integer.');
+  }
+  if (typeof basePerKill !== 'bigint' || basePerKill < 0n) {
+    throw new TypeError('basePerKill must be a non-negative BigInt.');
+  }
+  if (typeof generationMultiplier !== 'bigint' || generationMultiplier < 1n) {
+    throw new TypeError('generationMultiplier must be a positive BigInt.');
+  }
+
+  return basePerKill * (generationMultiplier ** BigInt(generation - 1));
+}
+
+// N2 (new reveal thresholds) is intentionally not implemented yet. These kill
+// gates are the existing implementation carry-over; only the confirmed APS and
+// Humanity Evil prices are changed in this pass.
 const COMMAND_SPELL_I_LEVELS = Object.freeze([
   Object.freeze({ level: 1, requiredHydraKills: 9n, cost: 99n, attacksPerSecond: 1 }),
-  Object.freeze({ level: 2, requiredHydraKills: 12n, cost: 22n, attacksPerSecond: 2 }),
-  Object.freeze({ level: 3, requiredHydraKills: 16n, cost: 33n, attacksPerSecond: 4 }),
-  Object.freeze({ level: 4, requiredHydraKills: 22n, cost: 44n, attacksPerSecond: 8 }),
-  Object.freeze({ level: 5, requiredHydraKills: 30n, cost: 66n, attacksPerSecond: 16 }),
-  Object.freeze({ level: 6, requiredHydraKills: 40n, cost: 88n, attacksPerSecond: 32 }),
-  Object.freeze({ level: 7, requiredHydraKills: 66n, cost: 132n, attacksPerSecond: 64 }),
+  Object.freeze({ level: 2, requiredHydraKills: 12n, cost: 198n, attacksPerSecond: 3 }),
+  Object.freeze({ level: 3, requiredHydraKills: 16n, cost: 396n, attacksPerSecond: 9 }),
+  Object.freeze({ level: 4, requiredHydraKills: 22n, cost: 891n, attacksPerSecond: 27 }),
+  Object.freeze({ level: 5, requiredHydraKills: 30n, cost: 2673n, attacksPerSecond: 81 }),
+  Object.freeze({ level: 6, requiredHydraKills: 40n, cost: 8019n, attacksPerSecond: 243 }),
+  Object.freeze({ level: 7, requiredHydraKills: 66n, cost: 24057n, attacksPerSecond: 729 }),
+]);
+
+const COMMAND_SPELL_II_LEVELS = Object.freeze([
+  Object.freeze({
+    level: 1,
+    branch: 'strike',
+    rewardLabel: 'NP MANUAL ×3',
+    requiredGenerationKills: 3n,
+    cost: 297n,
+    npManualStrikeCount: 3,
+    npMaxPoints: 132,
+    npDurationMs: 3000,
+  }),
+  Object.freeze({
+    level: 2,
+    branch: 'efficiency',
+    rewardLabel: 'NP EFFICIENCY I',
+    requiredGenerationKills: 9n,
+    cost: 198n,
+    npManualStrikeCount: 3,
+    npMaxPoints: 66,
+    npDurationMs: 3000,
+  }),
+  Object.freeze({
+    level: 3,
+    branch: 'time',
+    rewardLabel: 'TIME STOP 9 s',
+    requiredGenerationKills: 18n,
+    cost: 396n,
+    npManualStrikeCount: 3,
+    npMaxPoints: 198,
+    npDurationMs: 9000,
+  }),
+  Object.freeze({
+    level: 4,
+    branch: 'strike',
+    rewardLabel: 'NP MANUAL ×6',
+    requiredGenerationKills: 27n,
+    cost: 396n,
+    npManualStrikeCount: 6,
+    npMaxPoints: 396,
+    npDurationMs: 9000,
+  }),
+  Object.freeze({
+    level: 5,
+    branch: 'efficiency',
+    rewardLabel: 'NP EFFICIENCY II',
+    requiredGenerationKills: 39n,
+    cost: 330n,
+    npManualStrikeCount: 6,
+    npMaxPoints: 198,
+    npDurationMs: 9000,
+  }),
+  Object.freeze({
+    level: 6,
+    branch: 'time',
+    rewardLabel: 'TIME STOP 27 s',
+    requiredGenerationKills: 54n,
+    cost: 495n,
+    npManualStrikeCount: 6,
+    npMaxPoints: 594,
+    npDurationMs: 27000,
+  }),
+  Object.freeze({
+    level: 7,
+    branch: 'strike',
+    rewardLabel: 'NP MANUAL ×9',
+    requiredGenerationKills: 66n,
+    cost: 594n,
+    npManualStrikeCount: 9,
+    npMaxPoints: 792,
+    npDurationMs: 27000,
+  }),
+  Object.freeze({
+    level: 8,
+    branch: 'efficiency',
+    rewardLabel: 'NP EFFICIENCY III',
+    requiredGenerationKills: 81n,
+    cost: 495n,
+    npManualStrikeCount: 9,
+    npMaxPoints: 396,
+    npDurationMs: 27000,
+  }),
+  Object.freeze({
+    level: 9,
+    branch: 'time',
+    rewardLabel: 'TIME STOP 81 s · MAX',
+    requiredGenerationKills: 99n,
+    cost: 693n,
+    npManualStrikeCount: 9,
+    npMaxPoints: 1188,
+    npDurationMs: 81000,
+  }),
 ]);
 
 export const HYDRA_GENERATIONS = Object.freeze({
@@ -90,7 +206,12 @@ export const HYDRA_GENERATIONS = Object.freeze({
 });
 
 export const HYDRA_I_PROGRESSION = Object.freeze({
+  // Legacy alias retained for Hydra I-only callers/tests.
   humanityEvilPerKill: 11n,
+  humanityEvil: Object.freeze({
+    basePerKill: 11n,
+    generationMultiplier: 3n,
+  }),
   respawnDelayMs: 300,
   burstRespawnDelayMs: 100,
   regenCurve: HYDRA_I_REGEN_CURVE,
@@ -111,9 +232,19 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     unlocks: Object.freeze(['combat.autoSlash']),
     levels: COMMAND_SPELL_I_LEVELS,
   }),
-  // Player-facing design has confirmed the first Command Spell II effect but
-  // not its economy/unlock ladder yet. Keep the effect testable without
-  // inventing permanent pricing or progression thresholds.
+  commandSpellII: Object.freeze({
+    id: 'command-spell-2',
+    displayName: 'Command Spell II',
+    unlockGeneration: 2,
+    base: Object.freeze({
+      npManualStrikeCount: 1,
+      npMaxPoints: 66,
+      npDurationMs: 3000,
+    }),
+    levels: COMMAND_SPELL_II_LEVELS,
+  }),
+  // Compatibility alias for the existing Playtest 4.2 TEST preset/API while
+  // formal Command Spell II progression replaces the prototype-only path.
   commandSpellIIPrototype: Object.freeze({
     id: 'command-spell-2',
     firstLevelMilestone: 'command-spell-2-lv1',
