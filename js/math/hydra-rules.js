@@ -37,6 +37,13 @@ function rejectedAtZero(ruleId, turn) {
   };
 }
 
+function isHeadGrowthEnabled(ruleContext) {
+  if (ruleContext?.headGrowthEnabled === false) return false;
+  // Legacy direct rule tests/callers may still provide the old specific field.
+  if (ruleContext?.regrowthEnabled === false) return false;
+  return true;
+}
+
 export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
   if (!Number.isFinite(regenDelayMs) || regenDelayMs < 0) {
     throw new RangeError('regenDelayMs must be a finite number >= 0.');
@@ -60,7 +67,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
 
       const headsPerStrike = normalizeHeadsPerStrike(attack);
       const removable = minBigInt(headsPerStrike, hydraState.logicalHeadCount);
-      const regrowthEnabled = ruleContext.regrowthEnabled !== false;
+      const headGrowthEnabled = isHeadGrowthEnabled(ruleContext);
       const effectiveRegenDelayMs = ruleContext.regrowthDelayMs ?? regenDelayMs;
 
       if (!Number.isFinite(effectiveRegenDelayMs) || effectiveRegenDelayMs < 0) {
@@ -72,9 +79,6 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
       }
 
       const remaining = hydraState.logicalHeadCount - removable;
-
-      // Playtest 2 experiment: Hydra I treats reaching zero heads as terminal death.
-      // depleted/killed remain distinct concepts for later Hydra generations.
       const killed = remaining === 0n;
 
       return {
@@ -85,7 +89,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
         headsRemoved: removable,
         headsSpawned: 0n,
         materialsProduced: 0n,
-        regrowth: regrowthEnabled && !killed
+        regrowth: headGrowthEnabled && !killed
           ? [
               {
                 executeAt: nowMs + effectiveRegenDelayMs,
@@ -109,7 +113,7 @@ export function createHydraIIRule() {
     id: 'hydra-ii-cut-one-grow-two',
     generation: 2,
 
-    resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0 } = {}) {
+    resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0, ruleContext = {} } = {}) {
       assertHydraState(hydraState);
 
       if (typeof turn !== 'bigint' || turn < 0n) {
@@ -125,10 +129,10 @@ export function createHydraIIRule() {
         return rejectedAtZero(this.id, turn);
       }
 
-      // Hydra II's reveal is structural and immediate: each removed head produces
-      // two new heads in the same resolution. This is not Hydra I delayed regrowth,
-      // so the current hydra.regrowth suppression modifier does not disable it.
-      const spawned = removable * 2n;
+      // Hydra II normally turns every removed head into two immediate heads. A
+      // generic head-growth suppression modifier (currently NP) can disable this
+      // structural spawn without changing the cut itself.
+      const spawned = isHeadGrowthEnabled(ruleContext) ? removable * 2n : 0n;
 
       return {
         accepted: true,
@@ -142,7 +146,9 @@ export function createHydraIIRule() {
         cancelPendingRegrowth: false,
         depleted: false,
         killed: false,
-        effects: ['slash-hit', 'hydra-grow-two'],
+        effects: spawned > 0n
+          ? ['slash-hit', 'hydra-grow-two']
+          : ['slash-hit', 'hydra-growth-suppressed'],
       };
     },
   });
