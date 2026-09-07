@@ -78,6 +78,8 @@ export function getHumanityEvilRewardForGeneration(
   return basePerKill * (generationMultiplier ** BigInt(generation - 1));
 }
 
+const HYDRA_II_FIRST_MANUAL_CUT_MILESTONE = 'hydra-ii-first-manual-cut';
+
 // Command Spell I now follows the player-facing affordability-driven pacing.
 // Levels 1–6 have no independent kill gate: sequential prerequisites + the
 // shared Humanity Evil balance naturally produce the intended chapter timing.
@@ -104,7 +106,7 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 1,
     branch: 'strike',
     rewardLabel: 'NP MANUAL ×3',
-    requiredGenerationKills: 3n,
+    requiredGenerationKills: 0n,
     cost: 297n,
     npManualStrikeCount: 3,
     npMaxPoints: 132,
@@ -246,6 +248,7 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     id: 'command-spell-2',
     displayName: 'Command Spell II',
     unlockGeneration: 2,
+    firstEligibilityMilestone: HYDRA_II_FIRST_MANUAL_CUT_MILESTONE,
     base: Object.freeze({
       npManualStrikeCount: 1,
       npMaxPoints: 66,
@@ -263,7 +266,7 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
   hydraIIIntro: Object.freeze({
     unlockAtHydraKills: 99n,
     generation: 2,
-    firstManualCutMilestone: 'hydra-ii-first-manual-cut',
+    firstManualCutMilestone: HYDRA_II_FIRST_MANUAL_CUT_MILESTONE,
   }),
   hydraIIIIntro: Object.freeze({
     fromGeneration: 2,
