@@ -1,6 +1,6 @@
-# Hydra Clicker — Effect / Modifier Architecture v0.6
+# Hydra Clicker — Effect / Modifier Architecture v0.7
 
-> v0.6 對齊 Playtest 4.1：NP 的 Hydra effect 仍然只是 generic `hydra.headGrowth` rule modifier。Auto Slash 在 NP 中暫停，是 Core composition 根據 active NP window 注入的 application policy；不是新的 persistent effect type，也不是讓 Hydra Rule 或 Auto Slash System 知道 NP 名稱。
+> v0.7 對齊 Playtest 4.5.1：NP 的 Hydra effect 仍然只是 generic `hydra.headGrowth` rule modifier；新增 lifecycle invariant：active NP window 不接受 nested release，也不從 active-window cuts 充下一條 NP。這不是新的 Effect Type，而是 NP System 對 timed modifier lifecycle 的擁有權。
 
 ## 1. 目標
 
@@ -109,7 +109,7 @@ Command Spell I
 → combat.autoSlash capability
 ```
 
-Playtest 4.1 的 NP 時停**不移除 capability**；它只讓 Auto execution policy 在 window 內判定 disabled。
+NP 時停**不移除 capability**；它只讓 Auto execution policy 在 window 內判定 disabled。
 
 ## 6. Effect Type D — Policy
 
@@ -117,7 +117,7 @@ Playtest 4.1 的 NP 時停**不移除 capability**；它只讓 Auto execution po
 
 目前尚未建立通用的 persistent Policy Effect aggregator。
 
-### Playtest 4.1 的 Auto pause 不是新 Effect Type 落地
+### Auto pause 不是新 Effect Type 落地
 
 目前實作是最小 application composition：
 
@@ -184,6 +184,8 @@ OVERRIDE
 
 目前 `hydra.headGrowth / disable` 尚無 stacking 複雜度。
 
+對 NP 自身則有更強的 source lifecycle invariant：正常 gameplay **不允許同時建立第二個 active NP modifier**。這不是一般 modifier stacking 規則，而是 NP release 的資源／狀態規則。
+
 ## 10. Support / Facility / Research
 
 這些未來內容只應提供標準 Effect / Modifier，不得直接改 Hydra state 或呼叫 Combat internals。
@@ -212,13 +214,35 @@ encounter change：不影響
 Save / Restore：保存 modifier + simulation timeline
 ```
 
-Playtest 4.1 在最後一個 active NP window 到期時 emit：
+最後一個 active NP window 到期時 emit：
 
 ```text
 np:ended
 ```
 
 這是 semantic lifecycle event，不是另一個 modifier。
+
+### NP single-window invariant
+
+NP System owns release / charge lifecycle around the modifier：
+
+```text
+NP inactive
+→ accepted head:cut may charge gauge
+→ READY may release one timed modifier
+
+NP active
+→ accepted head:cut still affects Combat/Hydra
+→ but contributes 0 NP charge
+→ release() rejected with np-already-active
+→ no second NP modifier is appended
+
+NP expires
+→ np:ended
+→ ordinary cut charging resumes
+```
+
+這避免長時間 Command Spell II TIME upgrade 在自己的 81 秒 window 中養出下一發 NP 並無限續時停。
 
 不能由 View 動畫結束事件決定 Buff 是否過期；`寶具解放` / `TIME RESUMES` cards 只投影 `np:released` / `np:ended`。
 
@@ -238,13 +262,14 @@ np:ended
 
 只有真的出現新的遊戲概念，才增加 System / Effect Type。
 
-Playtest 4.1 特別避免：
+特別避免：
 
 ```text
 NP System → 直接呼叫 AutoSlash.stop()
 Auto Slash → if (np)
 Hydra Rule → if (source === 'np')
 View → 決定 NP endsAt
+active NP release → 默默 append 第二個相同 source modifier
 ```
 
 ## 14. 目前實作狀態
@@ -262,6 +287,8 @@ rule-modifier
 timed lifecycle
 → NP 可跨 encounter，直到 endsAt
 → final expiry emits np:ended
+→ active window cuts do not recharge NP
+→ active window rejects nested release
 
 application composition policy
 → active NP temporarily prevents Auto Slash requests
