@@ -16,7 +16,7 @@ Command Spell I
 解鎖 Auto Slash
 ↓
 Command Spell I upgrades
-逐步把 Auto Slash 從 1 APS 推到 128 APS
+逐步把 Auto Slash 從 1 APS 推到 64 APS
 ↓
 Hydra II
 CUT 1 → GROW 2
@@ -38,19 +38,21 @@ Hydra I Tuning A–E      ✅
 Playtest 2.1 Tools      ✅
 Playtest 2.2 Tuning     ✅
 Playtest 2.3 APS Curve  ✅
+Playtest 2.4 NP / APS   ✅
 Core CI                  ✅
-iPhone Playtest 2.3     ← NEXT
+iPhone Playtest 2.4     ← NEXT
 Hydra II                 ⛔ not yet
 ```
 
-目前 Playtest 2.3 tuning：
+目前 Playtest 2.4 tuning：
 
 - **iOS zoom lock**：battle shell capture phase 阻止 touchend、multi-touch、dblclick 與 iOS gesture defaults；實機回報目前已正常。
 - **Hydra I**：`0 heads → killed`，terminal cut 清除 pending regrowth。
-- **NP**：3.0 秒 `hydra.regrowth = disabled`，可跨 encounter；active 時背景／地面暗紅。
+- **NP gauge**：玩家看到 `0/66 → 66/66`；每砍 1 顆 head 固定 `+1 NP`，66 READY。存檔仍保存舊有 `0..1` normalized ratio，因此舊存檔可直接相容，例如舊 50% 會投影成 `33/66`。
+- **NP burst**：3.0 秒 `hydra.regrowth = disabled`，可跨 encounter；active 時背景／地面暗紅。
 - **Respawn**：普通 `300ms`；NP / regrowth-disabled burst `100ms`。
 - **Regen Curve**：`0→1500ms / 9→350ms / 99→100ms floor`；第 9 隻後逐隻繼續惡化但增幅遞減。
-- **Command Spell I**：不是新增第二令咒，而是第一令咒本身 Lv.1 → Lv.MAX；Auto Slash 採 doubling curve。
+- **Command Spell I**：第一令咒本身 Lv.1 → Lv.MAX；刻意保留 40→66 的 32 APS 高原，66 kills 才升到 64 APS MAX。
 - **TEST panel**：顯示 `REGEN xxx ms`、`AUTO xxx APS`，並提供 `RESET SAVE`。
 - **Hydra View**：只留小 root base；九頭越高越向左右外擴。
 - **Berserker**：正式 B叔 art pass 暫緩到玩法節奏穩定後。
@@ -65,11 +67,10 @@ kills  level    cost   Auto Slash
 22     Lv.4      44      8 APS
 30     Lv.5      66     16 APS
 40     Lv.6      88     32 APS
-52     Lv.7     110     64 APS
-66     Lv.MAX   132    128 APS
+66     Lv.MAX   132     64 APS
 ```
 
-Lv.1 後總升級成本 `495 人類惡`；第 9→66 隻以目前 `11 人類惡/kill` 會新增 `627`，因此理論上可沿途買滿並留下 `132`。
+Lv.1 後總升級成本 `385 人類惡`；第 9→66 隻以目前 `11 人類惡/kill` 會新增 `627`，因此理論上可沿途買滿並留下 `242`。
 
 ### Current regen reference points
 
@@ -85,27 +86,33 @@ Lv.1 後總升級成本 `495 人類惡`；第 9→66 隻以目前 `11 人類惡/
 99 kills  → 100 ms floor
 ```
 
-### Kill 66 Peak Burst Experiment
+### Current active / idle hypothesis
 
-設計目標：第 66 隻附近，NP 期間至少 **>6 Hydra/sec**。
-
-目前 headless runtime 已驗證：
+Playtest 2.4 目前想保留這個自然節奏：
 
 ```text
-Command Spell I Lv.MAX = 128 APS
-NP active
-burst respawn = 100ms
-Progression tick before Auto Slash tick
-→ 10 Hydra kills / 1 simulated second
+前期 active tapping
+→ 大約 60 多顆 head 後拿到第一發 NP
+→ 玩家有時間理解 regen / NP 關係
+
+中期 Command Spell I
+→ Auto Slash 越來越強
+→ NP 仍然靠實際砍頭累積，不再 8 顆頭就免費 READY
+
+66 kills
+→ 64 APS MAX
+→ Auto 可以一路壓到末段
+→ 約 95 附近自然撞牆
+→ 一次 NP 可完成 95→99
 ```
 
-這是邏輯 throughput；手機畫面是否真的「爽」仍以實機 Playtest 為準。
+這是 playtest hypothesis，不是永久平衡。
 
 ## Docs / 積木編程規格
 
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — 遊戲進程與 Hydra I 規則。
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Core / Math / Systems / Input / View / Persistence 分層。
-- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、令咒升級、burst throughput、Save、Test Tools 等插頭。
+- [`docs/BLOCK_CONTRACTS.md`](docs/BLOCK_CONTRACTS.md) — Attack、Cut、Regrowth、NP、Auto Slash、令咒升級、Save、Test Tools 等插頭。
 - [`docs/EFFECT_MODIFIER_ARCHITECTURE.md`](docs/EFFECT_MODIFIER_ARCHITECTURE.md) — 支援、科技、設施、Buff 的共用 Effect / Modifier 架構。
 - [`docs/PLATFORM_CONTRACT.md`](docs/PLATFORM_CONTRACT.md) — iOS Safari portrait、battle-shell gesture lock 與 render boundary。
 - [`docs/SAVE_CONTRACT.md`](docs/SAVE_CONTRACT.md) — BigInt-safe persistence、Clock restore、offline progress boundary。
@@ -124,11 +131,12 @@ Progression tick before Auto Slash tick
 7. **Effect / Modifier 是支援、科技、設施與 Buff 的共同插頭。**
 8. **iOS portrait first。** Battle shell 禁 browser page zoom / scroll gesture；未來 Drawer 另定 interaction surface。
 9. **NP 是 generic Rule Modifier。** timed 3s `hydra.regrowth = disabled`，跨 encounter 存續到 `endsAt`。
-10. **Progression 不藏進 Combat。** kill、經濟、respawn、capability 分層處理。
-11. **再生曲線是 Data / rule context。** Combat 不知道第幾殺。
-12. **第一令咒升級是 progression milestone。** System 不直接命令 Auto Slash，只更新 capability/stat/milestone。
-13. **Save 只保存 logical state。** BigInt 精確 round trip；offline progress 明確為 OFF。
-14. **`depleted` 與 `killed` 概念仍分離。** Playtest 2 的 Hydra I 暫時令 0 heads 同時成立。
+10. **NP gauge 與 persistence representation 分離。** 玩家看到 66-point gauge；Save 仍保存 normalized ratio。
+11. **Progression 不藏進 Combat。** kill、經濟、respawn、capability 分層處理。
+12. **再生曲線是 Data / rule context。** Combat 不知道第幾殺。
+13. **第一令咒升級是 progression milestone。** System 不直接命令 Auto Slash，只更新 capability/stat/milestone。
+14. **Save 只保存 logical state。** BigInt 精確 round trip；offline progress 明確為 OFF。
+15. **`depleted` 與 `killed` 概念仍分離。** Playtest 2 的 Hydra I 暫時令 0 heads 同時成立。
 
 ## Current Runtime
 
@@ -139,7 +147,7 @@ Progression tick before Auto Slash tick
 - `js/math/` — Hydra Rule / Cut Resolution / logical model
 - `js/input/` — 玩家意圖 → Attack Request
 - `js/systems/` — Combat / Auto Slash / Regrowth / Modifiers / NP / 人類惡 / Command Spell / Progression
-- `js/data/progression.js` — economy / respawn / regen / Command Spell I level curve
+- `js/data/progression.js` — economy / respawn / regen / NP / Command Spell I level curve
 - `js/view/` — Battle Stage / NP tint / Hydra Head Pool / Berserker placeholder / HUD
 - `tests/*.node.test.js` — Node 核心與架構 contract tests
 - `.github/workflows/test.yml` — 每次 push 自動執行 `npm test`
@@ -160,10 +168,10 @@ Progression tick before Auto Slash tick
 9 Save / Restore
 ```
 
-Playtest 2.3 現在主要回答：
+Playtest 2.4 現在主要回答：
 
-1. 9→12→16→22→30 的前段攻速升級，是否真的避免第 30 隻前開始乏味。
-2. 32 / 64 APS 時，Auto Slash 是否開始有「壓過 Hydra」的感覺。
-3. 第 66 隻 Lv.MAX 128 APS + NP 是否真的形成屠宰場式爽感。
-4. 100ms burst respawn 在手機上是否太快，以致畫面只剩閃爍；若是，View 演出與 logical throughput 要分開處理。
-5. 66 之後爽感是否自然開始飽和，讓 Hydra II 有合理登場時機。
+1. 前期雙拇指狂點是否大約在第 6 隻附近自然撞牆，並在此前後累積到接近第一發 66 NP。
+2. `66 heads = NP READY` 是否讓前期有足夠學習／思考時間，又不至於拖。
+3. 30 kills / 16 APS 的改善是否仍成立。
+4. 40→66 的 32 APS 高原會不會太長，還是剛好讓 Hydra 重新追上。
+5. 66 kills / 64 APS MAX 是否已經夠滿；末段卡牆後一次 NP 收 95→99 是否自然。
