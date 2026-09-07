@@ -7,30 +7,33 @@ import { HYDRA_I_PROGRESSION } from '../js/data/progression.js';
 
 const LEVELS = HYDRA_I_PROGRESSION.commandSpellI.levels;
 
-test('Command Spell I upgrade data reaches 64 APS Lv.MAX at kill 66', () => {
+test('Command Spell I uses the confirmed power-of-nine APS and price curve', () => {
+  // N2 was not selected for this implementation pass, so the previous reveal
+  // thresholds remain in force while the confirmed APS / prices change.
   assert.deepEqual(
     LEVELS.map((entry) => Number(entry.requiredHydraKills)),
     [9, 12, 16, 22, 30, 40, 66],
   );
   assert.deepEqual(
     LEVELS.map((entry) => Number(entry.cost)),
-    [99, 22, 33, 44, 66, 88, 132],
+    [99, 198, 396, 891, 2673, 8019, 24057],
   );
   assert.deepEqual(
     LEVELS.map((entry) => entry.attacksPerSecond),
-    [1, 2, 4, 8, 16, 32, 64],
+    [1, 3, 9, 27, 81, 243, 729],
   );
 
   const postUnlockCost = LEVELS.slice(1).reduce((sum, entry) => sum + entry.cost, 0n);
-  assert.equal(postUnlockCost, 385n);
+  assert.equal(postUnlockCost, 36234n);
   assert.equal((66n - 9n) * HYDRA_I_PROGRESSION.humanityEvilPerKill, 627n);
+  assert.ok(postUnlockCost > 627n, 'the new curve is intentionally cross-generation');
 });
 
-test('an old save with Auto Slash unlocked is treated as Command Spell I Lv.1', () => {
+test('a save with only Auto Slash unlocked is treated as Command Spell I Lv.1', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
   initialState.statistics.totalHydrasKilled = 12n;
-  initialState.master.humanityEvil = 22n;
+  initialState.master.humanityEvil = 198n;
 
   const runtime = createHydraIGameRuntime({ initialState });
   const before = runtime.commandSpellIStatus();
@@ -38,18 +41,18 @@ test('an old save with Auto Slash unlocked is treated as Command Spell I Lv.1', 
   assert.equal(before.level, 1);
   assert.equal(before.nextLevel, 2);
   assert.equal(before.available, true);
-  assert.equal(before.nextAttacksPerSecond, 2);
+  assert.equal(before.nextAttacksPerSecond, 3);
 
   const purchase = runtime.buyCommandSpellI();
   assert.equal(purchase.accepted, true);
   assert.equal(purchase.level, 2);
-  assert.equal(runtime.snapshot().berserker.baseAttacksPerSecond, 2);
+  assert.equal(runtime.snapshot().berserker.baseAttacksPerSecond, 3);
   assert.ok(runtime.snapshot().progression.milestones.includes('command-spell-1-lv2'));
 
   runtime.destroy();
 });
 
-test('legacy Playtest 2.3 Lv.8 / 128 APS save is clamped to current 64 APS MAX', () => {
+test('legacy 128 APS upgrade save migrates conservatively to 81 APS instead of receiving free 729 APS', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
   initialState.berserker.baseAttacksPerSecond = 128;
@@ -67,19 +70,22 @@ test('legacy Playtest 2.3 Lv.8 / 128 APS save is clamped to current 64 APS MAX',
   const runtime = createHydraIGameRuntime({ initialState });
   const status = runtime.commandSpellIStatus();
 
-  assert.equal(status.level, 7);
-  assert.equal(status.maxed, true);
-  assert.equal(status.attacksPerSecond, 64);
-  assert.equal(runtime.snapshot().berserker.baseAttacksPerSecond, 64);
+  assert.equal(status.level, 5);
+  assert.equal(status.maxed, false);
+  assert.equal(status.attacksPerSecond, 81);
+  assert.equal(status.nextAttacksPerSecond, 243);
+  assert.equal(runtime.snapshot().berserker.baseAttacksPerSecond, 81);
+  assert.equal(runtime.snapshot().progression.milestones.includes('command-spell-1-lv6'), false);
+  assert.equal(runtime.snapshot().progression.milestones.includes('command-spell-1-lv8'), false);
 
   runtime.destroy();
 });
 
-test('kill 66 economy can buy every post-unlock Command Spell I upgrade and leave reserve Humanity Evil', () => {
+test('enough cross-generation Humanity Evil can purchase every post-unlock Command Spell I upgrade', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
-  initialState.statistics.totalHydrasKilled = 66n;
-  initialState.master.humanityEvil = 627n;
+  initialState.statistics.totalHydrasKilled = 198n;
+  initialState.master.humanityEvil = 36234n;
 
   const runtime = createHydraIGameRuntime({ initialState });
 
@@ -98,16 +104,16 @@ test('kill 66 economy can buy every post-unlock Command Spell I upgrade and leav
 
   assert.equal(finalStatus.level, 7);
   assert.equal(finalStatus.maxed, true);
-  assert.equal(snapshot.berserker.baseAttacksPerSecond, 64);
-  assert.equal(snapshot.master.humanityEvil, 242n);
+  assert.equal(snapshot.berserker.baseAttacksPerSecond, 729);
+  assert.equal(snapshot.master.humanityEvil, 0n);
 
   runtime.destroy();
 });
 
-test('64 APS is deliberately paused by NP time stop instead of auto-clearing the final stretch', () => {
+test('729 APS is still paused by NP time stop', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
-  initialState.berserker.baseAttacksPerSecond = 64;
+  initialState.berserker.baseAttacksPerSecond = 729;
   initialState.berserker.np = 1;
   initialState.statistics.totalHydrasKilled = 95n;
   initialState.progression.milestones = [
@@ -132,10 +138,7 @@ test('64 APS is deliberately paused by NP time stop instead of auto-clearing the
   runtime.advance(100);
   assert.equal(runtime.isNpActive(), false);
 
-  // The old Playtest 2.3 expectation was that Auto Slash massacred through NP.
-  // Playtest 4.1 intentionally reverses that: manual cutting owns the NP window,
-  // while the already-purchased 64 APS capability resumes after time moves again.
-  runtime.advance(200);
+  runtime.advance(100);
   assert.ok(runtime.snapshot().statistics.totalHeadsCut > 0n);
 
   runtime.destroy();
