@@ -9,8 +9,10 @@ import { createGenerationTransitionView } from './view/generation-transition-vie
 import { createNpPhaseView } from './view/np-phase-view.js';
 import { createNpTimerView } from './view/np-timer-view.js';
 import { createCommandSpellPanel } from './view/command-spell-panel.js';
+import { createTreeView } from './view/tree-view.js';
 
 const AUTOSAVE_INTERVAL_MS = 5000;
+const VISIBLE_HEAD_CAP = 99n;
 
 const app = document.querySelector('[data-app]');
 const canvas = document.querySelector('#battle-canvas');
@@ -20,13 +22,18 @@ const commandSpellCloseButton = document.querySelector('[data-command-spell-clos
 const generationTransitionRoot = document.querySelector('[data-generation-transition]');
 const npPhaseRoot = document.querySelector('[data-np-phase]');
 const npTimerRoot = document.querySelector('[data-np-timer]');
+const treeViewToggle = document.querySelector('[data-tree-view-toggle]');
+const treeViewOverlay = document.querySelector('[data-tree-view-overlay]');
+const treeViewCloseButton = document.querySelector('[data-tree-view-close]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
 const testHumanityEvil999Button = document.querySelector('[data-test-humanity-evil-999]');
 const testCommandSpellIIButton = document.querySelector('[data-test-command-spell-ii]');
+const testCommandSpellIIIButton = document.querySelector('[data-test-command-spell-iii]');
 const testHydra98Button = document.querySelector('[data-test-hydra-98]');
 const testHydraIICapButton = document.querySelector('[data-test-hydra-ii-cap]');
+const testHydraIII99Button = document.querySelector('[data-test-hydra-iii-99]');
 const testNpReadyButton = document.querySelector('[data-test-np-ready]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
 const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
@@ -42,13 +49,18 @@ if (
   || !generationTransitionRoot
   || !npPhaseRoot
   || !npTimerRoot
+  || !treeViewToggle
+  || !treeViewOverlay
+  || !treeViewCloseButton
   || !testToolsToggle
   || !testToolsPanel
   || !testCommandSpellMaxButton
   || !testHumanityEvil999Button
   || !testCommandSpellIIButton
+  || !testCommandSpellIIIButton
   || !testHydra98Button
   || !testHydraIICapButton
+  || !testHydraIII99Button
   || !testNpReadyButton
   || !resetSaveButton
   || !regenDelayReadout
@@ -68,6 +80,17 @@ function formatGeneration(generation) {
 function formatDurationMs(durationMs) {
   const seconds = durationMs / 1000;
   return Number.isInteger(seconds) ? `${seconds}s` : `${seconds.toFixed(1)}s`;
+}
+
+function formatAps(value) {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function formatAutoNpFraction(status) {
+  if (status.autoNpNumerator <= 0) return 'OFF';
+  if (status.autoNpNumerator === status.autoNpDenominator) return 'FULL';
+  return `${status.autoNpNumerator}/${status.autoNpDenominator}`;
 }
 
 function bindFixedControl(button, handler) {
@@ -169,6 +192,7 @@ const commandSpellPanel = createCommandSpellPanel({ root: app });
 const generationTransition = createGenerationTransitionView({ root: generationTransitionRoot });
 const npPhase = createNpPhaseView({ root: npPhaseRoot });
 const npTimer = createNpTimerView({ root: npTimerRoot });
+const treeView = createTreeView({ root: app });
 
 function isHydraIIIntroPending(snapshot) {
   const intro = runtime.progression.hydraIIIntro;
@@ -217,6 +241,7 @@ const renderSnapshot = () => {
   const npActive = npWindow.active;
   const spellI = runtime.commandSpellIStatus();
   const spellII = runtime.commandSpellIIStatus();
+  const spellIII = runtime.commandSpellIIIStatus();
   const generationConfig = getGenerationConfig(snapshot);
   const generationProgress = projectGenerationProgress(snapshot, generationConfig);
 
@@ -226,11 +251,19 @@ const renderSnapshot = () => {
     hydraIIIntroPending: introPending,
     generationProgress,
   });
-  commandSpellPanel.render({ commandSpellI: spellI, commandSpellII: spellII });
+  commandSpellPanel.render({
+    commandSpellI: spellI,
+    commandSpellII: spellII,
+    commandSpellIII: spellIII,
+  });
   npTimer.render({
     active: npActive,
     remainingMs: npWindow.remainingMs,
     manualStrikeCount: spellII.npManualStrikeCount,
+  });
+  treeView.render(snapshot, {
+    visibleHeadCap: VISIBLE_HEAD_CAP,
+    maxHeads: generationConfig?.maxHeads ?? null,
   });
   hydraView.render(snapshot);
   stage.setGenerationAppearance(snapshot.hydra.generation);
@@ -239,20 +272,21 @@ const renderSnapshot = () => {
   app.dataset.npActive = npActive ? 'true' : 'false';
 
   const regenDelayMs = runtime.currentRegenDelayMs();
-  regenDelayReadout.textContent = snapshot.hydra.generation >= 3
-    ? 'RULE PENDING'
-    : regenDelayMs == null
-      ? 'STRUCTURAL'
-      : `${regenDelayMs} ms`;
-  autoApsReadout.textContent = snapshot.hydra.generation >= 3
-    ? 'PAUSED'
-    : npActive && snapshot.master.commandSpells.autoSlash
-      ? 'PAUSED · NP'
-      : introPending
-        ? 'PAUSED · TAP'
-        : snapshot.master.commandSpells.autoSlash
-          ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-          : 'LOCKED';
+  regenDelayReadout.textContent = regenDelayMs == null
+    ? 'STRUCTURAL'
+    : `${regenDelayMs} ms`;
+
+  if (!snapshot.master.commandSpells.autoSlash) {
+    autoApsReadout.textContent = 'LOCKED';
+  } else if (introPending) {
+    autoApsReadout.textContent = 'PAUSED · TAP';
+  } else if (npActive) {
+    autoApsReadout.textContent = spellIII.autoNpFraction > 0
+      ? `${formatAps(spellIII.autoNpAps)} APS · NP ${formatAutoNpFraction(spellIII)}`
+      : 'PAUSED · NP';
+  } else {
+    autoApsReadout.textContent = `${snapshot.berserker.baseAttacksPerSecond} APS`;
+  }
   totalKillsReadout.textContent = snapshot.statistics.totalHydrasKilled.toString();
 };
 
@@ -268,8 +302,12 @@ const handleCommandSpellSlotI = () => {
 const handleCommandSpellSlotII = () => {
   commandSpellPanel.open(2);
 };
+const handleCommandSpellSlotIII = () => {
+  commandSpellPanel.open(3);
+};
 const unbindCommandSpellSlotI = bindFixedControl(commandSpellPanel.slots[0], handleCommandSpellSlotI);
 const unbindCommandSpellSlotII = bindFixedControl(commandSpellPanel.slots[1], handleCommandSpellSlotII);
+const unbindCommandSpellSlotIII = bindFixedControl(commandSpellPanel.slots[2], handleCommandSpellSlotIII);
 
 const handleCommandSpellClose = () => {
   commandSpellPanel.close();
@@ -285,6 +323,7 @@ const handleCommandSpellPurchase = () => {
   let result = null;
   if (id === 'command-spell-1') result = runtime.buyCommandSpellI();
   if (id === 'command-spell-2') result = runtime.buyCommandSpellII();
+  if (id === 'command-spell-3') result = runtime.buyCommandSpellIII();
   if (result?.accepted) {
     persistNow();
     commandSpellPanel.close();
@@ -295,6 +334,16 @@ const unbindCommandSpellPurchase = bindFixedControl(
   commandSpellPanel.purchaseButton,
   handleCommandSpellPurchase,
 );
+
+const handleTreeViewOpen = () => {
+  treeView.open();
+};
+const handleTreeViewClose = () => {
+  treeView.close();
+};
+const unbindTreeViewToggle = bindFixedControl(treeViewToggle, handleTreeViewOpen);
+const unbindTreeViewClose = bindFixedControl(treeViewCloseButton, handleTreeViewClose);
+const unbindTreeViewBackdrop = bindModalBackdropClose(treeViewOverlay, handleTreeViewClose);
 
 const handleTestToolsToggle = () => {
   testToolsPanel.hidden = !testToolsPanel.hidden;
@@ -340,6 +389,26 @@ const handleTestCommandSpellII = () => {
 };
 const unbindTestCommandSpellII = bindFixedControl(testCommandSpellIIButton, handleTestCommandSpellII);
 
+const COMMAND_SPELL_III_TEST_LEVELS = Object.freeze([1, 2, 3]);
+let commandSpellIIITestCursor = -1;
+
+function formatCommandSpellIIITestLevel(level) {
+  return level === COMMAND_SPELL_III_TEST_LEVELS.at(-1) ? 'MAX' : `Lv.${level}`;
+}
+
+const handleTestCommandSpellIII = () => {
+  enterNonPersistentTestSession();
+  commandSpellIIITestCursor = (commandSpellIIITestCursor + 1) % COMMAND_SPELL_III_TEST_LEVELS.length;
+  const level = COMMAND_SPELL_III_TEST_LEVELS[commandSpellIIITestCursor];
+  const result = runtime.testPresets.setCommandSpellIIILevel(level);
+  const status = runtime.commandSpellIIIStatus();
+  const label = formatCommandSpellIIITestLevel(result.level);
+  testCommandSpellIIIButton.textContent = `CS III TEST · ${label} · NP AUTO ${formatAutoNpFraction(status)}`;
+  hud.setStatus(`TEST · COMMAND SPELL III ${label} · NP AUTO ${formatAutoNpFraction(status)} · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestCommandSpellIII = bindFixedControl(testCommandSpellIIIButton, handleTestCommandSpellIII);
+
 const handleTestHydra98 = () => {
   enterNonPersistentTestSession();
   runtime.testPresets.startHydraIEncounter98();
@@ -355,6 +424,14 @@ const handleTestHydraIICap = () => {
   renderSnapshot();
 };
 const unbindTestHydraIICap = bindFixedControl(testHydraIICapButton, handleTestHydraIICap);
+
+const handleTestHydraIII99 = () => {
+  enterNonPersistentTestSession();
+  const result = runtime.testPresets.startHydraIIIAt99();
+  hud.setStatus(`TEST · HYDRA III · ${result.heads.toString()} HEADS · TAP ONCE FOR 100 · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestHydraIII99 = bindFixedControl(testHydraIII99Button, handleTestHydraIII99);
 
 const handleTestNpReady = () => {
   enterNonPersistentTestSession();
@@ -402,9 +479,10 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
     return;
   }
 
-  berserkerView.playAttack({
-    speed: snapshot.berserker.baseAttacksPerSecond,
-  });
+  const visualSpeed = payload.request?.source === 'auto' && runtime.isNpActive()
+    ? Math.max(1, runtime.commandSpellIIIStatus().autoNpAps)
+    : snapshot.berserker.baseAttacksPerSecond;
+  berserkerView.playAttack({ speed: visualSpeed });
 });
 const offCut = runtime.events.on('head:cut', ({ payload }) => {
   if (payload.spawned > 0n) {
@@ -424,7 +502,12 @@ const offRegrow = runtime.events.on('head:regrow', ({ payload }) => {
 });
 const offNpReleased = runtime.events.on('np:released', ({ payload }) => {
   npPhase.showRelease();
-  hud.setStatus(`寶具解放 · TIME STOP · AUTO PAUSED · ${formatDurationMs(payload.durationMs)}`);
+  const snapshot = runtime.snapshot();
+  const spellIII = runtime.commandSpellIIIStatus();
+  const autoLabel = snapshot.master.commandSpells.autoSlash && spellIII.autoNpFraction > 0
+    ? `AUTO ${formatAps(spellIII.autoNpAps)} APS`
+    : 'AUTO PAUSED';
+  hud.setStatus(`寶具解放 · TIME STOP · ${autoLabel} · ${formatDurationMs(payload.durationMs)}`);
   renderSnapshot();
 });
 const offNpEnded = runtime.events.on('np:ended', () => {
@@ -459,7 +542,7 @@ const offGenerationChanged = runtime.events.on('hydra:generation-changed', ({ pa
   if (payload.generation === 2) {
     hud.setStatus('HYDRA II · AUTO PAUSED · TAP TO CUT');
   } else if (payload.generation === 3) {
-    hud.setStatus(`HYDRA III · 9 HEADS · MAX ${payload.maxHeads?.toString() ?? '729'} · RULE PENDING`);
+    hud.setStatus(`HYDRA III · 9 HEADS · MAX ${payload.maxHeads?.toString() ?? '729'} · VISIBLE CAP 99`);
   } else {
     hud.setStatus(`HYDRA ${formatGeneration(payload.generation)}`);
   }
@@ -469,10 +552,22 @@ const offIntroComplete = runtime.events.on('hydra:intro-complete', () => {
   persistNow();
   renderSnapshot();
 });
+const offTreeViewUnlocked = runtime.events.on('tree-view:unlocked', ({ payload }) => {
+  persistNow();
+  hud.setStatus(`TREE VIEW UNLOCKED · LOGICAL ${payload.logicalHeads.toString()} · VISIBLE 99`);
+  renderSnapshot();
+});
+const offSpellEligible = runtime.events.on('command-spell:eligible', ({ payload }) => {
+  if (payload.id === 'command-spell-3') {
+    persistNow();
+    hud.setStatus('COMMAND SPELL III REVEALED · AUTO IN NP · PRICE TBD');
+    renderSnapshot();
+  }
+});
 const offSpellAvailable = runtime.events.on('command-spell:available', ({ payload }) => {
   if (payload.id === 'command-spell-2') {
     hud.setStatus(`COMMAND SPELL II Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.rewardLabel}`);
-  } else {
+  } else if (payload.id === 'command-spell-1') {
     hud.setStatus(`COMMAND SPELL I Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.attacksPerSecond} APS`);
   }
   renderSnapshot();
@@ -481,6 +576,8 @@ const offSpellUnlocked = runtime.events.on('command-spell:unlocked', ({ payload 
   persistNow();
   if (payload.id === 'command-spell-2') {
     hud.setStatus(`COMMAND SPELL II Lv.${payload.level} · ${payload.rewardLabel} · NP ${payload.npMaxPoints}`);
+  } else if (payload.id === 'command-spell-3') {
+    hud.setStatus(`COMMAND SPELL III Lv.${payload.level} · NP AUTO ${payload.autoNpNumerator}/${payload.autoNpDenominator}`);
   } else {
     hud.setStatus(`AUTO SLASH ONLINE · ${payload.attacksPerSecond} APS`);
   }
@@ -490,6 +587,11 @@ const offSpellUpgraded = runtime.events.on('command-spell:upgraded', ({ payload 
   persistNow();
   if (payload.id === 'command-spell-2') {
     hud.setStatus(`COMMAND SPELL II Lv.${payload.level} · ${payload.rewardLabel} · NP ${payload.npMaxPoints}`);
+  } else if (payload.id === 'command-spell-3') {
+    const fraction = payload.autoNpNumerator === payload.autoNpDenominator
+      ? 'FULL'
+      : `${payload.autoNpNumerator}/${payload.autoNpDenominator}`;
+    hud.setStatus(`COMMAND SPELL III Lv.${payload.level} · NP AUTO ${fraction}`);
   } else {
     hud.setStatus(`COMMAND SPELL I Lv.${payload.level} · ${payload.attacksPerSecond} APS`);
   }
@@ -516,15 +618,21 @@ window.addEventListener('pagehide', () => {
   unbindNpButton();
   unbindCommandSpellSlotI();
   unbindCommandSpellSlotII();
+  unbindCommandSpellSlotIII();
   unbindCommandSpellClose();
   unbindCommandSpellBackdrop();
   unbindCommandSpellPurchase();
+  unbindTreeViewToggle();
+  unbindTreeViewClose();
+  unbindTreeViewBackdrop();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
   unbindTestHumanityEvil999();
   unbindTestCommandSpellII();
+  unbindTestCommandSpellIII();
   unbindTestHydra98();
   unbindTestHydraIICap();
+  unbindTestHydraIII99();
   unbindTestNpReady();
   unbindResetSave();
   offTick();
@@ -538,9 +646,12 @@ window.addEventListener('pagehide', () => {
   offRespawned();
   offGenerationChanged();
   offIntroComplete();
+  offTreeViewUnlocked();
+  offSpellEligible();
   offSpellAvailable();
   offSpellUnlocked();
   offSpellUpgraded();
+  treeView.close();
   commandSpellPanel.close();
   npPhase.destroy();
   generationTransition.destroy();
