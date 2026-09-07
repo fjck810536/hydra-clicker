@@ -4,12 +4,12 @@ import { readFile } from 'node:fs/promises';
 
 import { resolveRuleContext } from '../js/systems/modifiers.js';
 
-test('NP uses a generic timed rule modifier rather than a character-specific branch', () => {
+test('NP uses a generic timed head-growth rule modifier rather than a character-specific branch', () => {
   const context = resolveRuleContext([
     {
       id: 'np-test',
       type: 'rule-modifier',
-      target: 'hydra.regrowth',
+      target: 'hydra.headGrowth',
       effect: 'disable',
       startsAt: 100,
       endsAt: 500,
@@ -17,8 +17,26 @@ test('NP uses a generic timed rule modifier rather than a character-specific bra
     },
   ], 250);
 
+  assert.equal(context.headGrowthEnabled, false);
   assert.equal(context.regrowthEnabled, false);
-  assert.equal(resolveRuleContext([], 250).regrowthEnabled, true);
+  assert.equal(resolveRuleContext([], 250).headGrowthEnabled, true);
+});
+
+test('legacy hydra.regrowth modifier remains a compatibility alias for head-growth suppression', () => {
+  const context = resolveRuleContext([
+    {
+      id: 'legacy-np-test',
+      type: 'rule-modifier',
+      target: 'hydra.regrowth',
+      effect: 'disable',
+      startsAt: 0,
+      endsAt: 500,
+      source: 'np',
+    },
+  ], 250);
+
+  assert.equal(context.headGrowthEnabled, false);
+  assert.equal(context.regrowthEnabled, false);
 });
 
 test('portrait shell exposes an NP control without reopening page scrolling', async () => {
