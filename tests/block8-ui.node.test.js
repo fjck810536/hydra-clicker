@@ -14,25 +14,40 @@ test('Block 8 tuning lives in Data and reaches 99 Humanity Evil on the ninth kil
   );
 });
 
-test('portrait shell exposes progression controls without reopening page scroll', async () => {
+test('portrait shell exposes fixed three-slot progression controls without reopening page scroll', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const css = await readFile(new URL('../css/style.css', import.meta.url), 'utf8');
 
   assert.match(html, /data-hud="kills"/);
   assert.match(html, /data-hud="humanity-evil"/);
-  assert.match(html, /data-command-spell-button/);
+  assert.match(html, /data-command-spell-panel/);
+  assert.match(html, /data-command-spell-slot="1"/);
+  assert.match(html, /data-command-spell-slot="2"/);
+  assert.match(html, /data-command-spell-slot="3"/);
+  assert.match(html, /data-command-spell-modal/);
+  assert.match(html, /data-command-spell-purchase/);
   assert.match(css, /overflow:\s*hidden/);
-  assert.match(css, /\.command-spell-button[\s\S]*pointer-events:\s*auto/);
+  assert.match(css, /\.command-spell-slot[\s\S]*pointer-events:\s*auto/);
+  assert.match(css, /\.command-spell-slot[\s\S]*touch-action:\s*none/);
 });
 
-test('UI purchases Command Spell through runtime API rather than mutating logical state', async () => {
+test('Command Spell detail modal purchases through runtime APIs rather than mutating logical state', async () => {
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const hudSource = await readFile(new URL('../js/view/hud-view.js', import.meta.url), 'utf8');
+  const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
 
+  assert.match(appSource, /commandSpellPanel\.open\(1\)/);
+  assert.match(appSource, /commandSpellPanel\.open\(2\)/);
+  assert.match(appSource, /commandSpellPanel\.currentOpenSpellId\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellI\(\)/);
+  assert.match(appSource, /runtime\.buyCommandSpellII\(\)/);
   assert.match(appSource, /runtime\.commandSpellIStatus\(\)/);
+  assert.match(appSource, /runtime\.commandSpellIIStatus\(\)/);
   assert.doesNotMatch(appSource, /state\.update/);
   assert.doesNotMatch(appSource, /logicalHeadCount\s*=/);
-  assert.doesNotMatch(hudSource, /from ['"]\.\.\/systems\//);
-  assert.doesNotMatch(hudSource, /from ['"]\.\.\/math\//);
+
+  for (const source of [hudSource, panelSource]) {
+    assert.doesNotMatch(source, /from ['"]\.\.\/systems\//);
+    assert.doesNotMatch(source, /from ['"]\.\.\/math\//);
+  }
 });
