@@ -1,69 +1,54 @@
-# Hydra Clicker — Save Contract v0.1
+# Hydra Clicker — Save Contract v0.2
 
-> Block 9 persistence contract。目標是讓 Hydra I vertical slice 可以可靠關閉／重開，而不讓 Persistence 反過來污染遊戲規則。
+> Persistence 只保存 logical state，不讓 Save 反過來決定遊戲規則。v0.2 補充 Playtest 2.4 的 66-point NP gauge 相容策略。
 
-## 1. 第一原則
-
-Save 只保存 **logical state**。
-
-```text
-Runtime snapshot
-      ↓
-Save serializer
-      ↓
-versioned JSON envelope
-      ↓
-Storage adapter
-```
-
-禁止：
-
-```text
-Babylon scene
-mesh
-material / particle
-DOM element
-animation object
-head-pool slot
-visibleHeadCount cache
-```
-
-View 在讀檔後只從 restored snapshot 重新投影。
-
----
-
-## 2. Block 9 Save Envelope
-
-目前格式版本：
-
-```text
-formatVersion = 1
-```
-
-概念資料：
+## 1. Save envelope
 
 ```js
 {
   formatVersion: 1,
-  savedAtEpochMs: 1780000000000,
+  savedAtEpochMs,
   state: {
     // logical GameState only
   }
 }
 ```
 
-`state.schemaVersion` 與 `save.formatVersion` 是不同概念：
+`formatVersion` 與 `state.schemaVersion` 分開。
 
-- `formatVersion`：外層存檔編碼／envelope 格式。
-- `state.schemaVersion`：遊戲 logical state 的結構版本。
+目前 Playtest 2.4 **沒有**改 state schema / save format。
 
-未來若其中一層改變，應明確 migration，不要猜測舊資料。
+## 2. Save only logical state
 
----
+保存：
+
+```text
+Hydra logical state
+pending regrowth
+simulation time / tick
+normalized NP ratio
+active timed modifiers
+Humanity Evil
+Command Spell capability
+berserker base APS
+progression milestones
+statistics
+```
+
+不保存：
+
+```text
+Babylon scene / mesh / material / particle
+DOM
+animation objects
+visibleHeadCount cache
+NP display-point cache
+TEST UI state
+```
 
 ## 3. BigInt
 
-遊戲離散數量使用 BigInt：
+以下離散數量保持 BigInt exact round-trip：
 
 ```text
 heads
@@ -74,23 +59,41 @@ currencies
 materials
 ```
 
-原生 JSON 不支援 BigInt，因此 `save.js` 使用明確 tagged representation 做 round trip。
+原生 JSON 不支援 BigInt，因此 serializer 使用 tagged representation；不得先轉成 Number。
 
-要求：
+## 4. NP gauge compatibility — Playtest 2.4
+
+玩家現在看到：
 
 ```text
-BigInt → serialized tagged value → BigInt
+0 / 66 → 66 / 66
 ```
 
-不得先轉成 Number。
+但 persistent field 仍是既有：
 
-例如一個天文 logical head count 必須精確保存，不能因為 persistence 而失去位數。
+```text
+state.berserker.np ∈ [0, 1]
+```
 
----
+轉換：
 
-## 4. Simulation Time 必須一起恢復
+```text
+points = round(normalized × 66)
+normalized = points / 66
+```
 
-Hydra 的 timed state 使用 simulation time：
+原因：
+
+- 不新增 schema field。
+- 舊存檔可直接載入。
+- 舊 50% NP 自然變成 33/66。
+- View 不需要把 0/66 presentation cache 存下來。
+
+因此不要把 `berserker.np` 擅自改成 0..66 並假裝 schema 沒變。
+
+## 5. Simulation time restore
+
+Timed state：
 
 ```text
 pending regrowth.executeAt
@@ -98,186 +101,96 @@ NP modifier.startsAt / endsAt
 Hydra respawnAtMs
 ```
 
-因此載入 state 時，GameClock 也必須從：
+都使用 simulation time。
+
+Load 時 GameClock 必須從保存的：
 
 ```text
 state.time.simulationTimeMs
 state.time.tick
 ```
 
-繼續。
+繼續，不能重設為 0。
 
-錯誤：
+## 6. No Offline Progress
 
-```text
-load state at simulationTime = 12000
-clock restart at 0
-```
-
-這會讓所有 timed event 延遲或永遠不觸發。
-
-正確：
+`savedAtEpochMs` 目前只是 metadata。
 
 ```text
-saved state = 12000 ms
-saved clock = tick 120
-↓ load
-clock resumes at 12000 ms / tick 120
+關閉 8 小時
+→ 重開
+→ simulation 從離開點繼續
 ```
 
----
-
-## 5. Block 9 明確不做 Offline Progress
-
-`savedAtEpochMs` 目前只是 metadata / 未來 offline 計算的依據。
-
-現在：
+目前不補算：
 
 ```text
-關閉遊戲 8 小時
-↓
-重新開啟
-↓
-simulation 從離開時繼續
+Auto Slash
+Hydra regrowth
+NP duration
+Facility production
 ```
 
-不是：
+未來 Offline Farming 必須成為獨立 system + contract + tests。
 
-```text
-8 小時 × Auto Slash
-8 小時 × Facility production
-8 小時 × Hydra regrowth
-```
+## 7. Browser storage
 
-**不要只因為有 `savedAtEpochMs` 就自動補算現實時間。**
-
-未來若加入 Offline Farming，必須先定義：
-
-- 哪些 systems 可 offline。
-- offline elapsed time 上限。
-- Auto Slash / NP / Hydra encounter 如何批次模擬。
-- 大數／compressed tree 的 offline 成本。
-- 玩家是否需要 offline capability / facility。
-
-然後再新增獨立 offline-progress system 與 tests。
-
----
-
-## 6. Storage Adapter
-
-Block 9 browser adapter：
+目前：
 
 ```text
 localStorage
 key = hydra-clicker:save:v1
 ```
 
-但核心 serializer 不知道 `window` 或 DOM。
+`save.js` 只依賴 Storage-like adapter，不依賴 DOM / Babylon。
+
+Browser lifecycle：
 
 ```text
-save.js
-├─ serializeGameSave()
-├─ deserializeGameSave()
-└─ createSaveStore(Storage-like object)
+每 5 秒 simulation time autosave
+currency / progression key events save
+Command Spell purchase / upgrade save
+visibility hidden save
+pagehide final save
 ```
 
-所以未來可以替換：
+TEST → RESET SAVE 會先 suppress persistence，再 clear storage，避免 pagehide 把舊 snapshot 寫回。
 
-```text
-IndexedDB
-Cloud Save
-export/import file
-platform storage
-```
+## 8. Load failure
 
-而不改 Hydra / Combat / View。
-
----
-
-## 7. Browser Save Lifecycle
-
-目前 browser app：
-
-```text
-每 5 秒 simulation time
-→ autosave
-
-Humanity Evil / progression 關鍵事件
-→ save
-
-Command Spell unlock
-→ save
-
-visibilitychange → hidden
-→ save
-
-pagehide
-→ final save
-```
-
-Autosave cadence 是 persistence policy，不是遊戲規則。
-
----
-
-## 8. Load Failure
-
-以下情況不得把半套 state 套進遊戲：
+以下情況不得套半套 state：
 
 ```text
 invalid JSON
 unsupported formatVersion
-invalid BigInt payload
+invalid tagged BigInt
 state validation failure
-localStorage unavailable / throws
+storage unavailable
 ```
 
-Browser 可以：
+Browser 可以 warning 後 fresh start。
+
+## 9. Tests
+
+至少保持：
 
 ```text
-console warning
-↓
-start fresh runtime
+BigInt exact round-trip
+normalized NP ratio round-trip
+old np=0.5 → runtime projection 33/66
+base APS / Command Spell milestones round-trip
+pending regrowth preserves remaining simulation delay
+timed NP modifier resumes on saved simulation timeline
+8 real-world hours away → no offline simulation
+Save core imports no Babylon / DOM gameplay View
 ```
 
-Persistence failure 不應阻止 Hydra Clicker 啟動。
-
-未來正式版如果需要玩家可見的 save recovery UI，再另外增加。
-
----
-
-## 9. 測試邊界
-
-Block 9 至少保持：
-
-```text
-BigInt round trip exact
-
-pending regrowth:
-cut → save at 700ms → restore at 700ms
-→ 1400ms still 8 heads
-→ 1500ms regrow to 9
-
-real-world 8 hours away
-→ no automatic simulation advancement
-
-Save core
-→ no Babylon / DOM / gameplay-system imports
-
-App
-→ saveStore.save(runtime.snapshot())
-→ never save stage / mesh / View objects
-```
-
----
-
-## 10. 修改 Save 時的問題
-
-每次改 persistence 前先問：
+## 10. 修改 Save 前先問
 
 1. 這是 logical state 還是 presentation cache？
-2. 這個時間是 simulation time 還是 wall-clock time？
-3. 這個 BigInt 是否仍然精確？
-4. 舊 formatVersion / state.schemaVersion 如何處理？
-5. 是否正在不小心實作 offline progress？
+2. 這個時間是 simulation 還是 wall clock？
+3. BigInt 是否仍精確？
+4. 是否真的需要 schema / format migration？
+5. 是否不小心開始做 offline progress？
 
-如果第五題答案是「是」，先停下來，把它當成新的遊戲系統設計，而不是 Save 的順手功能。
+第五題若是「是」，先停下來把它當新系統設計。
