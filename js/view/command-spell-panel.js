@@ -8,6 +8,10 @@ function formatSeconds(durationMs) {
   return `${Math.round(durationMs / 1000)}s`;
 }
 
+function formatNpTechnique({ strikeCount, maxPoints, durationMs }) {
+  return `×${strikeCount} · NP ${maxPoints} · ${formatSeconds(durationMs)}`;
+}
+
 export function projectCommandSpellISlot(status) {
   if (!status) {
     return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
@@ -140,15 +144,21 @@ function modalModel(number, status) {
     };
   }
 
-  const current = status.unlocked
-    ? `×${status.npManualStrikeCount} · NP ${status.npMaxPoints} · ${formatSeconds(status.npDurationMs)}`
-    : '×1 · NP 66 · 3s';
+  const current = formatNpTechnique({
+    strikeCount: status.npManualStrikeCount,
+    maxPoints: status.npMaxPoints,
+    durationMs: status.npDurationMs,
+  });
   const next = status.maxed
     ? 'MAX'
-    : status.nextRewardLabel;
+    : formatNpTechnique({
+      strikeCount: status.nextNpManualStrikeCount,
+      maxPoints: status.nextNpMaxPoints,
+      durationMs: status.nextNpDurationMs,
+    });
 
   return {
-    title: '射殺す百頭',
+    title: '「快點……再快點……！」',
     subtitle: 'COMMAND SPELL II',
     level: status.unlocked ? `Lv.${status.level}` : 'Lv.0',
     current,
