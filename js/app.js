@@ -101,6 +101,18 @@ function bindFixedControl(button, handler) {
   };
 }
 
+function bindModalBackdropClose(root, handler) {
+  const handlePointerUp = (event) => {
+    if (event.target !== root) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    handler();
+  };
+
+  root.addEventListener('pointerup', handlePointerUp, { passive: false });
+  return () => root.removeEventListener('pointerup', handlePointerUp);
+}
+
 function bindBattleShellGestureLock(root) {
   const preventDefault = (event) => event.preventDefault();
   const preventTouchEnd = (event) => event.preventDefault();
@@ -263,13 +275,20 @@ const handleCommandSpellClose = () => {
   commandSpellPanel.close();
 };
 const unbindCommandSpellClose = bindFixedControl(commandSpellCloseButton, handleCommandSpellClose);
+const unbindCommandSpellBackdrop = bindModalBackdropClose(
+  commandSpellPanel.modal,
+  handleCommandSpellClose,
+);
 
 const handleCommandSpellPurchase = () => {
   const id = commandSpellPanel.currentOpenSpellId();
   let result = null;
   if (id === 'command-spell-1') result = runtime.buyCommandSpellI();
   if (id === 'command-spell-2') result = runtime.buyCommandSpellII();
-  if (result?.accepted) persistNow();
+  if (result?.accepted) {
+    persistNow();
+    commandSpellPanel.close();
+  }
   renderSnapshot();
 };
 const unbindCommandSpellPurchase = bindFixedControl(
@@ -498,6 +517,7 @@ window.addEventListener('pagehide', () => {
   unbindCommandSpellSlotI();
   unbindCommandSpellSlotII();
   unbindCommandSpellClose();
+  unbindCommandSpellBackdrop();
   unbindCommandSpellPurchase();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
