@@ -38,7 +38,10 @@ test('active NP time stop pauses Auto Slash while manual cuts remain accepted', 
   assert.equal(cuts[0].spawned, 0n);
   assert.equal(runtime.snapshot().hydra.logicalHeadCount, 8n);
 
-  runtime.advance(1900);
+  runtime.advance(1000);
+  runtime.advance(900);
+  assert.equal(runtime.snapshot().time.simulationTimeMs, 2900);
+  assert.equal(runtime.isNpActive(), true);
   assert.equal(cuts.length, 1, 'Auto Slash remains paused for the full active NP window');
   assert.equal(runtime.snapshot().hydra.logicalHeadCount, 8n);
 
@@ -58,7 +61,12 @@ test('NP expiry emits time-resume semantics without restoring heads cut during t
   runtime.manualAttack();
   assert.equal(runtime.snapshot().hydra.logicalHeadCount, 8n);
 
-  runtime.advance(3000);
+  // GameClock intentionally clamps each observed advance to 1000ms, so long
+  // deterministic windows are advanced in bounded chunks just like the browser.
+  runtime.advance(1000);
+  runtime.advance(1000);
+  runtime.advance(1000);
+  assert.equal(runtime.snapshot().time.simulationTimeMs, 3000);
   assert.equal(runtime.isNpActive(), false);
   assert.equal(ended.length, 1);
   assert.equal(ended[0].atMs, 3000);
@@ -82,10 +90,14 @@ test('Auto Slash resumes after NP expires instead of remaining permanently disab
   });
 
   runtime.releaseNp();
-  runtime.advance(2900);
+  runtime.advance(1000);
+  runtime.advance(1000);
+  runtime.advance(900);
+  assert.equal(runtime.snapshot().time.simulationTimeMs, 2900);
   assert.equal(autoCuts.length, 0);
 
   runtime.advance(100);
+  assert.equal(runtime.snapshot().time.simulationTimeMs, 3000);
   assert.equal(runtime.isNpActive(), false);
   assert.equal(autoCuts.length, 0, 'expiry tick only begins accumulating Auto Slash again at 1 APS');
 
