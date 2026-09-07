@@ -1,10 +1,10 @@
-# Hydra Clicker — Game Design v0.5
+# Hydra Clicker — Game Design v0.6
 
-> Playtest 3：Hydra I 進入 seal candidate；99 kills 後首次實裝 Hydra II Intro，測試「玩家剛學會的解法突然反過來害他」是否成立。
+> Playtest 3：Hydra I 進入 seal candidate；99 kills 後首次實裝 Hydra II Intro。v0.6 修正 NP：寶解現在會暫時阻止 Hydra II 的 structural GROW +2。
 
 ## 1. 核心一句話
 
-玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；學會靠狂點、NP 與 Auto Slash 跑贏 regeneration 後，Hydra II 立刻把這套直覺翻面：**CUT 1 → GROW 2**。再往後才逐步引入 Analyzer / Tree View，讓玩家發現自己操作的是一套可分析規則，而不是普通 HP bar。
+玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；學會靠狂點、NP 與 Auto Slash 跑贏 regeneration 後，Hydra II 立刻把一般攻擊直覺翻面：**CUT 1 → GROW 2**。NP 則保留為玩家已學會的短時間「禁止 Hydra 生長」工具。再往後才逐步引入 Analyzer / Tree View，讓玩家發現自己操作的是一套可分析規則，而不是普通 HP bar。
 
 目標：
 
@@ -82,13 +82,26 @@ Manual / Auto Slash 暫時同樣充能。
 NP 是 timed rule modifier：
 
 ```text
-hydra.regrowth = disabled
+hydra.headGrowth = disabled
 scope = timed
 ```
 
 可跨 encounter；即使敵人剛死、場上暫時空白，只要 READY 仍可 release。
 
-重要：**Hydra II 的 immediate GROW 2 不屬於 Hydra I delayed regrowth。** Playtest 3 故意讓既有 NP 不會自動關閉這個新規則，測試舊解法失效是否有趣。
+NP 現在統一表示「Hydra 頭部生長暫停」：
+
+```text
+Hydra I + NP
+→ cut still works
+→ delayed same-head regrowth is not scheduled
+
+Hydra II + NP
+→ cut still works
+→ immediate structural GROW +2 is suppressed
+→ CUT 1 becomes net -1 head
+```
+
+所以 Hydra II 正常第一刀仍是 `9 → 10`；若玩家先寶解，則第一刀會是 `9 → 8`。
 
 ## 4. Command Spell I — Auto Slash progression
 
@@ -131,7 +144,7 @@ GROW 2 immediately
 ΔH = +1
 ```
 
-`GROW 2` 是同一個 Cut Resolution 裡的 immediate spawn，不排進 delayed regrowth queue。
+`GROW 2` 是同一個 Cut Resolution 裡的 immediate spawn，不排進 delayed regrowth queue；但它仍屬於 Hydra 的 head growth，因此可被 NP 的 `hydra.headGrowth = disabled` 暫時關閉。
 
 ### Auto Slash intro guard
 
@@ -145,7 +158,8 @@ Auto Slash requests temporarily paused
 ↓
 player manually cuts once
 ↓
-9 → 10 is visible
+normal: 9 → 10
+NP active: 9 → 8
 ↓
 intro milestone recorded
 ↓
@@ -156,9 +170,9 @@ Auto Slash resumes on later Game Clock tick
 
 ### Playtest 3 要回答的問題
 
-1. 玩家看到第一刀 `9 → 10` 時，是否立刻理解「攻擊正在餵大問題」。
+1. 玩家看到第一刀 `9 → 10` 時，是否立刻理解「普通攻擊正在餵大問題」。
 2. 第一刀後 64 APS 恢復，頭數高速膨脹是否有喜劇／恐怖／失控感。
-3. NP 對 Hydra II structural growth 無效是否令人覺得是合理的規則背叛，而不是 bug。
+3. 玩家是否自然想到「那寶解呢？」並理解 NP 可以短暫把 `GROW +2` 關掉。
 4. Visible 99 cap 出現前，玩家是否有足夠時間理解頭數正在增加。
 5. 玩家何時自然產生「我需要數據」的需求；這將決定 Analyzer v0.1 何時登場。
 
@@ -174,7 +188,7 @@ Playtest 3 Intro 先不加入：
 - Analyzer。
 - Prestige/reset。
 
-先只驗證規則反轉。
+先只驗證規則反轉與 NP 解題是否成立。
 
 ## 7. Analyzer / Tree View 候選下一步
 
@@ -213,7 +227,6 @@ Hydra II 正是第一個會快速碰到這條工程邊界的 generation。View �
 - Hydra I 0 heads = kill 是否永久化。
 - Hydra II 99-kill 入口是否永久化。
 - Hydra II 最終 kill / termination rule。
-- NP 之後是否能透過新能力作用於 structural spawn。
 - Command Spell II 功能。
 - Analyzer 出場節點。
 - Prestige / Offline Progress。
