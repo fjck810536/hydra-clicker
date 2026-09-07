@@ -90,6 +90,7 @@ export function createCombatSystem({
           atMs: attack.timestamp,
           source: attack.source,
           amount: resolution.headsRemoved,
+          spawned: resolution.headsSpawned,
           turn: resolution.turnAfter,
           depleted: resolution.depleted,
           killed: resolution.killed,
