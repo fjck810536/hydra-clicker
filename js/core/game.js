@@ -1,7 +1,7 @@
 import { GameClock } from './clock.js';
 import { EventBus } from './event-bus.js';
 import { GameStateStore, createInitialState } from './state.js';
-import { createHydraIRule, createHydraIIRule } from '../math/hydra-rules.js';
+import { createHydraIRule, createHydraIIRule, createHydraShellRule } from '../math/hydra-rules.js';
 import { createHydraRegrowthSystem } from '../systems/hydra-regrowth.js';
 import { createCombatSystem } from '../systems/combat.js';
 import { createAutoSlashSystem } from '../systems/auto-slash.js';
@@ -82,7 +82,15 @@ export function createHydraIGameRuntime({
   const ruleI = createHydraIRule({
     regenDelayMs: staticRegenDelayMs ?? progression.regenCurve?.baseDelayMs ?? 1500,
   });
-  const ruleII = createHydraIIRule();
+  const hydraIIConfig = progression.generations?.[2] ?? null;
+  const hydraIIIConfig = progression.generations?.[3] ?? null;
+  const ruleII = createHydraIIRule({
+    maxHeadCount: hydraIIConfig?.maxHeads ?? 81n,
+  });
+  const ruleIII = createHydraShellRule({
+    generation: 3,
+    maxHeadCount: hydraIIIConfig?.maxHeads ?? 729n,
+  });
 
   const resolveCurrentRegenDelayMs = (snapshot = core.state.read()) => {
     if (snapshot.hydra.generation !== 1) return null;
@@ -112,7 +120,9 @@ export function createHydraIGameRuntime({
   const hydraProgression = createHydraIProgressionSystem({
     ...core,
     respawnDelayMs: progression.respawnDelayMs,
+    generations: progression.generations,
     hydraIIIntro: progression.hydraIIIntro,
+    hydraIIIIntro: progression.hydraIIIIntro,
     getRespawnDelayMs: (snapshot, payload) => (
       !isRegrowthEnabled(snapshot.modifiers.active, payload.atMs)
         ? progression.burstRespawnDelayMs ?? progression.respawnDelayMs
@@ -125,6 +135,7 @@ export function createHydraIGameRuntime({
     getRule: (snapshot) => {
       if (snapshot.hydra.generation === 1) return ruleI;
       if (snapshot.hydra.generation === 2) return ruleII;
+      if (snapshot.hydra.generation === 3) return ruleIII;
       throw new RangeError(`Unsupported Hydra generation: ${snapshot.hydra.generation}`);
     },
     getRuleContext: (snapshot) => {
@@ -140,10 +151,13 @@ export function createHydraIGameRuntime({
       && !snapshot.progression.milestones.includes(intro.firstManualCutMilestone);
   };
 
+  const isPlayableGeneration = (snapshot) => snapshot.hydra.generation <= 2;
+
   const autoSlash = createAutoSlashSystem({
     ...core,
     isEnabled: (snapshot) => (
-      snapshot.master.commandSpells.autoSlash
+      isPlayableGeneration(snapshot)
+      && snapshot.master.commandSpells.autoSlash
       && !snapshot.hydra.defeated
       && snapshot.hydra.logicalHeadCount > 0n
       && !isHydraIIIntroBlockingAuto(snapshot)
@@ -158,7 +172,7 @@ export function createHydraIGameRuntime({
   return {
     ...core,
     rule: ruleI,
-    rules: Object.freeze({ I: ruleI, II: ruleII }),
+    rules: Object.freeze({ I: ruleI, II: ruleII, III: ruleIII }),
     progression,
     manualAttack(options) {
       return manual.attack(options);
