@@ -1,5 +1,6 @@
 export const BERSERKER_VIEW_SPEC = Object.freeze({
   attackDurationMs: 180,
+  multiStrikeFrameSpan: 6,
   idleBobAmplitude: 0.045,
   idleBobSpeed: 0.0045,
   restRotationZ: -0.32,
@@ -152,7 +153,7 @@ function createPrimitiveBody({ babylon, scene, root }) {
   };
 }
 
-function createStrikeAnimation({ babylon, weaponPivot }) {
+function createStrikeAnimation({ babylon }) {
   const animation = new babylon.Animation(
     'berserker-strike',
     'rotation.z',
@@ -168,8 +169,35 @@ function createStrikeAnimation({ babylon, weaponPivot }) {
     { frame: 11, value: BERSERKER_VIEW_SPEC.restRotationZ },
   ]);
 
-  weaponPivot.animations = [animation];
   return animation;
+}
+
+function createMultiStrikeAnimation({ babylon, count }) {
+  if (!Number.isInteger(count) || count < 2) {
+    throw new TypeError('multi-strike count must be an integer >= 2.');
+  }
+
+  const animation = new babylon.Animation(
+    `berserker-multistrike-${count}`,
+    'rotation.z',
+    60,
+    babylon.Animation.ANIMATIONTYPE_FLOAT,
+    babylon.Animation.ANIMATIONLOOPMODE_CONSTANT,
+  );
+  const span = BERSERKER_VIEW_SPEC.multiStrikeFrameSpan;
+  const keys = [{ frame: 0, value: BERSERKER_VIEW_SPEC.restRotationZ }];
+
+  for (let index = 0; index < count; index += 1) {
+    const start = index * span;
+    keys.push(
+      { frame: start + 1, value: BERSERKER_VIEW_SPEC.restRotationZ - 0.30 },
+      { frame: start + 3, value: BERSERKER_VIEW_SPEC.strikeRotationZ },
+      { frame: start + span, value: BERSERKER_VIEW_SPEC.restRotationZ },
+    );
+  }
+
+  animation.setKeys(keys);
+  return { animation, endFrame: count * span };
 }
 
 export function createBerserkerView({
@@ -188,7 +216,8 @@ export function createBerserkerView({
   root.scaling.setAll(0.82);
 
   const { weaponPivot, materials } = createPrimitiveBody({ babylon, scene, root });
-  createStrikeAnimation({ babylon, weaponPivot });
+  const strikeAnimation = createStrikeAnimation({ babylon });
+  weaponPivot.animations = [strikeAnimation];
 
   const idleStartMs = performance.now();
   const idleObserver = scene.onBeforeRenderObservable.add(() => {
@@ -199,33 +228,48 @@ export function createBerserkerView({
 
   let currentAnimation = null;
 
-  function playAttack({ speed = 1 } = {}) {
-    const safeSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
-    const speedRatio = Math.max(0.25, Math.min(8, safeSpeed));
-
-    if (currentAnimation) {
-      scene.stopAnimation(weaponPivot);
-    }
+  function beginWeaponAnimation({ animation, endFrame, speedRatio }) {
+    if (currentAnimation) scene.stopAnimation(weaponPivot);
+    weaponPivot.animations = [animation];
 
     currentAnimation = scene.beginAnimation(
       weaponPivot,
       0,
-      11,
+      endFrame,
       false,
       speedRatio,
       () => {
         currentAnimation = null;
         weaponPivot.rotation.z = BERSERKER_VIEW_SPEC.restRotationZ;
+        weaponPivot.animations = [strikeAnimation];
       },
     );
 
     return currentAnimation;
   }
 
+  function playAttack({ speed = 1 } = {}) {
+    const safeSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
+    const speedRatio = Math.max(0.25, Math.min(8, safeSpeed));
+    return beginWeaponAnimation({
+      animation: strikeAnimation,
+      endFrame: 11,
+      speedRatio,
+    });
+  }
+
+  function playMultiAttack({ count = 3, speed = 1.4 } = {}) {
+    const safeSpeed = Number.isFinite(speed) && speed > 0 ? speed : 1.4;
+    const speedRatio = Math.max(0.75, Math.min(2.5, safeSpeed));
+    const { animation, endFrame } = createMultiStrikeAnimation({ babylon, count });
+    return beginWeaponAnimation({ animation, endFrame, speedRatio });
+  }
+
   return {
     root,
     weaponPivot,
     playAttack,
+    playMultiAttack,
     destroy() {
       scene.stopAnimation(weaponPivot);
       scene.onBeforeRenderObservable.remove(idleObserver);
