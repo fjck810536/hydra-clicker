@@ -157,6 +157,7 @@ export function createHydraIGameRuntime({
     ...core,
     isEnabled: (snapshot) => (
       isPlayableGeneration(snapshot)
+      && !np.isActive(snapshot)
       && snapshot.master.commandSpells.autoSlash
       && !snapshot.hydra.defeated
       && snapshot.hydra.logicalHeadCount > 0n
@@ -182,6 +183,9 @@ export function createHydraIGameRuntime({
     },
     npStatus() {
       return np.getStatus();
+    },
+    isNpActive() {
+      return np.isActive(core.state.read());
     },
     currentRegenDelayMs() {
       return resolveCurrentRegenDelayMs(core.state.read());
