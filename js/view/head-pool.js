@@ -22,8 +22,10 @@ const SPARSE_HEAD_POSES = Object.freeze([
   Object.freeze({ x: -0.24, y: 2.04, z: -0.12, originX: -0.02, originY: 0.50 }),
   Object.freeze({ x: 0.70, y: 2.28, z: 0.12, originX: 0.16, originY: 0.46 }),
   Object.freeze({ x: -1.32, y: 2.78, z: -0.08, originX: -0.18, originY: 0.46 }),
-  Object.freeze({ x: -1.58, y: 4.20, z: 0.08, originX: -0.16, originY: 0.46 }),
-  Object.freeze({ x: 0.48, y: 5.10, z: -0.04, originX: 0.12, originY: 0.48 }),
+  // Sparse mode should keep a readable crown, not two isolated antennae reaching
+  // toward the HUD. Dense/transition slots remain free to grow much higher later.
+  Object.freeze({ x: -1.38, y: 3.18, z: 0.08, originX: -0.16, originY: 0.46 }),
+  Object.freeze({ x: 0.56, y: 3.42, z: -0.04, originX: 0.12, originY: 0.48 }),
 ]);
 
 const TRANSITION_HUBS = Object.freeze([
