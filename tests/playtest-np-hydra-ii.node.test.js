@@ -24,6 +24,8 @@ test('NP READY playtest preset fills the gauge without changing combat progressi
 
 test('Hydra II accepts NP release but CUT 1 still structurally GROWs +2', () => {
   const runtime = createHydraIGameRuntime();
+  const cuts = [];
+  const offCut = runtime.events.on('head:cut', ({ payload }) => cuts.push(payload));
 
   runtime.state.update((draft) => {
     draft.hydra.generation = 2;
@@ -42,12 +44,15 @@ test('Hydra II accepts NP release but CUT 1 still structurally GROWs +2', () => 
   assert.equal(release.accepted, true);
   assert.equal(release.modifier.target, 'hydra.regrowth');
 
-  const attack = runtime.manualAttack();
-  assert.equal(attack.accepted, true);
-  assert.equal(attack.resolution.headsRemoved, 1n);
-  assert.equal(attack.resolution.headsSpawned, 2n);
-  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 10n);
-  assert.equal(runtime.snapshot().hydra.pendingRegrowth.length, 0);
+  runtime.manualAttack();
+  const snapshot = runtime.snapshot();
 
+  assert.equal(cuts.length, 1);
+  assert.equal(cuts[0].amount, 1n);
+  assert.equal(cuts[0].spawned, 2n);
+  assert.equal(snapshot.hydra.logicalHeadCount, 10n);
+  assert.equal(snapshot.hydra.pendingRegrowth.length, 0);
+
+  offCut();
   runtime.destroy();
 });
