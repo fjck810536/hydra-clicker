@@ -190,7 +190,7 @@ test('a killed Hydra II respawns as the next Hydra II until encounter 99', () =>
   runtime.destroy();
 });
 
-test('killing Hydra II encounter 99 enters a 9-head Hydra III shell capped at 729', () => {
+test('killing Hydra II encounter 99 enters a playable 9-head Hydra III capped at 729', () => {
   const initialState = createInitialState();
   initialState.hydra.generation = 2;
   initialState.progression.hydraGeneration = 2;
@@ -218,11 +218,10 @@ test('killing Hydra II encounter 99 enters a 9-head Hydra III shell capped at 72
   assert.equal(snapshot.hydra.logicalHeadCount, 9n);
   assert.equal(runtime.rules.III.maxHeadCount, 729n);
 
-  runtime.advance(500);
-  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 9n);
-
+  // The NP window survives the generation cut. CS III is not owned yet, so
+  // Auto remains paused, but manual Hydra III cuts are now real and net -1.
   runtime.manualAttack();
-  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 9n);
+  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 8n);
 
   runtime.destroy();
 });
