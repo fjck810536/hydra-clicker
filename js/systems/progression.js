@@ -43,6 +43,15 @@ export function createHydraIProgressionSystem({
     if (typeof hydraIIIIntro.unlockAfterGenerationKills !== 'bigint' || hydraIIIIntro.unlockAfterGenerationKills < 1n) {
       throw new TypeError('hydraIIIIntro.unlockAfterGenerationKills must be a positive BigInt.');
     }
+    if (
+      hydraIIIIntro.treeViewLogicalHeadThreshold != null
+      && (
+        typeof hydraIIIIntro.treeViewLogicalHeadThreshold !== 'bigint'
+        || hydraIIIIntro.treeViewLogicalHeadThreshold < 1n
+      )
+    ) {
+      throw new TypeError('hydraIIIIntro.treeViewLogicalHeadThreshold must be a positive BigInt.');
+    }
   }
 
   const getGenerationConfig = (generation) => {
@@ -142,20 +151,44 @@ export function createHydraIProgressionSystem({
   });
 
   const offCut = events.on('head:cut', ({ payload }) => {
-    if (hydraIIIntro == null || payload.source !== 'manual') return;
-    const snapshot = state.read();
-    if (snapshot.hydra.generation !== hydraIIIntro.generation) return;
-    if (snapshot.progression.milestones.includes(hydraIIIntro.firstManualCutMilestone)) return;
+    let snapshot = state.read();
 
-    state.update((draft) => {
-      draft.progression.milestones.push(hydraIIIntro.firstManualCutMilestone);
-    });
+    if (
+      hydraIIIntro != null
+      && payload.source === 'manual'
+      && snapshot.hydra.generation === hydraIIIntro.generation
+      && !snapshot.progression.milestones.includes(hydraIIIntro.firstManualCutMilestone)
+    ) {
+      state.update((draft) => {
+        draft.progression.milestones.push(hydraIIIntro.firstManualCutMilestone);
+      });
 
-    events.emit('hydra:intro-complete', {
-      atMs: payload.atMs,
-      generation: hydraIIIntro.generation,
-      milestone: hydraIIIntro.firstManualCutMilestone,
-    });
+      events.emit('hydra:intro-complete', {
+        atMs: payload.atMs,
+        generation: hydraIIIntro.generation,
+        milestone: hydraIIIntro.firstManualCutMilestone,
+      });
+      snapshot = state.read();
+    }
+
+    const treeThreshold = hydraIIIIntro?.treeViewLogicalHeadThreshold ?? null;
+    if (
+      typeof treeThreshold === 'bigint'
+      && snapshot.hydra.generation === hydraIIIIntro.generation
+      && !snapshot.progression.treeViewUnlocked
+      && snapshot.hydra.logicalHeadCount >= treeThreshold
+    ) {
+      state.update((draft) => {
+        draft.progression.treeViewUnlocked = true;
+      });
+
+      events.emit('tree-view:unlocked', {
+        atMs: payload.atMs,
+        generation: hydraIIIIntro.generation,
+        logicalHeads: state.read().hydra.logicalHeadCount,
+        threshold: treeThreshold,
+      });
+    }
   });
 
   const offTick = events.on('clock:tick', ({ payload: tick }) => {
