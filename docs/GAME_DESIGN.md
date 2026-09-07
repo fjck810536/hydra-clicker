@@ -1,6 +1,6 @@
-# Hydra Clicker — Game Design v0.11
+# Hydra Clicker — Game Design v0.12
 
-> Playtest 4.3：把 `02_player_facing` 已確認的 Command Spell I / II 曲線正式同步到遊戲。人類惡採世代 ×3 掉落；Command Spell I 改為 powers-of-nine APS；Command Spell II 從 TEST prototype 升為正式 9-beat NP progression。N2–N6 本輪不動。
+> Playtest 4.4：依最新 `02_player_facing/ECONOMY_PROPOSAL.md` 修正 Command Spell I 節奏。Hydra I 在 27 APS 前採快速、幾乎教學式的 affordability ramp；Hydra II 才開始用 81 / 243 APS 與 Command Spell II 爭奪 Humanity Evil。729 APS 屬於 Hydra III，但正式價格暫不設定。
 
 ## 1. 核心一句話
 
@@ -23,7 +23,7 @@ Hydra III starting 9 · max 729 = 9³
 3. 規則反轉本身要先好玩，再逐步揭露數學。
 4. 世代擴張與 View mesh cap 分離。
 5. 玩家先感覺「進入下一幕」，再去理解背後數學。
-6. Humanity Evil 第一次在 Hydra II 形成令咒 I / II 的資源分配壓力。
+6. Hydra I 快速建立 automation fantasy；真正的 Humanity Evil 分配壓力從 Hydra II 開始。
 
 ## 2. Hydra I — Seal Candidate
 
@@ -114,7 +114,7 @@ MANUAL ×1
 
 升級後可顯示 `MANUAL ×3 / ×6 / ×9`，倒數由 GameClock / modifier deadline 投影，不由 CSS 控制 lifecycle。
 
-N5 本輪未選，因此顯示精度維持既有 **0.1 s**。
+N5 尚未選，因此顯示精度維持既有 **0.1 s**。
 
 寶解 presentation：
 
@@ -133,33 +133,96 @@ TIME RESUMES
 
 所有動畫只負責 presentation。
 
-## 4. Command Spell I — cross-generation APS progression
+## 4. Command Spell I — affordability-driven cross-generation progression
 
-玩家端曲線正式改為：
+APS 身分仍保持 powers-of-three ladder：
 
 ```text
 1 → 3 → 9 → 27 → 81 → 243 → 729 APS
 ```
 
-價格：
+但價格與章節分工改為：
+
+| Chapter role | APS after purchase | Humanity Evil cost |
+|---|---:|---:|
+| Hydra I | 1 | 99 |
+| Hydra I | 3 | 33 |
+| Hydra I | 9 | 66 |
+| Hydra I | 27 | 99 |
+| Hydra II | 81 | 1782 |
+| Hydra II | 243 | 2178 |
+| Hydra III | 729 | **TBD** |
+
+### Availability rule
+
+Lv.1～Lv.6 **沒有額外 kill gate**。
+
+正式條件是：
 
 ```text
-99 / 198 / 396 / 891 / 2673 / 8019 / 24057 人類惡
+前一級已購買
+AND Humanity Evil >= 當前價格
+→ 可購買 / 玩家端 sigil 應亮起
 ```
 
-N2 本輪未選，因此**舊 reveal gates 暫時保留**：
+因此自然遊戲下，Humanity Evil 自己產生 Hydra I 的節奏：
 
 ```text
-9 / 12 / 16 / 22 / 30 / 40 / 66 lifetime Hydra kills
+kill 9  → 累積 99 → 買 1 APS
+kill 12 → 再累積 33 → 買 3 APS
+kill 18 → 再累積 66 → 買 9 APS
+kill 27 → 再累積 99 → 買 27 APS
 ```
 
-這些只決定何時可見／可買；真正跨世代節奏主要由新價格造成。
+這些是由收入與價格形成的**自然購買點**，不是另外寫死的 kill requirement。
 
-第一令咒能力與升級跨 Hydra generation 保留。
+Hydra I 全買至 27 APS：
 
-NP 時停會暫停 Auto capability，但不移除它。普通時間的高 APS 在 Hydra II 仍是雙面刃：它同時增加切割、NP 充能與 Hydra 的切割誘發增殖壓力。
+```text
+99 + 33 + 66 + 99 = 297 人類惡
+```
 
-舊版已升級存檔採保守遷移：不按照舊 level number 免費灌成新 729 APS，而映射到不高於舊實際 APS 的新節點。
+Hydra I 99 kills 總收入：
+
+```text
+99 × 11 = 1089
+```
+
+因此正常全買後進 Hydra II 約帶：
+
+```text
+1089 - 297 = 792 人類惡
+```
+
+Hydra II：
+
+```text
+792 + (30 × 33) = 1782
+→ 純令咒一流約 Hydra II #30 可買 81 APS
+
+再 66 × 33 = 2178
+→ 純令咒一流約 Hydra II #96 可買 243 APS
+```
+
+任何 Command Spell II 消費都會把 81 / 243 往後推，這正是 Hydra II 的 build choice。
+
+### 729 APS boundary
+
+729 APS 仍是有效等級、TEST 與既有已擁有狀態也必須能表示；但它現在屬於 **Hydra III**，正式 Humanity Evil 價格尚未決定。
+
+因此：
+
+```text
+正常玩家到 243 APS
+→ 下一級顯示 729 APS / PRICE TBD
+→ 正式 purchase rejected
+```
+
+不得用舊的 `24057` 或從 1782 / 2178 機械外推一個新價格。
+
+第一令咒能力與已購升級跨 Hydra generation 保留。NP 時停仍會暫停 Auto capability，但不移除它。
+
+舊版已升級存檔採保守遷移：不按照舊 level number 免費灌成更高 APS，而映射到不高於舊實際 APS 的節點。已經真正保存為 729 APS 的狀態不回收。
 
 ## 5. Command Spell II — formal NP progression
 
@@ -327,17 +390,15 @@ Hydra II 已有玩家端章節層：
 
 切幕與 palette 都不改 logical state，也不暫停 GameClock。
 
-## 10. Playtest 4.3 要回答的問題
+## 10. Playtest 4.4 要回答的問題
 
-1. Hydra I 在新 1 / 3 / 9 APS 前段是否比舊 doubling tree 更自然。
-2. 新價格是否自然讓 27 / 81 APS 成為跨世代目標，而不是 Hydra I 內清空的 tutorial tree。
-3. Hydra II +33 人類惡是否讓每次 true kill 都有明顯經濟價值。
-4. 玩家是否真的感到「買普通時間 APS」與「買 NP power」之間的資源拉扯。
-5. 132→66→198… 的 NP requirement sawtooth 是否讀成壓力／舒緩，而不是莫名其妙改條。
-6. 9s / 27s / 81s 時停在 manual-only policy 下是否仍然好玩。
-7. ×6 / ×9 在 iPhone 上是否仍能讀成多刀，而不是視覺噪音。
-
-詳細契約見 `docs/PLAYTEST_4_3.md`。
+1. 1 → 3 → 9 → 27 APS 是否真的能在 Hydra I 約 9 / 12 / 18 / 27 kill 自然連續買到。
+2. 27 APS 是否足以消除原本約 Hydra I #50 的 9 APS 等待牆。
+3. Hydra I 後段是否變成可接受的「快速補 NP → 三秒手動收尾」，而不是被動乾等。
+4. 帶約 792 人類惡進 Hydra II 是否讓 81 APS = 1782 成為清楚但不立即可得的目標。
+5. 玩家在 Hydra II 是否真的會因 Command Spell II 消費而延後 81 / 243 APS。
+6. 243 APS 若約在純自動流 Hydra II #96 到手，是否太晚、剛好，或仍過早。
+7. 729 APS 顯示 PRICE TBD 時，是否足以保留下一世代期待而不誤導成可購買內容。
 
 ## 11. Analyzer / Tree View 候選後續
 
@@ -375,22 +436,21 @@ Hydra III max = 729
 
 ## 13. 目前刻意未決
 
-本輪 user 未選、所以不改：
+`N2` 已不再是待填數字：Command Spell I 新版由 **affordability** 決定何時亮起／可買，不另設 kill reveal gate。
 
-- N2：Command Spell I 新 reveal / availability thresholds。
+仍未決：
+
 - N3：Hydra II 81 以下的增生 presentation delay。
 - N4：Hydra II 81-cap replacement timing。
 - N5：NP countdown display precision（暫留 0.1s）。
 - N6：Tree View 第一個正式 reveal point。
-
-其他仍未決：
-
 - Hydra II 81-cap 最終 hit / replacement 演出。
 - Command Spell II 三 branch 若允許自由購買時的 NP requirement composition rule。
 - Hydra III 正式 cut / growth / termination rule。
 - Hydra III 的 729 上限如何與真正 tree structure 對應。
+- Command Spell I 729 APS 正式 Humanity Evil 價格。
 - Analyzer 出場節點。
 - Prestige / Offline Progress。
 - 真正 Kirby–Paris 規則在哪一代完整出現。
 
-原則：**先讓新的經濟曲線真的跑起來，再由實機決定下一個數字。**
+原則：**Hydra I 先快樂長出 automation；Hydra II 才開始逼玩家做資源選擇。**
