@@ -34,7 +34,9 @@ test('iOS portrait shell prevents page scroll and fixed battle-control zoom gest
   assert.match(css, /overflow:\s*hidden/);
   assert.match(css, /overscroll-behavior:\s*none/);
   assert.match(css, /\.battle-canvas[\s\S]*touch-action:\s*none/);
-  assert.match(css, /\.command-spell-button,[\s\S]*\.np-button[\s\S]*touch-action:\s*none/);
+  assert.match(css, /\.command-spell-slot[\s\S]*touch-action:\s*none/);
+  assert.match(css, /\.np-button[\s\S]*touch-action:\s*none/);
+  assert.match(css, /\.command-spell-modal-purchase[\s\S]*pointer-events:\s*auto/);
   assert.match(css, /safe-area-inset-top/);
   assert.match(css, /orientation:\s*landscape/);
 
@@ -47,8 +49,9 @@ test('iOS portrait shell prevents page scroll and fixed battle-control zoom gest
 test('view layer does not import Hydra math or gameplay systems directly', async () => {
   const stageSource = await readFile(new URL('../js/view/battle-scene.js', import.meta.url), 'utf8');
   const hudSource = await readFile(new URL('../js/view/hud-view.js', import.meta.url), 'utf8');
+  const commandSpellSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
 
-  for (const source of [stageSource, hudSource]) {
+  for (const source of [stageSource, hudSource, commandSpellSource]) {
     assert.doesNotMatch(source, /from ['"]\.\.\/math\//);
     assert.doesNotMatch(source, /from ['"]\.\.\/systems\//);
   }
