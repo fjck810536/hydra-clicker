@@ -23,6 +23,8 @@ test('Berserker View stays isolated from Math, Systems and Core gameplay impleme
   assert.doesNotMatch(source, /from ['"]\.\.\/systems\//);
   assert.doesNotMatch(source, /from ['"]\.\.\/core\//);
   assert.match(source, /function playAttack/);
+  assert.match(source, /function playMultiAttack/);
+  assert.match(source, /createMultiStrikeAnimation/);
   assert.match(source, /scene\.beginAnimation/);
 });
 
@@ -32,9 +34,12 @@ test('App drives Berserker animation from semantic attack:resolved events', asyn
   assert.match(source, /events\.on\('attack:resolved'/);
   assert.match(source, /if \(!payload\.resolution\.accepted\) return/);
   assert.match(source, /berserkerView\.playAttack/);
+  assert.match(source, /berserkerView\.playMultiAttack\(\{ count: strikeCount \}\)/);
+  assert.match(source, /payload\.strikeIndex === 0/);
 
   // State-changing gameplay must still travel through runtime.manualAttack / Combat,
   // never through an animation callback.
   assert.match(source, /runtime\.manualAttack\(\)/);
   assert.doesNotMatch(source, /playAttack[\s\S]{0,250}runtime\.manualAttack/);
+  assert.doesNotMatch(source, /playMultiAttack[\s\S]{0,250}runtime\.manualAttack/);
 });
