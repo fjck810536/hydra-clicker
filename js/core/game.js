@@ -170,13 +170,32 @@ export function createHydraIGameRuntime({
     progression,
   });
 
+  function commandSpellIIPrototypeStatus(snapshot = core.state.read()) {
+    const definition = progression.commandSpellIIPrototype ?? null;
+    const unlocked = Boolean(
+      definition?.firstLevelMilestone
+      && snapshot.progression.milestones.includes(definition.firstLevelMilestone)
+    );
+    return Object.freeze({
+      unlocked,
+      npManualStrikeCount: unlocked ? definition.npManualStrikeCount : 1,
+    });
+  }
+
   return {
     ...core,
     rule: ruleI,
     rules: Object.freeze({ I: ruleI, II: ruleII, III: ruleIII }),
     progression,
-    manualAttack(options) {
-      return manual.attack(options);
+    manualAttack(options = {}) {
+      const snapshot = core.state.read();
+      const spellII = commandSpellIIPrototypeStatus(snapshot);
+      const strikeCount = options.strikeCount ?? (
+        np.isActive(snapshot) && spellII.unlocked
+          ? spellII.npManualStrikeCount
+          : 1
+      );
+      return manual.attack({ ...options, strikeCount });
     },
     releaseNp() {
       return np.release();
@@ -184,8 +203,14 @@ export function createHydraIGameRuntime({
     npStatus() {
       return np.getStatus();
     },
+    npWindowStatus() {
+      return np.getWindowStatus(core.state.read());
+    },
     isNpActive() {
       return np.isActive(core.state.read());
+    },
+    commandSpellIIPrototypeStatus() {
+      return commandSpellIIPrototypeStatus(core.state.read());
     },
     currentRegenDelayMs() {
       return resolveCurrentRegenDelayMs(core.state.read());
