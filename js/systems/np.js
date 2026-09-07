@@ -70,8 +70,6 @@ export function createNpSystem({
       maxPoints: config.maxPoints,
       ready: points >= config.maxPoints,
       normalized: points / config.maxPoints,
-      durationMs: config.durationMs,
-      pointsPerHead: config.pointsPerHead,
     });
   }
 
