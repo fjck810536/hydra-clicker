@@ -104,7 +104,7 @@ test('kill 66 economy can buy every post-unlock Command Spell I upgrade and leav
   runtime.destroy();
 });
 
-test('64 APS max plus one NP can clear the final 95 to 99 stretch inside the burst window', () => {
+test('64 APS is deliberately paused by NP time stop instead of auto-clearing the final stretch', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
   initialState.berserker.baseAttacksPerSecond = 64;
@@ -123,10 +123,20 @@ test('64 APS max plus one NP can clear the final 95 to 99 stretch inside the bur
   const released = runtime.releaseNp();
   assert.equal(released.accepted, true);
 
-  runtime.advance(3000);
-  const killsAfter = runtime.snapshot().statistics.totalHydrasKilled;
+  runtime.advance(1000);
+  runtime.advance(1000);
+  runtime.advance(900);
+  assert.equal(runtime.snapshot().statistics.totalHydrasKilled, 95n);
+  assert.equal(runtime.isNpActive(), true);
 
-  assert.ok(killsAfter >= 99n, `expected NP burst to reach kill 99, got ${killsAfter.toString()}`);
+  runtime.advance(100);
+  assert.equal(runtime.isNpActive(), false);
+
+  // The old Playtest 2.3 expectation was that Auto Slash massacred through NP.
+  // Playtest 4.1 intentionally reverses that: manual cutting owns the NP window,
+  // while the already-purchased 64 APS capability resumes after time moves again.
+  runtime.advance(200);
+  assert.ok(runtime.snapshot().statistics.totalHeadsCut > 0n);
 
   runtime.destroy();
 });
