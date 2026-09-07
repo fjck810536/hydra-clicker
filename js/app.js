@@ -7,6 +7,7 @@ import { createBerserkerView } from './view/berserker-view.js';
 import { projectGenerationProgress } from './view/generation-progress.js';
 import { createGenerationTransitionView } from './view/generation-transition-view.js';
 import { createNpPhaseView } from './view/np-phase-view.js';
+import { createNpTimerView } from './view/np-timer-view.js';
 
 const AUTOSAVE_INTERVAL_MS = 5000;
 
@@ -16,9 +17,11 @@ const npButton = document.querySelector('[data-np-button]');
 const commandSpellButton = document.querySelector('[data-command-spell-button]');
 const generationTransitionRoot = document.querySelector('[data-generation-transition]');
 const npPhaseRoot = document.querySelector('[data-np-phase]');
+const npTimerRoot = document.querySelector('[data-np-timer]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
+const testCommandSpellIIButton = document.querySelector('[data-test-command-spell-ii]');
 const testHydra98Button = document.querySelector('[data-test-hydra-98]');
 const testNpReadyButton = document.querySelector('[data-test-np-ready]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
@@ -33,9 +36,11 @@ if (
   || !commandSpellButton
   || !generationTransitionRoot
   || !npPhaseRoot
+  || !npTimerRoot
   || !testToolsToggle
   || !testToolsPanel
   || !testCommandSpellMaxButton
+  || !testCommandSpellIIButton
   || !testHydra98Button
   || !testNpReadyButton
   || !resetSaveButton
@@ -138,6 +143,7 @@ runtime ??= createHydraIGameRuntime();
 const hud = createHudView({ root: app });
 const generationTransition = createGenerationTransitionView({ root: generationTransitionRoot });
 const npPhase = createNpPhaseView({ root: npPhaseRoot });
+const npTimer = createNpTimerView({ root: npTimerRoot });
 
 function isHydraIIIntroPending(snapshot) {
   const intro = runtime.progression.hydraIIIntro;
@@ -182,7 +188,9 @@ const berserkerView = createBerserkerView({
 const renderSnapshot = () => {
   const snapshot = runtime.snapshot();
   const introPending = isHydraIIIntroPending(snapshot);
-  const npActive = runtime.isNpActive();
+  const npWindow = runtime.npWindowStatus();
+  const npActive = npWindow.active;
+  const spellII = runtime.commandSpellIIPrototypeStatus();
   const generationConfig = getGenerationConfig(snapshot);
   const generationProgress = projectGenerationProgress(snapshot, generationConfig);
 
@@ -192,6 +200,11 @@ const renderSnapshot = () => {
     npActive,
     hydraIIIntroPending: introPending,
     generationProgress,
+  });
+  npTimer.render({
+    active: npActive,
+    remainingMs: npWindow.remainingMs,
+    manualStrikeCount: spellII.npManualStrikeCount,
   });
   hydraView.render(snapshot);
   stage.setGenerationAppearance(snapshot.hydra.generation);
@@ -252,6 +265,14 @@ const handleTestCommandSpellMax = () => {
 };
 const unbindTestCommandSpellMax = bindFixedControl(testCommandSpellMaxButton, handleTestCommandSpellMax);
 
+const handleTestCommandSpellII = () => {
+  enterNonPersistentTestSession();
+  const result = runtime.testPresets.commandSpellIILv1();
+  hud.setStatus(`TEST · COMMAND SPELL II Lv.1 · NP MANUAL ×${result.npManualStrikeCount} · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestCommandSpellII = bindFixedControl(testCommandSpellIIButton, handleTestCommandSpellII);
+
 const handleTestHydra98 = () => {
   enterNonPersistentTestSession();
   runtime.testPresets.startHydraIEncounter98();
@@ -295,8 +316,13 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
   if (!payload.resolution.accepted) return;
 
   const snapshot = runtime.snapshot();
+  const strikeCount = payload.request?.source === 'manual'
+    ? payload.request.strikeCount ?? 1
+    : 1;
   berserkerView.playAttack({
-    speed: snapshot.berserker.baseAttacksPerSecond,
+    speed: strikeCount > 1
+      ? Math.max(snapshot.berserker.baseAttacksPerSecond, strikeCount * 4)
+      : snapshot.berserker.baseAttacksPerSecond,
   });
 });
 const offCut = runtime.events.on('head:cut', ({ payload }) => {
@@ -398,6 +424,7 @@ window.addEventListener('pagehide', () => {
   unbindCommandSpellButton();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
+  unbindTestCommandSpellII();
   unbindTestHydra98();
   unbindTestNpReady();
   unbindResetSave();
