@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.7
+# Hydra Clicker — Architecture v0.8
 
-> 目標：數學規則、戰鬥、經濟、玩家輸入、Babylon View、Persistence 可獨立測試與替換。v0.7 對齊 Playtest 2.4 的 66-point NP gauge 與 64 APS Command Spell I MAX。
+> v0.8 對齊 Playtest 3 Hydra II Intro。核心原則仍是：規則可以怪，積木邊界不要怪。
 
 ## 1. Top-level flow
 
@@ -11,303 +11,245 @@ ATTACK REQUEST
     ↓
 COMBAT
     ↓
-HYDRA RULE
+ACTIVE HYDRA RULE
     ↓
-CUT RESULT / SEMANTIC EVENTS
+CUT RESOLUTION
     ↓
-LOGICAL STATE
- ┌───┼────────┬─────────┬────────────┐
- ↓   ↓        ↓         ↓            ↓
-NP  ECONOMY  PROGRESSION UI/VIEW   PERSISTENCE
+LOGICAL STATE + SEMANTIC EVENTS
+ ┌───┼────────┬───────────┬───────────┐
+ ↓   ↓        ↓           ↓           ↓
+NP  ECONOMY  PROGRESSION  UI/VIEW   PERSISTENCE
 ```
 
-View 永遠只讀結果；Input 只描述玩家意圖；Persistence 只保存 logical state。
+View 只讀結果；Input 只描述玩家意圖；Persistence 只保存 logical state。
 
-## 2. Layer ownership
+## 2. Rule selection by generation
 
-### Core / Application
-
-`js/core/game.js`：
-
-- 組裝 State / Clock / Systems / Rules。
-- 決定 clock-listener composition order。
-- 注入 progression / NP / regen tuning data。
-- 暴露 headless runtime API。
-
-目前主要 API：
+Core / Application 擁有 rule composition：
 
 ```text
-snapshot()
-manualAttack()
-releaseNp()
-npStatus()
-currentRegenDelayMs()
-commandSpellIStatus()
-buyCommandSpellI()
+hydra.generation = 1 → Hydra I Rule
+hydra.generation = 2 → Hydra II Rule
 ```
 
-Core 不自己算 Hydra 增殖，不直接操作 Babylon。
+Combat 不寫 generation-specific `if`；只呼叫注入的 `getRule(snapshot)`。
 
-### Math / Rules
-
-`js/math/`：
-
-- Hydra logical transition。
-- Cut Resolution。
-- pending regrowth queue。
-- terminal kill 判定。
-
-Hydra I current experimental rule：
+### Hydra I
 
 ```text
-non-terminal cut + regen enabled → same-head regrowth scheduled
-non-terminal cut + regen disabled → no new regrowth
-head count reaches 0 → killed + pending regrowth cancelled
+cut 1
+→ -1 now
+→ delayed same-head regrowth unless suppressed
+→ reaching 0 = Playtest 2 terminal kill
 ```
 
-Math 不知道 NP、Command Spell、Fate 角色名或 UI。
-
-### Input
-
-`js/input/manual-attack.js`：玩家操作 → Attack Request。
-
-不直接改 head count。
-
-### Systems
-
-`js/systems/`：
-
-- `combat.js` — Request → Rule → State / semantic events。
-- `auto-slash.js` — capability + APS + Game Clock → Attack Request。
-- `hydra-regrowth.js` — Game Clock 處理 pending regrowth。
-- `modifiers.js` — resolve active rule modifiers。
-- `np.js` — NP charge / release / timed modifier lifecycle。
-- `humanity-evil.js` — kill → currency。
-- `command-spells.js` — capability / APS milestone upgrade。
-- `progression.js` — defeated / respawn / encounter lifecycle。
-
-### Data
-
-`js/data/progression.js`：
+### Hydra II Intro
 
 ```text
-regen curve
-NP max / gain / duration
-Humanity Evil reward
-respawn delays
-Command Spell I kill/cost/APS table
+cut 1
+→ headsRemoved = 1
+→ headsSpawned = 2 immediately
+→ net +1
+→ no delayed regrowth event
+→ no terminal kill in current intro rule
 ```
 
-數值變動不應要求改 Combat / Hydra Rule。
+Hydra II `headsSpawned` 是 Cut Resolution 的 immediate structural output，不是 pending regrowth。
 
-### View
+## 3. Hydra Model owns immediate spawn application
 
-`js/view/` 只讀 snapshot / runtime projection / semantic events。
-
-- Babylon battle stage。
-- Hydra head pool。
-- Berserker placeholder animation。
-- NP red tint。
-- HUD。
-
-`logical head count != visible head count`，畫面 cap 99。
-
-### Persistence
-
-`js/core/save.js`：
-
-- logical state only。
-- BigInt tagged JSON round-trip。
-- simulation time / tick restore。
-- localStorage adapter。
-- no offline progress。
-
-## 3. Game Clock
-
-Fixed step currently 100ms。
+`applyCutResolution()` 現在統一套用：
 
 ```text
-Babylon render FPS
-≠
-logical Game Clock
+logicalHeadCount
+- headsRemoved
++ headsSpawned
 ```
 
-Gameplay time-based behavior：
+之後才處理 pending regrowth queue。
+
+因此 Math 可以表達：
 
 ```text
-regrowth
-Auto Slash
-NP duration
-respawn
-future facilities / offline simulation
+Hydra I: headsSpawned = 0
+Hydra II: headsSpawned = 2 per removed head
+future rules: other exact BigInt spawn counts
 ```
 
-都不能依賴 render FPS。
+View 不參與計算。
 
-## 4. NP architecture — Playtest 2.4
+## 4. Combat semantic output
 
-### Logical storage
-
-`state.berserker.np` 保持 normalized `0..1`。
-
-原因：
-
-- 不改 state schema。
-- 舊存檔自然相容。
-- Save contract 不需要 migration。
-
-### Player-facing projection
-
-NP System 擁有：
-
-```text
-maxPoints = 66
-pointsPerHead = 1
-```
-
-每次 accepted `head:cut`：
-
-```text
-current normalized state
-→ round(normalized × 66)
-→ +1 per head
-→ cap 66
-→ write points / 66 back to normalized state
-```
-
-Runtime `npStatus()`：
+Accepted cut 會發：
 
 ```js
 {
-  points,
-  maxPoints: 66,
-  ready,
-  normalized
+  type: 'head:cut',
+  payload: {
+    source,
+    amount: headsRemoved,
+    spawned: headsSpawned,
+    ...
+  }
 }
 ```
 
-HUD 不自行硬算 66。
-
-### Release
-
-66/66 READY → release：
+UI 可以因此顯示：
 
 ```text
-NP gauge = 0
-+ timed rule modifier
+CUT 1 · GROW +2 · Δ +1
+```
+
+但 presentation 不改 rule state。
+
+## 5. Progression / generation transition
+
+Playtest 3 data：
+
+```text
+99 Hydra I kills
+→ next encounter becomes Hydra II
+```
+
+Progression System：
+
+- 監聽 `hydra:killed` 設定 defeated / respawn deadline。
+- clock due 時建立下一 encounter。
+- 若已達 Hydra II intro threshold，將：
+
+```text
+hydra.generation = 2
+progression.hydraGeneration = 2
+encounter = 1
+heads = startingHeadCount
+turn = 0
+pendingRegrowth = []
+```
+
+並發：
+
+```text
+hydra:generation-changed
+```
+
+Playtest 2 舊存檔若已經 `99 kills + live Hydra I`，下一個 simulation tick 直接進 Hydra II。
+
+## 6. Hydra II first-cut Auto guard
+
+Command Spell I capability 不被關閉。
+
+Core 注入 Auto Slash `isEnabled(snapshot)` policy：
+
+```text
+normal requirements
+AND
+NOT (
+  Hydra II
+  AND first-manual-cut milestone missing
+)
+```
+
+第一個 accepted manual `head:cut` 由 Progression 記錄：
+
+```text
+hydra-ii-first-manual-cut
+```
+
+之後 Auto Slash 在後續 Game Clock tick 自然恢復。
+
+這個 guard 是 Intro progression policy，不是 Auto Slash System 裡硬編 Hydra II 名稱。
+
+## 7. NP boundary
+
+NP 目前仍是：
+
+```text
+66 heads = READY
+3s timed modifier
 hydra.regrowth = disabled
-3.0s
 ```
 
-NP modifier 可跨多個 encounters。
+它只影響 Hydra I 類型的 delayed regrowth context。
 
-## 5. Respawn architecture
+Hydra II immediate structural `headsSpawned` 不讀這個開關，因此 Playtest 3 中：
 
-Progression 不直接知道 NP source 名稱。
+> NP 不會停止 CUT 1 → GROW 2。
 
-Core 注入 generic condition：
+未來若要讓某個新能力修改 structural spawn，應新增合法 rule modifier target，而不是偷偷擴張現有 `hydra.regrowth` 意義。
+
+## 8. Clock order
+
+Fixed step 目前 100ms。
+
+重要 listener order：
 
 ```text
-regrowth enabled  → 300ms respawn
-regrowth disabled → 100ms burst respawn
-```
-
-Clock listener order 必須：
-
-```text
-Progression respawn
+Progression
+→ Combat / Auto composition
 → Auto Slash
 ```
 
-讓 100ms burst 中的新 Hydra 同 tick 可受到 Auto Slash。
+因此：
 
-## 6. Command Spell I architecture
+- due respawn 可以同 tick 被 Auto 攻擊。
+- Hydra II generation transition 會在 Auto 判斷前完成。
+- intro guard 能阻止 64 APS 在 reveal 前先出刀。
 
-Command Spell I 同時是：
+## 9. Data ownership
 
-```text
-Lv.1 capability unlock
-+
-Lv.2–MAX progression stat milestones
-```
-
-Data table：
+`js/data/progression.js` 擁有：
 
 ```text
-9  → 1 APS
-12 → 2
-16 → 4
-22 → 8
-30 → 16
-40 → 32
-66 → 64 APS MAX
+Hydra I regen curve
+NP 66 / +1 / 3s
+respawn 300 / burst 100ms
+Command Spell I levels
+Hydra II intro threshold / milestone id
 ```
 
-System 只做：
+數值變更不應要求修改 Combat。
+
+## 10. View boundary
+
+HUD / Babylon View 只投影：
 
 ```text
-validate requirement / currency
-→ spend
-→ set autoSlash capability if Lv.1
-→ set baseAttacksPerSecond
-→ append milestone for Lv.2+
-→ emit semantic event
+hydra.generation
+logicalHeadCount
+head:cut spawned amount
+intro pending state
 ```
 
-System 不直接呼叫 Auto Slash internals。
-
-舊存檔：`autoSlash=true` 且沒有 level milestone → 視為 Lv.1。
-
-## 7. Hydra I regen curve
-
-Data-owned：
+Hydra head pool contract不變：
 
 ```text
-0 kills  → 1500ms
-9 kills  → 350ms
-99 kills → 100ms floor
+logical 0–99 → same visible count
+logical 100+ → 99 visible heads
 ```
 
-0→9 急遽加速；9→99 增幅逐隻趨緩。
+Hydra II 可以很快超過 99；這只代表 View 進入 cap，不代表 logical growth 停止。
 
-Combat 只收到當刀的 `regrowthDelayMs`。
+## 11. Persistence
 
-## 8. Current playtest pacing hypothesis
+State schema 仍為 1。
 
-```text
-Active opening
-→ human tapping eventually loses to regen
-→ about 66 head cuts earns first NP
+Playtest 3 沒新增必填 state field：
 
-9 kills
-→ Auto Slash unlock
+- generation 已存在。
+- progression.hydraGeneration 已存在。
+- intro completion 使用既有 `progression.milestones`。
+- NP 仍保存 normalized 0..1。
 
-30 kills
-→ 16 APS noticeably improves pacing
+所以 Save format 不需 migration。
 
-40 kills
-→ 32 APS
-→ deliberate plateau until kill 66
-
-66 kills
-→ 64 APS MAX
-→ automation can dominate most of late Hydra I
-
-late ~95
-→ regen floor catches up
-→ one NP burst can finish toward 99
-```
-
-這是 tuning hypothesis，不是 architecture invariant。
-
-## 9. Dependency direction
+## 12. Dependency direction
 
 允許：
 
 ```text
 data → none
 math → plain data/context
-systems → math + data + injected core interfaces
+systems → math + data + injected interfaces
 core → systems + math + data
 view → snapshot + semantic events + application projection
 save → serializable logical state
@@ -318,49 +260,24 @@ save → serializable logical state
 ```text
 math → Babylon / DOM
 view → mutate rule/state
-command spell → call Auto Slash internals
-NP → spawn Hydra
-progression → check source === 'np'
-combat → award currency / respawn
+Hydra Rule → character/Fate names
+Auto Slash → hardcode Hydra II intro
+NP → directly mutate Hydra heads
+progression → directly call Auto Slash
+combat → award currency / spawn next encounter
 save → offline battle calculation
 ```
 
-## 10. State / Save boundary
-
-Persistent logical state includes：
+## 13. Current stage
 
 ```text
-heads / encounter / pending regrowth
-normalized NP ratio
-active timed modifiers
-Humanity Evil
-Command Spell capability
-base APS
-progression milestones
-statistics
-simulation time / tick
+Hydra I Playtest 2 seal candidate ✅
+Playtest 3 Hydra II Intro          ← CURRENT
+Analyzer                           ⛔ not yet
+Command Spell II                   ⛔ not yet
+Hydra II final kill rule           ⛔ not yet
 ```
 
-不保存：
+最後檢查：
 
-```text
-mesh
-particle
-DOM
-animation state object
-visible-head cache
-NP display points cache
-```
-
-## 11. Current stage
-
-```text
-Phase 3 Blocks 1–9      ✅
-iPhone Playtests        ongoing
-Playtest 2.4            current
-Hydra II                not yet
-```
-
-最後檢查仍是：
-
-> 我是在增加一塊新積木，還是在讓舊積木知道太多？
+> **Am I adding a new block, or making an old block know too much?**
