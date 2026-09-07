@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.11
+# Hydra Clicker — Architecture v0.12
 
-> v0.11 在既有 Hydra II / III progression 上加入 Playtest 4 玩家端章節投影：generation-local progress、semantic transition overlay、generation stage palettes。核心規則與 Save schema 不變。
+> v0.12 在 Playtest 4 chapter presentation 上加入 Playtest 4.1 NP time-stop application policy：NP 的 Hydra rule modifier 不變，但 active NP window 會暫停 Auto Slash；Manual Input 保留。NP expiry 由 Game Clock emit `np:ended`，View 只負責演出時間恢復。
 
 ## 1. Top-level flow
 
@@ -43,79 +43,43 @@ generation 2 → Hydra II Rule
 generation 3 → Hydra III shell rule
 ```
 
-Combat 不寫 generation-specific `if` math。
-
-Hydra I、II、III shell 規則與 v0.10 相同：Hydra II cap 81；NP suppress growth；Hydra III shell reject cut。
+Combat 不寫 generation-specific `if` math。Hydra II cap81；NP suppress growth；Hydra III shell reject cut。
 
 ## 4. Progression / generation transition
 
-### I → II
-
 ```text
 99 Hydra I kills
-→ generation 2
-→ encounter 1
-→ heads 9
-```
+→ Hydra II encounter 1 · heads 9
 
-### Hydra II loop
+Hydra II true kill
+→ next Hydra II encounter · heads 9
 
-每隻真 kill：
-
-```text
-encounter n defeated
-→ respawn delay
-→ encounter n+1
-→ heads 9
-```
-
-### II → III
-
-```text
 Hydra II encounter 99 defeated
-→ generation 3
-→ encounter 1
-→ heads 9
+→ Hydra III encounter 1 · heads 9
 ```
 
-Generation-local completion 仍由 `hydra.encounter + defeated` 表示，不新增 kill counter field。
+Generation-local completion 由 `hydra.encounter + defeated` 表示，不新增 kill counter field。
 
 ## 5. Playtest 4 generation progress projection
-
-新增 View projection：
 
 ```text
 snapshot.hydra.encounter
 snapshot.hydra.defeated
-+ deterministic generation data
++ generation data
 ↓
 projectGenerationProgress()
 ↓
 completedKills / targetKills / maxHeads
 ```
 
-規則：
-
 ```text
 alive    → completed = encounter - 1
 defeated → completed = encounter
 ```
 
-因此 lifetime statistics 不再直接餵玩家主 HUD。
-
-`statistics.totalHydrasKilled` 仍完整保留，TEST panel 可顯示 `TOTAL KILLS`。
-
-這是 presentation projection，不進 Save。
+Lifetime `statistics.totalHydrasKilled` 保留給 Statistics / TEST，不直接當本世代 HUD 進度。
 
 ## 6. Semantic generation transition view
-
-Progression 仍只 emit：
-
-```text
-hydra:generation-changed
-```
-
-Application / View 消費事件：
 
 ```text
 hydra:generation-changed
@@ -123,20 +87,9 @@ hydra:generation-changed
 → CSS animation
 ```
 
-Important boundary：
-
-```text
-transition animation != gameplay delay
-```
-
-- 不暫停 GameClock。
-- 不使用 gameplay `setTimeout`。
-- View 用 `animationend` 收幕。
-- Hydra II first-cut Auto guard 仍是原本 progression policy。
+Transition animation 不是 gameplay delay：不暫停 GameClock、不用 gameplay `setTimeout`，View 用 `animationend` 收幕。
 
 ## 7. Generation stage palette
-
-`battle-scene.js` 擁有 presentation-only stage palette：
 
 ```text
 Gen I   neutral dark
@@ -144,32 +97,17 @@ Gen II  subtle sickly yellow-green
 Gen III cool violet shell
 ```
 
-Application 每次 render 只傳：
-
-```text
-snapshot.hydra.generation
-→ stage.setGenerationAppearance(generation)
-```
-
-NP tint 是更高優先的 temporary visual state：
-
-```text
-NP active
-→ red battle tint
-
-NP ends
-→ restore current generation palette
-```
-
-Palette 不參與 Hydra rule、combat、head cap 或 Save。
+NP red tint 優先；NP 結束後恢復當前 generation palette。Palette 不參與 gameplay。
 
 ## 8. Hydra II first-cut Auto guard
 
-不變：Command Spell I capability 保留；Hydra II 第一次登場且 milestone 缺失時 Auto pause，accepted manual cut 後恢復。
+Command Spell I capability 保留；Hydra II 第一次登場且 milestone 缺失時 Auto pause，accepted manual cut 後恢復。
 
-## 9. NP boundary
+這個 policy 與 NP time-stop policy 是兩個不同理由，均由 Core composition 注入 Auto Slash；Auto Slash System 本身不知道 Hydra II 或 NP 專名。
 
-不變：
+## 9. NP rule boundary
+
+NP 的 Hydra rule modifier **沒有因時停改型**：
 
 ```text
 66 heads = READY
@@ -178,9 +116,74 @@ hydra.headGrowth = disabled
 ```
 
 Hydra I：不排 delayed regrowth。  
-Hydra II：`headsSpawned = 0`，因此可砍到 0。
+Hydra II：`headsSpawned = 0`，因此 Manual Cut 可真正把頭數砍低／砍到 0。
 
-## 10. View boundary
+NP 期間砍掉的頭不會在 expiry 後補回。
+
+## 10. Playtest 4.1 NP time-stop application policy
+
+`NP System` 現在提供：
+
+```js
+np.isActive(snapshot)
+```
+
+它只判斷 simulation-time 上是否存在 active `source: 'np'` timed modifier。
+
+Core 注入 Auto Slash policy：
+
+```text
+playable generation
+AND autoSlash capability
+AND Hydra attackable
+AND intro guard allows
+AND NP window NOT active
+→ Auto Slash enabled
+```
+
+因此：
+
+```text
+NP active
+→ Auto accumulator reset / no auto requests
+→ Manual Input remains untouched
+
+NP ends
+→ Auto can accumulate again on later Game Clock ticks
+```
+
+這不是 Hydra rule modifier 的新 target，也不是 Auto Slash System 裡寫 `if (np)`；它是 Application composition policy。
+
+未來若某個能力允許 Auto 在 NP 中工作，只需修改／擴充這個注入 policy，不必改 Hydra rule 或 Auto Slash internals。
+
+## 11. NP lifecycle semantic events
+
+Release 已有：
+
+```text
+np:released { atMs, endsAt, modifier }
+```
+
+Playtest 4.1 新增：
+
+```text
+np:ended { atMs, endedAtMs }
+```
+
+`np:ended` 由 NP System 在 `clock:tick` 清除最後一個已到期 NP window 後 emit。
+
+若未來存在重疊 NP windows：只有最後一個 active NP window 消失時才 emit time-resume semantic event。
+
+View consumption：
+
+```text
+np:released → 寶具解放 / ナインライブズ / 射殺す百頭 card
+np:ended    → TIME RESUMES / 時は動き出す cue
+```
+
+Presentation animation 不決定 NP 開始／結束時間。
+
+## 12. View boundary
 
 Head pool contract不變：
 
@@ -189,25 +192,19 @@ logical 0–99 → same visible count
 logical 100+ → visible 99
 ```
 
-Hydra II max81 不碰 visual cap；Hydra III max729 可以 >99，但 View 仍最多 99 meshes。
+Hydra II max81 不碰 visual cap；Hydra III max729 可以 >99，但 View 仍最多99 meshes。
 
-Generation chapter overlay / HUD progress / palette 都不能改 logical heads。
+NP phase overlay `pointer-events:none`，不能阻擋 Manual Cut。
 
-## 11. Persistence
+## 13. Persistence
 
-State schema 仍為 1。
+State schema 仍為1，沒有 migration。
 
-Playtest 4 新增的都是 derived / presentation state：
+NP active state仍由既有 timed modifier + simulation timeline 保存；`np:ended` 是 runtime semantic event，不是需要保存的新 state。
 
-```text
-generation progress projection  → not saved
-transition animation state       → not saved
-stage palette                    → not saved
-```
+Playtest4/4.1 的 chapter overlay、NP card、resume cue、palette 都不進 Save。
 
-沒有 migration。
-
-## 12. Dependency direction
+## 14. Dependency direction
 
 允許：
 
@@ -223,22 +220,24 @@ save → serializable logical state
 禁止：
 
 ```text
-View → mutate encounter / kill counters
+View → mutate encounter / head state
+NP animation → determine modifier expiry
+Auto Slash System → hardcode NP/Fate names
+NP System → directly disable Auto Slash internals
 transition overlay → pause GameClock
-stage palette → change Hydra rule context
-lifetime statistics → masquerade as generation-local HUD progress
 ```
 
-## 13. Current stage
+## 15. Current stage
 
 ```text
 Hydra I 99-kill generation        ✅
 Hydra II 81-head / 99-kill loop  ✅
 Hydra III 9-head / max729 shell  ✅
 Playtest 4 chapter presentation   ✅
+Playtest 4.1 NP time stop         ✅
+Hydra II cap hit presentation    ⛔ next candidate
 Hydra III combat rule            ⛔ not yet
 Analyzer                          ⛔ not yet
-Command Spell II                  ⛔ not yet
 ```
 
 最後檢查：
