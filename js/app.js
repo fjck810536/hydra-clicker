@@ -6,6 +6,7 @@ import { createHydraView } from './view/hydra-view.js';
 import { createBerserkerView } from './view/berserker-view.js';
 import { projectGenerationProgress } from './view/generation-progress.js';
 import { createGenerationTransitionView } from './view/generation-transition-view.js';
+import { createNpPhaseView } from './view/np-phase-view.js';
 
 const AUTOSAVE_INTERVAL_MS = 5000;
 
@@ -14,6 +15,7 @@ const canvas = document.querySelector('#battle-canvas');
 const npButton = document.querySelector('[data-np-button]');
 const commandSpellButton = document.querySelector('[data-command-spell-button]');
 const generationTransitionRoot = document.querySelector('[data-generation-transition]');
+const npPhaseRoot = document.querySelector('[data-np-phase]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
@@ -30,6 +32,7 @@ if (
   || !npButton
   || !commandSpellButton
   || !generationTransitionRoot
+  || !npPhaseRoot
   || !testToolsToggle
   || !testToolsPanel
   || !testCommandSpellMaxButton
@@ -105,15 +108,6 @@ function bindBattleShellGestureLock(root) {
   };
 }
 
-function isNpWindowActive(snapshot) {
-  const nowMs = snapshot.time.simulationTimeMs;
-  return snapshot.modifiers.active.some((modifier) => {
-    return modifier?.source === 'np'
-      && (modifier.startsAt ?? 0) <= nowMs
-      && nowMs < (modifier.endsAt ?? Infinity);
-  });
-}
-
 const unbindBattleShellGestureLock = bindBattleShellGestureLock(app);
 
 let saveStore = null;
@@ -143,6 +137,7 @@ runtime ??= createHydraIGameRuntime();
 
 const hud = createHudView({ root: app });
 const generationTransition = createGenerationTransitionView({ root: generationTransitionRoot });
+const npPhase = createNpPhaseView({ root: npPhaseRoot });
 
 function isHydraIIIntroPending(snapshot) {
   const intro = runtime.progression.hydraIIIntro;
@@ -187,19 +182,22 @@ const berserkerView = createBerserkerView({
 const renderSnapshot = () => {
   const snapshot = runtime.snapshot();
   const introPending = isHydraIIIntroPending(snapshot);
+  const npActive = runtime.isNpActive();
   const generationConfig = getGenerationConfig(snapshot);
   const generationProgress = projectGenerationProgress(snapshot, generationConfig);
 
   hud.render(snapshot, {
     commandSpellI: runtime.commandSpellIStatus(),
     np: runtime.npStatus(),
+    npActive,
     hydraIIIntroPending: introPending,
     generationProgress,
   });
   hydraView.render(snapshot);
   stage.setGenerationAppearance(snapshot.hydra.generation);
-  stage.setNpActive(isNpWindowActive(snapshot));
+  stage.setNpActive(npActive);
   app.dataset.hydraGeneration = String(snapshot.hydra.generation);
+  app.dataset.npActive = npActive ? 'true' : 'false';
 
   const regenDelayMs = runtime.currentRegenDelayMs();
   regenDelayReadout.textContent = snapshot.hydra.generation >= 3
@@ -209,19 +207,18 @@ const renderSnapshot = () => {
       : `${regenDelayMs} ms`;
   autoApsReadout.textContent = snapshot.hydra.generation >= 3
     ? 'PAUSED'
-    : introPending
-      ? 'PAUSED · TAP'
-      : snapshot.master.commandSpells.autoSlash
-        ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-        : 'LOCKED';
+    : npActive && snapshot.master.commandSpells.autoSlash
+      ? 'PAUSED · NP'
+      : introPending
+        ? 'PAUSED · TAP'
+        : snapshot.master.commandSpells.autoSlash
+          ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+          : 'LOCKED';
   totalKillsReadout.textContent = snapshot.statistics.totalHydrasKilled.toString();
 };
 
 const handleNpPress = () => {
-  const result = runtime.releaseNp();
-  if (result.accepted) {
-    hud.setStatus('NP RELEASE · head growth suppressed for 3.0 s');
-  }
+  runtime.releaseNp();
   renderSnapshot();
 };
 const unbindNpButton = bindFixedControl(npButton, handleNpPress);
@@ -319,6 +316,13 @@ const offRegrow = runtime.events.on('head:regrow', ({ payload }) => {
   renderSnapshot();
 });
 const offNpReleased = runtime.events.on('np:released', () => {
+  npPhase.showRelease();
+  hud.setStatus('寶具解放 · TIME STOP · AUTO PAUSED · 3.0 s');
+  renderSnapshot();
+});
+const offNpEnded = runtime.events.on('np:ended', () => {
+  npPhase.showResume();
+  hud.setStatus('TIME RESUMES · HYDRA LAW RESTORED');
   renderSnapshot();
 });
 const offKilled = runtime.events.on('hydra:killed', ({ payload }) => {
@@ -402,6 +406,7 @@ window.addEventListener('pagehide', () => {
   offCut();
   offRegrow();
   offNpReleased();
+  offNpEnded();
   offKilled();
   offCurrencyGain();
   offRespawned();
@@ -410,6 +415,7 @@ window.addEventListener('pagehide', () => {
   offSpellAvailable();
   offSpellUnlocked();
   offSpellUpgraded();
+  npPhase.destroy();
   generationTransition.destroy();
   berserkerView.destroy();
   hydraView.destroy();
