@@ -105,14 +105,20 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
   });
 }
 
-export function createHydraIIRule({ maxHeadCount = 81n } = {}) {
+function createCutOneGrowTwoRule({ generation, maxHeadCount, id } = {}) {
+  if (!Number.isInteger(generation) || generation < 2) {
+    throw new TypeError('generation must be an integer >= 2.');
+  }
   if (typeof maxHeadCount !== 'bigint' || maxHeadCount < 1n) {
     throw new TypeError('maxHeadCount must be a positive BigInt.');
   }
+  if (typeof id !== 'string' || id.length < 1) {
+    throw new TypeError('id must be a non-empty string.');
+  }
 
   return Object.freeze({
-    id: 'hydra-ii-cut-one-grow-two',
-    generation: 2,
+    id,
+    generation,
     maxHeadCount,
 
     resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0, ruleContext = {} } = {}) {
@@ -165,6 +171,22 @@ export function createHydraIIRule({ maxHeadCount = 81n } = {}) {
   });
 }
 
+export function createHydraIIRule({ maxHeadCount = 81n } = {}) {
+  return createCutOneGrowTwoRule({
+    generation: 2,
+    maxHeadCount,
+    id: 'hydra-ii-cut-one-grow-two',
+  });
+}
+
+export function createHydraIIIRule({ maxHeadCount = 729n } = {}) {
+  return createCutOneGrowTwoRule({
+    generation: 3,
+    maxHeadCount,
+    id: 'hydra-iii-cut-one-grow-two',
+  });
+}
+
 export function createHydraShellRule({ generation, maxHeadCount } = {}) {
   if (!Number.isInteger(generation) || generation < 1) {
     throw new TypeError('generation must be a positive integer.');
@@ -194,5 +216,5 @@ export function createHydraShellRule({ generation, maxHeadCount } = {}) {
 export const HydraRules = Object.freeze({
   I: createHydraIRule(),
   II: createHydraIIRule(),
-  III: createHydraShellRule({ generation: 3, maxHeadCount: 729n }),
+  III: createHydraIIIRule(),
 });
