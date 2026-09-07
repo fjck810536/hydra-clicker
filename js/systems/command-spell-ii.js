@@ -13,6 +13,9 @@ function assertDefinition(definition) {
     throw new TypeError('Command Spell II definition is required.');
   }
   assertPositiveInteger(definition.unlockGeneration, 'Command Spell II unlockGeneration');
+  if (typeof definition.firstEligibilityMilestone !== 'string' || definition.firstEligibilityMilestone.length < 1) {
+    throw new TypeError('Command Spell II firstEligibilityMilestone must be a non-empty string.');
+  }
   if (!definition.base || !Array.isArray(definition.levels) || definition.levels.length < 1) {
     throw new TypeError('Command Spell II requires base data and at least one level.');
   }
@@ -135,6 +138,12 @@ export function createCommandSpellIISystem({
     const next = definition.levels[level] ?? null;
     const maxed = next == null;
     const generationKills = completedGenerationKills(snapshot, definition, generations);
+    const eligibilityMet = maxed
+      || level > 0
+      || (
+        snapshot.hydra.generation >= definition.unlockGeneration
+        && snapshot.progression.milestones.includes(definition.firstEligibilityMilestone)
+      );
     const killsMet = maxed || generationKills >= next.requiredGenerationKills;
     const canAfford = maxed || snapshot.master.humanityEvil >= next.cost;
 
@@ -146,6 +155,7 @@ export function createCommandSpellIISystem({
       maxed,
       generation: definition.unlockGeneration,
       generationKills,
+      eligibilityMet,
       npManualStrikeCount: effects.npManualStrikeCount,
       npMaxPoints: effects.npMaxPoints,
       npDurationMs: effects.npDurationMs,
@@ -161,7 +171,7 @@ export function createCommandSpellIISystem({
       balance: snapshot.master.humanityEvil,
       killsMet,
       canAfford,
-      available: !maxed && killsMet && canAfford,
+      available: !maxed && eligibilityMet && killsMet && canAfford,
     });
   }
 
@@ -190,10 +200,18 @@ export function createCommandSpellIISystem({
   const offCurrency = events.on('currency:gain', ({ payload }) => {
     announceIfAvailable(payload.atMs);
   });
+  const offIntro = events.on('hydra:intro-complete', ({ payload }) => {
+    if (payload.milestone === definition.firstEligibilityMilestone) {
+      announceIfAvailable(payload.atMs);
+    }
+  });
 
   function purchase() {
     const before = getStatus();
     if (before.maxed) return { accepted: false, reason: 'max-level', status: before };
+    if (!before.eligibilityMet) {
+      return { accepted: false, reason: 'eligibility-required', status: before };
+    }
     if (!before.killsMet) return { accepted: false, reason: 'kills-required', status: before };
     if (!before.canAfford) {
       return { accepted: false, reason: 'insufficient-humanity-evil', status: before };
@@ -247,6 +265,7 @@ export function createCommandSpellIISystem({
     destroy() {
       offKilled();
       offCurrency();
+      offIntro();
     },
   });
 }
