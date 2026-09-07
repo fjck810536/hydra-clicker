@@ -125,6 +125,45 @@ textarea {
   white-space: nowrap;
 }
 
+.np-timer {
+  position: absolute;
+  top: max(108px, calc(env(safe-area-inset-top) + 92px));
+  left: 50%;
+  z-index: 4;
+  display: grid;
+  min-width: 116px;
+  transform: translateX(-50%);
+  grid-template-columns: 1fr;
+  gap: 1px;
+  padding: 5px 10px 6px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  background: rgb(10 5 8 / 82%);
+  box-shadow: 0 0 18px rgb(180 22 38 / 10%);
+  text-align: center;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.np-timer[hidden] {
+  display: none;
+}
+
+.np-timer-label,
+.np-timer [data-np-timer-technique] {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  opacity: 0.62;
+}
+
+.np-timer strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.06rem;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+}
+
 .generation-transition {
   position: absolute;
   inset: 0;
