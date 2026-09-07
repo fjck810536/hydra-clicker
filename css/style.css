@@ -125,6 +125,75 @@ textarea {
   white-space: nowrap;
 }
 
+.generation-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 28px;
+  background:
+    linear-gradient(180deg, rgb(4 5 4 / 22%), rgb(6 7 6 / 82%)),
+    radial-gradient(circle at 72% 46%, rgb(153 181 74 / 16%), transparent 48%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.generation-transition[hidden] {
+  display: none;
+}
+
+.generation-transition.is-active {
+  animation: generation-chapter-cut 1250ms ease-out both;
+}
+
+.generation-transition-kicker {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  opacity: 0.58;
+}
+
+.generation-transition strong {
+  font-size: clamp(2.2rem, 13vw, 4.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  text-shadow: 0 0 28px rgb(170 205 88 / 15%);
+}
+
+.generation-transition [data-generation-transition-meta] {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  opacity: 0.72;
+}
+
+.generation-transition[data-generation="3"] {
+  background:
+    linear-gradient(180deg, rgb(6 4 8 / 24%), rgb(8 6 12 / 84%)),
+    radial-gradient(circle at 72% 46%, rgb(128 112 190 / 16%), transparent 48%);
+}
+
+@keyframes generation-chapter-cut {
+  0% {
+    opacity: 0;
+    transform: scale(1.035);
+  }
+  12% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+}
+
 .test-tools {
   position: absolute;
   top: max(108px, calc(env(safe-area-inset-top) + 92px));
