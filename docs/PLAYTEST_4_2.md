@@ -94,18 +94,27 @@ The animation never decides damage and never schedules gameplay cuts.
 
 ## E. TEST path
 
-Current useful sequence:
+For the actual Playtest 4.2 question, isolate the Hydra II cap directly:
 
 ```text
 TEST
 → COMMAND SPELL II · ×3 NP
+→ HYDRA II · 81 HEADS
 → NP READY
-→ reach / enter Hydra II
 → NP RELEASE
-→ tap stage
+→ tap stage for the 3-second window
 ```
 
-`MAX COMMAND SPELL` may remain enabled, but Auto is intentionally paused during NP.
+`HYDRA II · 81 HEADS` is session-only. It marks the first-cut intro as already seen and positions logical heads at the real Hydra II cap; it does not grant Humanity Evil.
+
+`MAX COMMAND SPELL` is unnecessary for this comparison because Auto Slash is intentionally paused during NP.
+
+A useful A/B test is therefore:
+
+```text
+A: HYDRA II · 81 HEADS → NP READY → release → ×1 manual
+B: enable COMMAND SPELL II · ×3 NP → repeat from 81 → ×3 manual
+```
 
 ## F. Automated tests
 
@@ -121,9 +130,11 @@ Command Spell II:
 outside NP + unlocked → tap = 1 cut
 inside NP + unlocked  → tap = 3 separate cuts
 Hydra II 9 + NP + tap → 6
+Hydra II cap preset + NP + ×3 tap → 81 → 78
 
 Economy:
-TEST unlock changes no lifetime kills, Humanity Evil or APS
+TEST CSII unlock changes no lifetime kills, Humanity Evil or APS
+Hydra II cap preset grants no matching Humanity Evil
 
 View:
 countdown pointer-events none
