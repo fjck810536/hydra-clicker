@@ -34,22 +34,20 @@ test('visual projection rejects Number/floating logical head counts', () => {
   assert.throws(() => computeVisibleHeadCount(-1n), /BigInt/);
 });
 
-test('nine-head sparse composition reads as a clustered monster rather than nine long poles', () => {
+test('nine-head sparse composition stays clustered without two HUD-reaching antennae', () => {
   const poses = Array.from({ length: 9 }, (_, index) => getHeadSlotPose(index));
   const minY = Math.min(...poses.map((pose) => pose.y));
   const maxY = Math.max(...poses.map((pose) => pose.y));
   const shortNecks = poses.filter((pose) => pose.neckLength < 2.2).length;
-  const tallNecks = poses.filter((pose) => pose.neckLength > 3.5).length;
+  const veryTallHeads = poses.filter((pose) => pose.y > 3.6).length;
   const originXs = new Set(poses.map((pose) => pose.originX.toFixed(2)));
 
   assert.ok(minY < 1.3, `expected low heads near the established root band, got ${minY}`);
-  assert.ok(maxY > 4.8, `expected a few heads to reach the HUD zone, got ${maxY}`);
+  assert.ok(maxY > 3.2, `expected some vertical hierarchy in the sparse crown, got ${maxY}`);
+  assert.ok(maxY < 3.6, `sparse crown should stay below the previous antenna height, got ${maxY}`);
 
-  // Most of the iconic nine stay compact; only a small minority becomes the tall
-  // silhouette-breaking heads. Multiple nearby origins keep the base from reading
-  // as nine identical rays from one exact pixel.
   assert.ok(shortNecks >= 6, `expected >=6 compact necks, got ${shortNecks}`);
-  assert.ok(tallNecks <= 2, `expected <=2 very long necks, got ${tallNecks}`);
+  assert.equal(veryTallHeads, 0, `expected no sparse heads above 3.6, got ${veryTallHeads}`);
   assert.ok(originXs.size >= 5, `expected clustered root variation, got ${originXs.size} origins`);
 });
 
