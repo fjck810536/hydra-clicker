@@ -32,7 +32,7 @@ function formatNpGauge(np) {
   const label = `${np.points}/${np.maxPoints}`;
   return {
     label: np.ready ? 'READY' : label,
-    button: np.ready ? 'NP · RELEASE' : `NP · ${label}`,
+    button: np.ready ? '寶具解放' : `NP · ${label}`,
     ready: np.ready,
   };
 }
@@ -74,6 +74,7 @@ export function createHudView({ root } = {}) {
     render(snapshot, {
       commandSpellI = null,
       np = null,
+      npActive = false,
       hydraIIIntroPending = false,
       generationProgress = null,
     } = {}) {
@@ -94,11 +95,13 @@ export function createHudView({ root } = {}) {
 
       autoSlash.textContent = snapshot.hydra.generation >= 3
         ? 'PAUSED'
-        : hydraIIIntroPending
-          ? 'PAUSED · TAP'
-          : snapshot.master.commandSpells.autoSlash
-            ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-            : 'LOCKED';
+        : npActive && snapshot.master.commandSpells.autoSlash
+          ? 'PAUSED · NP'
+          : hydraIIIntroPending
+            ? 'PAUSED · TAP'
+            : snapshot.master.commandSpells.autoSlash
+              ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+              : 'LOCKED';
 
       commandSpellButton.textContent = formatCommandSpell(commandSpellI);
       commandSpellButton.disabled = !commandSpellI?.available;
