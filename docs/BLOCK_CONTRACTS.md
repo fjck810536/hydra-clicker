@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.19
+# Hydra Clicker — Block Contracts v0.20
 
-> v0.19 對齊 Playtest 4.4：Command Spell I Lv.1–6 改成順序 prerequisite + Humanity Evil affordability；不再使用額外 kill reveal gate。729 APS 保留為有效等級，但 formal price 未定，所以正常購買回 `price-pending`。State schema 仍為1。
+> v0.20 對齊 Playtest 4.5：固定三槽 Command Spell panel 與 detail modal 成為正式玩家端 View contract。View 只投影 System status；Application 才能呼叫 purchase API。Command Spell III 目前只有 dormant slot。State schema 仍為1。
 
 ## 1. Attack Request
 
@@ -502,17 +502,69 @@ Hydra II max81   → visible ≤81
 Hydra III max729 → visible ≤99
 ```
 
-## 21. Player Controls / TEST Tools
+## 21. Player Controls / Command Spell panel / TEST Tools
 
-Formal footer currently：
+Formal player controls：
 
 ```text
-COMMAND SPELL I purchase
-COMMAND SPELL II purchase
+令咒
+[ I ] [ II ] [ III ]
+
 寶具解放
 ```
 
-Pending CS I 729 must be non-actionable and read `PRICE TBD` in this temporary UI。
+Command Spell slot projection states：
+
+```text
+dormant    = not yet first-affordable / unknown future spell
+available  = first purchase is currently affordable; display NEW
+owned-dim  = already owned but next upgrade unavailable / unaffordable / price pending
+affordable = owned and next upgrade can be purchased; display LV UP
+max        = completed owned state
+```
+
+Slot I / II remain clickable after ownership even when dim so the detail modal can still explain current / next / cost。Before first affordability they remain dormant and non-clickable。
+
+Command Spell III is currently：
+
+```text
+dormant
+non-clickable
+no System
+no gameplay effect
+```
+
+Detail modal contract：
+
+```text
+name / quote
+current level
+CURRENT
+NEXT
+COST
+concise description
+PURCHASE / LV UP / MAX / PRICE TBD
+close
+```
+
+Purchase path：
+
+```text
+slot tap → View opens modal
+modal purchase → Application resolves open spell id
+→ runtime.buyCommandSpellI() / runtime.buyCommandSpellII()
+→ System validates and spends
+```
+
+Forbidden：
+
+```text
+View → draft.master.humanityEvil -= cost
+View → set milestones / APS / NP config
+slot tap → immediate purchase without modal action
+```
+
+CS I 243 → 729 pending state remains visible as `PRICE TBD` with disabled modal action。TEST / already-owned 729 may read MAX。
 
 TEST remains session-only：
 
@@ -543,7 +595,7 @@ master.humanityEvil
 berserker.baseAttacksPerSecond
 ```
 
-No Offline Progress added。
+No UI/modal state is persistent。No Offline Progress added。
 
 ## 23. Required tests
 
@@ -574,6 +626,18 @@ duration → 3 / 3 / 9 / 9 / 9 / 27 / 27 / 27 / 81 s
 Lv9 full gauge release → 81s fixed window
 outside NP → manual tap remains strikeCount1
 inside NP → current CSII strike count
+
+Command Spell panel:
+exactly three fixed slots
+I / II first-affordable → available NEW
+owned but poor → owned-dim and still clickable
+owned + affordable → LV UP state
+MAX distinct from dormant / dim
+243 APS next729 → PRICE TBD and no purchase
+III → dormant / disabled
+View imports no Systems / Math / Core
+View never spends Humanity Evil
+Application modal action routes to runtime purchase APIs
 
 NP time stop:
 active NP + Auto unlocked → zero auto cuts
