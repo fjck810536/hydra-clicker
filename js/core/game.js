@@ -11,6 +11,7 @@ import { createCommandSpellSystem } from '../systems/command-spells.js';
 import { createHydraIProgressionSystem } from '../systems/progression.js';
 import { isRegrowthEnabled } from '../systems/modifiers.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
+import { createTestPresets } from '../dev/test-presets.js';
 import {
   HYDRA_I_PROGRESSION,
   getHydraIRegenDelayMs,
@@ -149,6 +150,10 @@ export function createHydraIGameRuntime({
     ),
   });
   const manual = createManualAttackInput(core);
+  const testPresets = createTestPresets({
+    ...core,
+    progression,
+  });
 
   return {
     ...core,
@@ -173,6 +178,7 @@ export function createHydraIGameRuntime({
     buyCommandSpellI() {
       return commandSpells.purchase();
     },
+    testPresets,
     systems: Object.freeze({
       regrowth,
       combat,
