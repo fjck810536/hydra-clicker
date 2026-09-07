@@ -7,33 +7,31 @@ import { HYDRA_I_PROGRESSION } from '../js/data/progression.js';
 
 const LEVELS = HYDRA_I_PROGRESSION.commandSpellI.levels;
 
-test('Command Spell I uses the confirmed power-of-nine APS and price curve', () => {
-  // N2 was not selected for this implementation pass, so the previous reveal
-  // thresholds remain in force while the confirmed APS / prices change.
+test('Command Spell I uses the revised affordability-driven APS and price curve', () => {
   assert.deepEqual(
-    LEVELS.map((entry) => Number(entry.requiredHydraKills)),
-    [9, 12, 16, 22, 30, 40, 66],
+    LEVELS.map((entry) => entry.requiredHydraKills),
+    [null, null, null, null, null, null, null],
   );
   assert.deepEqual(
-    LEVELS.map((entry) => Number(entry.cost)),
-    [99, 198, 396, 891, 2673, 8019, 24057],
+    LEVELS.map((entry) => entry.cost),
+    [99n, 33n, 66n, 99n, 1782n, 2178n, null],
   );
   assert.deepEqual(
     LEVELS.map((entry) => entry.attacksPerSecond),
     [1, 3, 9, 27, 81, 243, 729],
   );
 
-  const postUnlockCost = LEVELS.slice(1).reduce((sum, entry) => sum + entry.cost, 0n);
-  assert.equal(postUnlockCost, 36234n);
-  assert.equal((66n - 9n) * HYDRA_I_PROGRESSION.humanityEvilPerKill, 627n);
-  assert.ok(postUnlockCost > 627n, 'the new curve is intentionally cross-generation');
+  const formalCostThrough243 = LEVELS.slice(0, 6).reduce((sum, entry) => sum + entry.cost, 0n);
+  assert.equal(formalCostThrough243, 4257n);
+  assert.equal(LEVELS.at(-1).purchasePending, true);
+  assert.equal(LEVELS.at(-1).intendedGeneration, 3);
 });
 
 test('a save with only Auto Slash unlocked is treated as Command Spell I Lv.1', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
   initialState.statistics.totalHydrasKilled = 12n;
-  initialState.master.humanityEvil = 198n;
+  initialState.master.humanityEvil = 33n;
 
   const runtime = createHydraIGameRuntime({ initialState });
   const before = runtime.commandSpellIStatus();
@@ -81,15 +79,13 @@ test('legacy 128 APS upgrade save migrates conservatively to 81 APS instead of r
   runtime.destroy();
 });
 
-test('enough cross-generation Humanity Evil can purchase every post-unlock Command Spell I upgrade', () => {
+test('formal Humanity Evil purchases can reach 243 APS but 729 remains price-pending', () => {
   const initialState = createInitialState();
-  initialState.master.commandSpells.autoSlash = true;
-  initialState.statistics.totalHydrasKilled = 198n;
-  initialState.master.humanityEvil = 36234n;
+  initialState.master.humanityEvil = 4257n;
 
   const runtime = createHydraIGameRuntime({ initialState });
 
-  for (let targetLevel = 2; targetLevel <= 7; targetLevel += 1) {
+  for (let targetLevel = 1; targetLevel <= 6; targetLevel += 1) {
     const status = runtime.commandSpellIStatus();
     assert.equal(status.nextLevel, targetLevel);
     assert.equal(status.available, true);
@@ -102,15 +98,19 @@ test('enough cross-generation Humanity Evil can purchase every post-unlock Comma
   const finalStatus = runtime.commandSpellIStatus();
   const snapshot = runtime.snapshot();
 
-  assert.equal(finalStatus.level, 7);
-  assert.equal(finalStatus.maxed, true);
-  assert.equal(snapshot.berserker.baseAttacksPerSecond, 729);
+  assert.equal(finalStatus.level, 6);
+  assert.equal(finalStatus.maxed, false);
+  assert.equal(finalStatus.nextAttacksPerSecond, 729);
+  assert.equal(finalStatus.pricePending, true);
+  assert.equal(finalStatus.available, false);
+  assert.equal(snapshot.berserker.baseAttacksPerSecond, 243);
   assert.equal(snapshot.master.humanityEvil, 0n);
+  assert.equal(runtime.buyCommandSpellI().reason, 'price-pending');
 
   runtime.destroy();
 });
 
-test('729 APS is still paused by NP time stop', () => {
+test('729 APS remains a valid owned/test state and is still paused by NP time stop', () => {
   const initialState = createInitialState();
   initialState.master.commandSpells.autoSlash = true;
   initialState.berserker.baseAttacksPerSecond = 729;
