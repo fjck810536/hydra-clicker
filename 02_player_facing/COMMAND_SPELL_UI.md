@@ -6,65 +6,127 @@
 
 ## 1. Core layout idea
 
-The Command Spell system should be visually presented as a **three-slot container** rather than as a generic skill tree or scrolling upgrade list.
+The Command Spell system should be visually presented as a **fixed three-slot container** rather than as a generic skill tree or scrolling upgrade list.
 
-Recommended composition:
+There are two distinct player-facing surfaces:
 
-- one compact area shows **three Command Spell icons / slots** corresponding to Command Spell I, II, and III;
-- another nearby area contains a faint, low-contrast title text: **「令咒」**;
-- beneath / beside that title, the interface visually implies **three reserved slots** even before all three Command Spells are available;
-- empty slots should look intentionally empty, not broken or disabled by accident.
+### Combat HUD
 
-Player-facing purpose:
+A small group of **three Command Spell icons**, visually reminiscent of how FGO presents the Master's Command Spell marks.
 
-> the player knows from early on that there are three major Command Spell objects, but does not yet know what all three will become.
+Purpose:
 
-This supports anticipation without exposing the full upgrade tree.
+- show which of the three major Command Spells currently exist / are owned;
+- provide immediate combat-state identity;
+- remain compact and readable during tapping;
+- **not** serve as the primary purchase / level-up interface.
+
+The combat HUD should feel like a status emblem rather than a shop.
+
+### Command Spell panel
+
+Elsewhere in the interface, a dedicated area carries a faint Chinese title:
+
+> **令咒**
+
+and permanently reserves **three visual slots**:
+
+> `[ I ]   [ II ]   [ III ]`
+
+All three slots exist from the beginning, but initially read as empty / dormant spaces.
+
+The player therefore learns very early that the system contains exactly three major Command Spells, without seeing their future mechanics or upgrade trees.
 
 ---
 
-## 2. Empty / locked state
+## 2. Fixed three-slot principle
 
-Before a Command Spell can be purchased:
+### Confirmed direction
 
-- its slot remains visually empty or ghosted;
-- the faint 「令咒」 container remains visible;
-- the player should not see a long list of future level rewards;
-- the slot may show only minimal locked / dormant visual language.
+Each Command Spell occupies **exactly one slot**, regardless of how many internal levels it later receives.
 
-The goal is:
+Therefore:
 
-> **reserved mystery, not disabled-menu clutter.**
+- Command Spell I occupies one slot;
+- Command Spell II occupies one slot;
+- Command Spell III occupies one slot;
+- APS upgrades do not expand into separate cards;
+- multistrike / time / efficiency upgrades under Command Spell II do not become separate visible branches on the main panel.
 
-The player should feel that the interface is waiting for something to appear there.
+The player-facing complexity is kept inside the detail modal for that one Command Spell.
+
+The main interface should always preserve the simple mental model:
+
+> **There are three Command Spells.**
 
 ---
 
-## 3. First Command Spell purchase reveal
+## 3. Initial dormant state
 
-When Humanity Evil first reaches the required purchase threshold for Command Spell I (currently discussed around **99 Humanity Evil**):
+All three slots are present from the beginning.
 
-1. the first previously empty Command Spell slot gains the Command Spell I sigil / icon;
-2. this should read as **something becoming available**, not as an automatic purchase;
-3. the player can tap / click the newly visible sigil;
-4. a detail modal / pop-up opens.
+Before a Command Spell becomes affordable / available:
 
-The purchase modal should contain at minimum:
+- its slot remains visually empty or heavily ghosted;
+- the faint 「令咒」 panel is already visible;
+- the slot should feel intentionally dormant, not broken;
+- there is no active purchase button yet;
+- the future exact effect does not need to be exposed.
+
+The intended feeling is:
+
+> **the interface already has a place waiting for something that does not yet exist for the player.**
+
+---
+
+## 4. Availability appears at the moment the player can afford it
+
+### Confirmed direction
+
+For Command Spell I, when Humanity Evil first reaches the purchase requirement (currently **99 Humanity Evil**):
+
+1. the previously empty first slot visibly updates;
+2. the Command Spell I sigil / purchase affordance appears;
+3. the affordance should be **clear and bright enough to notice**;
+4. the game does not need to force-open the detail modal;
+5. the player chooses to tap / click the slot.
+
+Command Spell II and III follow the same reveal logic:
+
+> **their sigils first appear when the player has enough Humanity Evil to purchase that Command Spell for the first time.**
+
+This means there is no long intermediate state where a future Command Spell is fully revealed but still fundamentally unavailable.
+
+Before first affordability:
+
+> empty slot
+
+At first affordability:
+
+> real sigil / purchase button appears
+
+---
+
+## 5. First purchase modal
+
+Tapping the newly available sigil opens a detail modal / pop-up.
+
+The modal should contain at minimum:
 
 - Command Spell name / quote;
-- current level or acquisition state;
-- concise effect description;
+- acquisition state or current level;
+- concise mechanical description;
 - Humanity Evil cost;
 - **Purchase** button;
 - **Cancel / Close** button.
 
-For Command Spell I the text identity is currently:
+For Command Spell I the current text identity is:
 
 > **「幫我撐十秒。」**
 
-The text should remain separate from the mechanical description so that the SAO-reference mismatch can remain part of the joke.
+The quote remains separate from the mechanical description so the SAO-reference mismatch can remain part of the joke.
 
-Example player-facing structure:
+Example structure:
 
 > 「幫我撐十秒。」  
 > Command Spell I  
@@ -72,41 +134,76 @@ Example player-facing structure:
 > Effect: unlock / increase Auto Slash  
 > Cost: 99 Humanity Evil
 
-The modal should explain what the upgrade does without rewriting the joke-text into literal mechanics.
+The modal should explain the mechanical delta without rewriting the joke-text into literal mechanics.
 
 ---
 
-## 4. Purchased Command Spell state
+## 6. Purchased state and LV UP
 
 After purchase:
 
-- the Command Spell sigil remains permanently visible in its slot;
-- the slot now represents a persistent owned system rather than a one-time item;
-- a compact **LV UP** label becomes visible on or near the sigil;
-- the next upgrade cost is shown compactly nearby, preferably as:
+- the sigil remains permanently visible in its slot;
+- that slot is no longer treated as an empty mystery slot;
+- a compact **LV UP** affordance appears;
+- the next Humanity Evil requirement is visible nearby;
+- clicking / tapping the owned sigil opens the same detail-modal pattern.
 
-> **LV UP**  
-> `next cost / Humanity Evil`
+The main panel should not expose the entire internal upgrade sequence.
 
-The persistent HUD should stay compact. It should not display the full effect description, all future levels, or the entire branch tree at once.
+Example compact state:
 
-Clicking / tapping the owned Command Spell opens the same detail modal pattern used for the first purchase.
-
-The modal then shows:
-
-- current level;
-- next level;
-- exact change from current → next;
-- next cost;
-- Purchase / Cancel.
-
-This keeps the main play screen visually clean while making detailed information available on demand.
+> `[令咒 I]`  
+> `Lv.2`  
+> `LV UP · 396 人類惡`
 
 ---
 
-## 5. Level-up modal behavior
+## 7. Owned but unaffordable upgrade state
 
-The level-up modal should emphasize **delta**, not just the new total.
+### Confirmed direction
+
+Once a Command Spell has been purchased, its upgrade button / sigil **never disappears back into an empty slot**.
+
+If the player cannot afford the next level:
+
+- the same button remains present;
+- the slot remains identifiable as that Command Spell;
+- the visual treatment becomes dim / low-saturation / ghosted, similar in brightness to an empty slot;
+- the next required Humanity Evil amount remains readable;
+- the detail modal can still be opened;
+- the purchase / LV UP action inside the modal is unavailable until sufficient Humanity Evil is held.
+
+This produces an important distinction:
+
+> **empty slot = this Command Spell has not entered the player's system yet**
+>
+> **dim owned slot = this Command Spell exists, but the next upgrade is currently unaffordable**
+
+The geometry stays stable; only state and brightness change.
+
+---
+
+## 8. Affordable upgrade state
+
+When the player gains enough Humanity Evil for the next level:
+
+- the previously dim owned slot becomes clearly lit again;
+- `LV UP` becomes visually active;
+- the transition should be obvious enough to notice during play;
+- no forced modal is required.
+
+The important contrast is therefore:
+
+> dim / dormant-looking while poor  
+> → clearly lit when affordable
+
+This is intentionally stronger than a tiny badge or subtle mobile-game notification dot.
+
+---
+
+## 9. Level-up modal behavior
+
+The level-up modal should emphasize **current → next**.
 
 Example for Command Spell I:
 
@@ -115,139 +212,105 @@ Example for Command Spell I:
 > Change: +18 APS  
 > Cost: 891 Humanity Evil
 
-Example for Command Spell II:
+Example for Command Spell II multistrike:
 
 > Current NP manual strike: 1 cut / click  
 > Next: 3 rapid cuts / click during Noble Phantasm only  
 > Cost: XXX Humanity Evil
 
-For time-stop upgrades:
+Example for time-stop progression:
 
 > Current: 9 s  
 > Next: 27 s  
 > Cost: XXX Humanity Evil
 
-The modal is the correct place for exact numbers and restrictions such as **"during Noble Phantasm only"**.
+Restrictions such as **"during Noble Phantasm only"** belong in this modal rather than cluttering the persistent panel.
 
 ---
 
-## 6. Command Spell II / III use the same interaction grammar
+## 10. Command Spell II and III use the same interaction grammar
 
-Command Spell II and Command Spell III should use the same interaction pattern as Command Spell I:
+All three Command Spells use the same simple lifecycle:
 
-> empty / dormant slot  
-> → availability threshold reached  
-> → sigil becomes purchasable  
+> permanent empty slot  
+> → first becomes affordable  
+> → sigil / purchase affordance appears and lights up  
 > → click opens detail modal  
 > → purchase  
-> → permanent sigil + LV UP state  
-> → future upgrades through the same modal
+> → persistent owned sigil + LV UP  
+> → unaffordable next level = same slot dimmed  
+> → affordable again = same slot lights up  
+> → MAX
 
-This consistency is important because the **content and mechanics can become increasingly strange while the interaction remains stable**.
+Command Spell II does **not** expose its multistrike, NP efficiency, and time progression as separate main-panel branches.
 
-The player should not need to learn a new shop UI for each Command Spell.
-
----
-
-## 7. Recommended information hierarchy
-
-Main play HUD should answer only:
-
-1. Which Command Spells exist / are owned?
-2. Which one can currently be purchased or leveled?
-3. Roughly how much Humanity Evil does the next upgrade cost?
-
-The detail modal answers:
-
-1. What is this Command Spell called?
-2. What exactly does my current level do?
-3. What exactly will the next level change?
-4. What does it cost?
-5. Do I want to buy it now?
-
-This keeps resource allocation legible without turning the main screen into an RPG character sheet.
+Command Spell III should follow the same one-slot simplicity even if its internal mechanics later become unusual.
 
 ---
 
-## 8. Availability / affordability visual states
+## 11. MAX state
 
-Each slot should distinguish at least these player-facing states:
-
-### A. Dormant / not yet available
-
-- empty or ghosted slot;
-- no purchase action;
-- minimal mystery.
-
-### B. Revealed but unaffordable
-
-- sigil visible;
-- next cost visible;
-- purchase modal can be opened;
-- Purchase button clearly unavailable because Humanity Evil is insufficient.
-
-This state is desirable. It allows the player to see long-term goals such as a much more expensive APS upgrade before they can afford it.
-
-### C. Affordable
-
-- subtle but clear readiness cue;
-- no mandatory pop-up;
-- slot / LV UP label gains emphasis;
-- player chooses when to inspect and purchase.
-
-### D. Purchased / current level active
-
-- permanent sigil;
-- current level shown compactly;
-- next cost shown.
-
-### E. MAX
+At MAX:
 
 - `MAX` replaces `LV UP`;
-- no purchase affordance;
-- sigil remains visible as a completed major progression object.
+- the sigil remains fully established;
+- no purchase affordance remains;
+- MAX should visually read as completion, not as another disabled / unaffordable state.
+
+A MAX Command Spell should therefore be visually distinct from both:
+
+- an empty slot;
+- a dim owned-but-unaffordable slot.
 
 ---
 
-## 9. Do not auto-open the purchase modal at threshold
+## 12. Information hierarchy
 
-Recommended behavior:
+### Combat HUD answers
 
-When Humanity Evil crosses a purchase threshold, the Command Spell slot becomes available and gains a visible cue, but the game should **not forcibly interrupt play with a modal**.
+1. How many of the three Command Spells do I currently possess?
+2. What is my Command Spell identity during combat?
 
-Reason:
+### Command Spell panel answers
 
-- the player may be in the middle of rapid tapping or NP timing;
-- purchase is a resource-allocation decision, not a tutorial confirmation;
-- the player should feel that Humanity Evil belongs to them and can be saved.
+1. Which of the three slots are empty, purchasable, owned, upgradable, or MAX?
+2. Which upgrade can I currently afford?
+3. Roughly what is the next Humanity Evil requirement?
 
-The reveal can be noticeable, but opening the detailed modal should remain a player action.
+### Detail modal answers
 
----
+1. What is this Command Spell called?
+2. What does the current level do?
+3. What exactly changes at the next level?
+4. What does it cost?
+5. Do I want to spend Humanity Evil now?
 
-## 10. Why this structure fits the economy
-
-The three-slot Command Spell container supports the planned economy better than a single linear upgrade track.
-
-The player may simultaneously see:
-
-- Command Spell I: expensive APS level-up;
-- Command Spell II: multistrike / NP efficiency / time-stop upgrades;
-- Command Spell III: future unknown branch.
-
-Humanity Evil therefore becomes a real allocation resource:
-
-> **Which Command Spell do I feed next?**
-
-The fixed three-slot interface makes that choice visible without exposing dozens of individual upgrade cards at once.
+This keeps the surface simple even when the underlying economy becomes deep.
 
 ---
 
-## 11. Open questions
+## 13. Why this UI fits the resource-allocation design
 
-1. At what exact gameplay milestone should Command Spell II's dormant slot become a real purchasable sigil?
-2. Should Command Spell III's slot be visible as an empty reserved slot from the beginning, or only appear after Command Spell II is acquired?
-3. Should the faint 「令咒」 text sit behind the three slots as decorative typography, or function as the title of a dedicated small panel?
-4. How strong should the affordability cue be when Humanity Evil becomes sufficient: glow, pulse, sound, badge, or only color/value change?
-5. When an expensive next level is revealed but unaffordable, should the player see only the price, or also the exact future effect?
-6. Should each Command Spell have a distinct sigil / visual identity while still sharing the same interaction grammar?
+The three fixed slots make Humanity Evil allocation visible without turning the game into a conventional RPG skill-tree screen.
+
+A player may simultaneously see:
+
+> Command Spell I — owned, next APS upgrade unaffordable / dim  
+> Command Spell II — newly affordable / bright  
+> Command Spell III — still empty
+
+That creates a direct economic question:
+
+> **Do I spend Humanity Evil here now, or save it for another Command Spell?**
+
+Crucially, the player is choosing between **three persistent systems**, not between dozens of individual upgrade cards.
+
+---
+
+## 14. Remaining open UI questions
+
+1. Exact placement of the FGO-like three-icon group in the combat HUD.
+2. Exact placement / scale of the larger 「令咒」 three-slot panel.
+3. Whether first affordability should include a one-time short animation / sound in addition to the slot lighting up.
+4. How visually distinct the three Command Spell sigils should be while still reading as one coherent set.
+5. Exact appearance of the dim owned-but-unaffordable state versus the truly empty dormant state.
