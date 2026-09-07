@@ -37,6 +37,19 @@ function formatNpGauge(np) {
   };
 }
 
+function formatGenerationProgress(progress) {
+  if (!progress || progress.targetKills == null) {
+    return { eyebrow: 'SHELL', kills: '—' };
+  }
+
+  const completed = formatInteger(progress.completedKills);
+  const target = formatInteger(progress.targetKills);
+  return {
+    eyebrow: `${completed}/${target}`,
+    kills: `${completed}/${target}`,
+  };
+}
+
 export function createHudView({ root } = {}) {
   if (!(root instanceof HTMLElement)) {
     throw new TypeError('createHudView requires a root element.');
@@ -62,13 +75,15 @@ export function createHudView({ root } = {}) {
       commandSpellI = null,
       np = null,
       hydraIIIntroPending = false,
+      generationProgress = null,
     } = {}) {
       const npGauge = formatNpGauge(np);
+      const progress = formatGenerationProgress(generationProgress);
 
-      generation.textContent = `HYDRA ${formatGeneration(snapshot.hydra.generation)} · PROTOTYPE`;
+      generation.textContent = `HYDRA ${formatGeneration(snapshot.hydra.generation)} · ${progress.eyebrow}`;
       headCount.textContent = formatInteger(snapshot.hydra.logicalHeadCount);
       cutCount.textContent = formatInteger(snapshot.statistics.totalHeadsCut);
-      killCount.textContent = formatInteger(snapshot.statistics.totalHydrasKilled);
+      killCount.textContent = progress.kills;
       humanityEvil.textContent = formatInteger(snapshot.master.humanityEvil);
       npValue.textContent = npGauge.label;
       npButton.textContent = npGauge.button;
