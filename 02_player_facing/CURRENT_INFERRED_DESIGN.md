@@ -239,44 +239,65 @@ The pleasure comes from finally watching the number genuinely decrease, while th
 
 ## 7. Command Spell progression
 
-### Corrected player-facing structure
+### Confirmed SAO quote order and deliberate mismatch
 
-Command Spells and Noble Phantasm duration progression are separate systems and should not be conflated.
+The Command Spell texts deliberately follow the order of the Sword Art Online episode 9 boss-fight quotes:
+
+1. first the request to hold for ten seconds;
+2. later the internal demand to go faster.
+
+The **quote order is part of the joke and should not be swapped to match the mechanical effects more literally**.
 
 #### Command Spell I — APS / throughput
 
-> **「快一點，再快一點。」**
+> **「幫我撐十秒。」**
 
-Command Spell I is the APS / attack-speed progression.
+Command Spell I is the APS / attack-speed progression, despite the text sounding like it should extend time.
+
+That mismatch is intentional. The game humorously misreads a request to teammates to hold the boss as a command that produces more autonomous cutting throughput.
 
 Player-facing purpose:
 
 - introduce or escalate autonomous cutting throughput;
 - preserve the ability for the player to **interleave manual clicks with APS**, rather than replacing active play with idle play;
-- create the contrast that the player's overall cutting capability can become dramatically faster while the Noble Phantasm itself is still stuck at a ridiculous **3 seconds**.
+- create the contrast that the player's overall cutting capability can become dramatically faster while the Noble Phantasm itself is still stuck at a ridiculous **3 seconds**;
+- create a deliberate double-edged early experience in Hydra II: APS helps build throughput / NP, but outside NP it also causes more Hydra cuts and therefore more regrowth pressure.
 
-That mismatch is intentional and part of the joke.
+### Confirmed learning arc for Command Spell I
+
+The intended Hydra II reading is closest to:
+
+> **At first APS can feel like a disaster; after the player understands the NP rhythm, the same automation becomes something they can exploit.**
+
+So Command Spell I is not meant to be perceived as a purely positive stat increase from the first second. It is a power that initially accelerates both the player and the problem.
 
 Command Spell I does **not** extend Noble Phantasm duration.
 
-#### Command Spell II — Noble Phantasm time progression
+#### Command Spell II — NP time + multistrike progression
 
-> **「幫我撐十秒。」**
+Preferred SAO-derived text:
 
-Command Spell II is where Noble Phantasm duration progression begins.
+> **「快點……再快點……！」**
+
+(Equivalent presentation may use the Japanese **「速く……もっと速く……！」** if that reads better in the final UI.)
+
+Command Spell II begins Noble Phantasm duration progression and also opens a second family of "faster" upgrades that change the meaning of one manual click.
 
 Current design direction:
 
 - the progression is organized into several stages around powers of three, **3^n**;
 - the progression may extend up to a ceiling associated with **81**;
-- only some of those stages need to increase Noble Phantasm duration;
-- other stages within the same Command Spell II progression may grant different related bonuses rather than making every step pure duration inflation.
+- only some stages need to increase Noble Phantasm duration;
+- other stages can provide different related bonuses;
+- a strong candidate for non-duration stages is **multistrike per click**, where one player click produces multiple cuts / swings, for example **3 cuts, 6 cuts, 9 cuts**;
+- the exact mapping between the 3^n milestones, duration increases, and multistrike rewards remains open.
 
-The exact mapping of each 3^n milestone to duration versus other bonuses remains open and should be tuned later.
+The joke now has a deliberate double mismatch:
 
-Player-facing meaning:
+- **「幫我撐十秒。」** gives APS rather than ten more seconds;
+- **「快點……再快點……！」** can make the player effectively faster through multistrike, while paradoxically also being the progression where the three-second NP window finally begins to last longer.
 
-> the player first becomes faster, and only later acquires the ability to keep the impossible three-second window open for longer.
+This preserves the source quote order while letting the game reinterpret the lines mechanically.
 
 #### Later Command Spell / automation beat
 
@@ -284,7 +305,7 @@ Player-facing meaning:
 
 The later SKIP joke remains a candidate for enabling stronger automation during Noble Phantasm / time-stop play, turning an early manual burst window into a later automated massacre window.
 
-Its exact placement in the Command Spell structure remains provisional until the full Command Spell II / 3^n progression is mapped.
+Its exact placement remains provisional until the full Command Spell II / 3^n progression is mapped.
 
 ### Synchronization note
 
@@ -396,7 +417,7 @@ The game does not currently need to explain whether successive Hydras are reinca
 
 One useful working model is:
 
-> **Manual suppression → self-created pressure → cap stalemate → 3-second NP rule-breaking window → APS/manual hybrid escalation → longer NP control → scale abstraction → structural understanding**
+> **Manual suppression → self-created pressure → cap stalemate → 3-second NP rule-breaking window → APS that initially accelerates both player and problem → learned NP rhythm → multistrike / longer NP control → scale abstraction → structural understanding**
 
 A parallel transformation occurs in the meaning of a head:
 
@@ -404,7 +425,7 @@ A parallel transformation occurs in the meaning of a head:
 
 And in the meaning of the player character / Heracles-side power:
 
-> hand → faster hand + autonomous cutting → more controlled time → later automation inside the impossible window
+> hand → extra autonomous hands → one click becoming many cuts → more controlled time → later automation inside the impossible window
 
 These are working hypotheses to test against actual play rather than fixed lore.
 
@@ -417,8 +438,8 @@ The next player-facing questions that remain genuinely unresolved include:
 1. **Hydra II regrowth timing below cap:** exactly how long should the severed-head → regrowth delay be so that cause is legible without slowing rapid play?
 2. **Hydra II cap feedback:** what exact animation communicates "you are still cutting successfully, but the population is no longer shrinking" without replaying a visually exhausting two-head regrowth sequence every click?
 3. **Three-second NP lethality:** with real two-thumb play, how many heads can a strong player actually remove in 3 seconds, and does that produce the desired one-cycle / multi-cycle split?
-4. **Command Spell I APS/manual interaction:** how should autonomous cuts and manual clicks coexist perceptually so that APS feels like additional hands rather than the game playing itself?
-5. **Command Spell II 3^n ladder:** which milestones increase NP duration, which provide other bonuses, and what does the ceiling at 81 represent player-facing?
+4. **Command Spell I APS/manual interaction:** how should APS and manual clicks coexist perceptually so that the early "this upgrade is making the Hydra worse" phase is funny and legible rather than merely confusing?
+5. **Command Spell II 3^n ladder:** which milestones increase NP duration, which unlock multistrike (for example 3 / 6 / 9 cuts per click), which provide other bonuses, and what does the ceiling at 81 represent player-facing?
 6. **NP timer placement:** should the small stopwatch live above or below the play field, and how visible should tenths / hundredths of seconds be?
 7. **Hydra III tree reveal:** what information should the first tree view actually expose, and what should remain hidden?
 8. **Text / micro-story:** how much Souls-like encounter naming / death text should coexist with the unexplained corpse conveyor-belt comedy?
