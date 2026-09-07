@@ -9,7 +9,7 @@ function formatGeneration(generation) {
   return String(generation);
 }
 
-function formatCommandSpell(status) {
+function formatCommandSpellI(status) {
   if (!status) return 'COMMAND SPELL I';
 
   if (status.maxed) {
@@ -20,11 +20,34 @@ function formatCommandSpell(status) {
     return `COMMAND SPELL I · Lv.${status.nextLevel} · BUY ${formatInteger(status.cost)} · ${status.nextAttacksPerSecond} APS`;
   }
 
-  if (status.level === 0) {
-    return `COMMAND SPELL I · ${formatInteger(status.kills)}/${formatInteger(status.requiredHydraKills)} KILLS`;
+  if (!status.killsMet) {
+    return `COMMAND SPELL I · ${formatInteger(status.kills)}/${formatInteger(status.requiredHydraKills)} KILLS · → ${status.nextAttacksPerSecond} APS`;
   }
 
-  return `COMMAND SPELL I · Lv.${status.level} · NEXT ${formatInteger(status.requiredHydraKills)} KILLS`;
+  return `COMMAND SPELL I · Lv.${status.level} · NEED ${formatInteger(status.cost)} 人類惡 · → ${status.nextAttacksPerSecond} APS`;
+}
+
+function formatCommandSpellII(status, generation) {
+  if (!status) return 'COMMAND SPELL II';
+
+  if (status.maxed) {
+    const seconds = Math.round(status.npDurationMs / 1000);
+    return `COMMAND SPELL II · MAX · ×${status.npManualStrikeCount} · ${seconds}s`;
+  }
+
+  if (generation < status.generation) {
+    return 'COMMAND SPELL II · LOCKED · HYDRA II';
+  }
+
+  if (!status.killsMet) {
+    return `COMMAND SPELL II · ${formatInteger(status.generationKills)}/${formatInteger(status.requiredGenerationKills)} HYDRA II · ${status.nextRewardLabel}`;
+  }
+
+  if (status.available) {
+    return `COMMAND SPELL II · Lv.${status.nextLevel} · BUY ${formatInteger(status.cost)} · ${status.nextRewardLabel}`;
+  }
+
+  return `COMMAND SPELL II · Lv.${status.level} · NEED ${formatInteger(status.cost)} 人類惡 · ${status.nextRewardLabel}`;
 }
 
 function formatNpGauge(np) {
@@ -62,17 +85,31 @@ export function createHudView({ root } = {}) {
   const humanityEvil = root.querySelector('[data-hud="humanity-evil"]');
   const npValue = root.querySelector('[data-hud="np"]');
   const npButton = root.querySelector('[data-np-button]');
-  const commandSpellButton = root.querySelector('[data-command-spell-button]');
+  const commandSpellIButton = root.querySelector('[data-command-spell-button]');
+  const commandSpellIIButton = root.querySelector('[data-command-spell-ii-button]');
   const autoSlash = root.querySelector('[data-hud="auto-slash"]');
   const status = root.querySelector('[data-stage-status]');
 
-  if (!generation || !headCount || !cutCount || !killCount || !humanityEvil || !npValue || !npButton || !commandSpellButton || !autoSlash || !status) {
+  if (
+    !generation
+    || !headCount
+    || !cutCount
+    || !killCount
+    || !humanityEvil
+    || !npValue
+    || !npButton
+    || !commandSpellIButton
+    || !commandSpellIIButton
+    || !autoSlash
+    || !status
+  ) {
     throw new Error('HUD markup is incomplete.');
   }
 
   return {
     render(snapshot, {
       commandSpellI = null,
+      commandSpellII = null,
       np = null,
       npActive = false,
       hydraIIIntroPending = false,
@@ -103,8 +140,10 @@ export function createHudView({ root } = {}) {
               ? `${snapshot.berserker.baseAttacksPerSecond} APS`
               : 'LOCKED';
 
-      commandSpellButton.textContent = formatCommandSpell(commandSpellI);
-      commandSpellButton.disabled = !commandSpellI?.available;
+      commandSpellIButton.textContent = formatCommandSpellI(commandSpellI);
+      commandSpellIButton.disabled = !commandSpellI?.available;
+      commandSpellIIButton.textContent = formatCommandSpellII(commandSpellII, snapshot.hydra.generation);
+      commandSpellIIButton.disabled = !commandSpellII?.available;
     },
     setStatus(message) {
       status.textContent = message;
