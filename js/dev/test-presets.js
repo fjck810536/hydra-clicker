@@ -41,6 +41,21 @@ export function createTestPresets({ state, events, progression } = {}) {
     return Object.freeze(payload);
   }
 
+  function readyNp() {
+    state.update((draft) => {
+      // Persistent NP storage is normalized 0..1. A full test gauge is therefore
+      // exactly 1 regardless of the current player-facing max-point presentation.
+      draft.berserker.np = 1;
+    });
+
+    const payload = {
+      preset: 'np-ready',
+      points: progression.np?.maxPoints ?? 66,
+    };
+    events.emit('test:preset-applied', payload);
+    return Object.freeze(payload);
+  }
+
   function startHydraIEncounter98() {
     const intro = progression.hydraIIIntro;
 
@@ -77,6 +92,7 @@ export function createTestPresets({ state, events, progression } = {}) {
 
   return Object.freeze({
     maxCommandSpellI,
+    readyNp,
     startHydraIEncounter98,
   });
 }
