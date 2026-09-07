@@ -17,6 +17,7 @@ Topics that belong here include:
 ## Working files
 
 - [`CURRENT_INFERRED_DESIGN.md`](./CURRENT_INFERRED_DESIGN.md) — current inferred player-facing architecture, confirmed decisions, provisional directions, and open questions.
+- [`PLAYTEST_4_2_NOTE.md`](./PLAYTEST_4_2_NOTE.md) — Playtest 4.1 empirical feedback and the next hypothesis: visible 3-second NP countdown + Command Spell II Lv.1 NP-only ×3 manual multistrike.
 
 ## Write boundary for this chat
 
