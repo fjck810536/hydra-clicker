@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.8
+# Hydra Clicker — Architecture v0.9
 
-> v0.8 對齊 Playtest 3 Hydra II Intro。核心原則仍是：規則可以怪，積木邊界不要怪。
+> v0.9 對齊 Playtest 3 Hydra II Intro，並將 NP 規則從 delayed-regrowth suppression 升級為 generic head-growth suppression。核心原則仍是：規則可以怪，積木邊界不要怪。
 
 ## 1. Top-level flow
 
@@ -39,7 +39,7 @@ Combat 不寫 generation-specific `if`；只呼叫注入的 `getRule(snapshot)`�
 ```text
 cut 1
 → -1 now
-→ delayed same-head regrowth unless suppressed
+→ delayed same-head regrowth unless head growth is suppressed
 → reaching 0 = Playtest 2 terminal kill
 ```
 
@@ -48,17 +48,17 @@ cut 1
 ```text
 cut 1
 → headsRemoved = 1
-→ headsSpawned = 2 immediately
-→ net +1
+→ headsSpawned = 2 immediately when head growth is enabled
+→ headsSpawned = 0 when head growth is suppressed
 → no delayed regrowth event
 → no terminal kill in current intro rule
 ```
 
-Hydra II `headsSpawned` 是 Cut Resolution 的 immediate structural output，不是 pending regrowth。
+Hydra II `headsSpawned` 是 Cut Resolution 的 immediate structural output，不是 pending regrowth，但仍屬於 generic Hydra head growth。
 
 ## 3. Hydra Model owns immediate spawn application
 
-`applyCutResolution()` 現在統一套用：
+`applyCutResolution()` 統一套用：
 
 ```text
 logicalHeadCount
@@ -72,7 +72,8 @@ logicalHeadCount
 
 ```text
 Hydra I: headsSpawned = 0
-Hydra II: headsSpawned = 2 per removed head
+Hydra II normal: headsSpawned = 2 per removed head
+Hydra II under growth suppression: headsSpawned = 0
 future rules: other exact BigInt spawn counts
 ```
 
@@ -97,7 +98,8 @@ Accepted cut 會發：
 UI 可以因此顯示：
 
 ```text
-CUT 1 · GROW +2 · Δ +1
+normal Hydra II: CUT 1 · GROW +2 · Δ +1
+NP active:       CUT 1
 ```
 
 但 presentation 不改 rule state。
@@ -161,21 +163,43 @@ hydra-ii-first-manual-cut
 
 ## 7. NP boundary
 
-NP 目前仍是：
+NP 現在是：
 
 ```text
 66 heads = READY
 3s timed modifier
-hydra.regrowth = disabled
+hydra.headGrowth = disabled
 ```
 
-它只影響 Hydra I 類型的 delayed regrowth context。
+Modifier resolver 將它投影成：
 
-Hydra II immediate structural `headsSpawned` 不讀這個開關，因此 Playtest 3 中：
+```js
+{
+  headGrowthEnabled: false,
+  regrowthEnabled: false
+}
+```
 
-> NP 不會停止 CUT 1 → GROW 2。
+Hydra Rule 不知道 source 是 NP，只讀 ruleContext。
 
-未來若要讓某個新能力修改 structural spawn，應新增合法 rule modifier target，而不是偷偷擴張現有 `hydra.regrowth` 意義。
+### Hydra I
+
+```text
+headGrowthEnabled = false
+→ cut works
+→ no new delayed regrowth event
+```
+
+### Hydra II
+
+```text
+headGrowthEnabled = false
+→ cut works
+→ headsSpawned = 0
+→ CUT 1 becomes net -1
+```
+
+為相容已保存的舊 timed NP modifier，`hydra.regrowth = disabled` 仍被 resolver 當作 `hydra.headGrowth = disabled` 的 legacy alias，直到舊 modifier 自己的 `endsAt` 到期。
 
 ## 8. Clock order
 
@@ -239,6 +263,7 @@ Playtest 3 沒新增必填 state field：
 - progression.hydraGeneration 已存在。
 - intro completion 使用既有 `progression.milestones`。
 - NP 仍保存 normalized 0..1。
+- active modifier target 是 string data；新 release 使用 `hydra.headGrowth`，舊 `hydra.regrowth` 由 resolver 相容。
 
 所以 Save format 不需 migration。
 
@@ -273,6 +298,7 @@ save → offline battle calculation
 ```text
 Hydra I Playtest 2 seal candidate ✅
 Playtest 3 Hydra II Intro          ← CURRENT
+NP suppresses Hydra I + II growth  ✅
 Analyzer                           ⛔ not yet
 Command Spell II                   ⛔ not yet
 Hydra II final kill rule           ⛔ not yet
