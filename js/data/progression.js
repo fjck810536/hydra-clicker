@@ -78,17 +78,25 @@ export function getHumanityEvilRewardForGeneration(
   return basePerKill * (generationMultiplier ** BigInt(generation - 1));
 }
 
-// N2 (new reveal thresholds) is intentionally not implemented yet. These kill
-// gates are the existing implementation carry-over; only the confirmed APS and
-// Humanity Evil prices are changed in this pass.
+// Command Spell I now follows the player-facing affordability-driven pacing.
+// Levels 1–6 have no independent kill gate: sequential prerequisites + the
+// shared Humanity Evil balance naturally produce the intended chapter timing.
+// Lv.7 / 729 APS belongs to Hydra III, but its real price is intentionally TBD.
 const COMMAND_SPELL_I_LEVELS = Object.freeze([
-  Object.freeze({ level: 1, requiredHydraKills: 9n, cost: 99n, attacksPerSecond: 1 }),
-  Object.freeze({ level: 2, requiredHydraKills: 12n, cost: 198n, attacksPerSecond: 3 }),
-  Object.freeze({ level: 3, requiredHydraKills: 16n, cost: 396n, attacksPerSecond: 9 }),
-  Object.freeze({ level: 4, requiredHydraKills: 22n, cost: 891n, attacksPerSecond: 27 }),
-  Object.freeze({ level: 5, requiredHydraKills: 30n, cost: 2673n, attacksPerSecond: 81 }),
-  Object.freeze({ level: 6, requiredHydraKills: 40n, cost: 8019n, attacksPerSecond: 243 }),
-  Object.freeze({ level: 7, requiredHydraKills: 66n, cost: 24057n, attacksPerSecond: 729 }),
+  Object.freeze({ level: 1, requiredHydraKills: null, cost: 99n, attacksPerSecond: 1 }),
+  Object.freeze({ level: 2, requiredHydraKills: null, cost: 33n, attacksPerSecond: 3 }),
+  Object.freeze({ level: 3, requiredHydraKills: null, cost: 66n, attacksPerSecond: 9 }),
+  Object.freeze({ level: 4, requiredHydraKills: null, cost: 99n, attacksPerSecond: 27 }),
+  Object.freeze({ level: 5, requiredHydraKills: null, cost: 1782n, attacksPerSecond: 81 }),
+  Object.freeze({ level: 6, requiredHydraKills: null, cost: 2178n, attacksPerSecond: 243 }),
+  Object.freeze({
+    level: 7,
+    requiredHydraKills: null,
+    cost: null,
+    attacksPerSecond: 729,
+    purchasePending: true,
+    intendedGeneration: 3,
+  }),
 ]);
 
 const COMMAND_SPELL_II_LEVELS = Object.freeze([
@@ -224,6 +232,8 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
   commandSpellI: Object.freeze({
     id: 'command-spell-1',
     displayName: 'Command Spell I',
+    // Legacy first-purchase aliases remain because 99 Humanity Evil naturally
+    // occurs at Hydra I kill 9 under the 11-per-kill economy.
     requiredHydraKills: 9n,
     cost: Object.freeze({
       currency: 'humanity-evil',
