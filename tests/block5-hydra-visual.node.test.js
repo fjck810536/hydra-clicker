@@ -34,46 +34,68 @@ test('visual projection rejects Number/floating logical head counts', () => {
   assert.throws(() => computeVisibleHeadCount(-1n), /BigInt/);
 });
 
-test('first nine heads already form a tall canopy while retaining low root-adjacent heads', () => {
+test('nine-head sparse composition reads as a clustered monster rather than nine long poles', () => {
   const poses = Array.from({ length: 9 }, (_, index) => getHeadSlotPose(index));
   const minY = Math.min(...poses.map((pose) => pose.y));
   const maxY = Math.max(...poses.map((pose) => pose.y));
+  const shortNecks = poses.filter((pose) => pose.neckLength < 2.2).length;
+  const tallNecks = poses.filter((pose) => pose.neckLength > 3.5).length;
+  const originXs = new Set(poses.map((pose) => pose.originX.toFixed(2)));
 
-  // Keep the old lower visual band, but let the crown rise far enough to run
-  // underneath the portrait HUD.
-  assert.ok(minY < 1.5, `expected a low head below 1.5, got ${minY}`);
-  assert.ok(maxY > 5.4, `expected a tall head above 5.4, got ${maxY}`);
-  assert.ok(maxY - minY > 4, 'expected a much taller canopy span');
+  assert.ok(minY < 1.3, `expected low heads near the established root band, got ${minY}`);
+  assert.ok(maxY > 4.8, `expected a few heads to reach the HUD zone, got ${maxY}`);
+
+  // Most of the iconic nine stay compact; only a small minority becomes the tall
+  // silhouette-breaking heads. Multiple nearby origins keep the base from reading
+  // as nine identical rays from one exact pixel.
+  assert.ok(shortNecks >= 6, `expected >=6 compact necks, got ${shortNecks}`);
+  assert.ok(tallNecks <= 2, `expected <=2 very long necks, got ${tallNecks}`);
+  assert.ok(originXs.size >= 5, `expected clustered root variation, got ${originXs.size} origins`);
 });
 
-test('99-head canopy is strongly left-biased and constrained on the right edge', () => {
+test('transition slots widen the canopy without suddenly overflowing the right edge', () => {
+  const poses = Array.from({ length: 32 }, (_, index) => getHeadSlotPose(index));
+  const minX = Math.min(...poses.map((pose) => pose.x));
+  const maxX = Math.max(...poses.map((pose) => pose.x));
+
+  assert.ok(minX < -2.3, `expected transition canopy to expand left, got ${minX}`);
+  assert.ok(maxX > 0.9, `expected transition canopy to keep a right lobe, got ${maxX}`);
+  assert.ok(maxX < 1.4, `transition should not jump straight to dense overflow, got ${maxX}`);
+});
+
+test('99-head dense canopy remains left-heavy but naturally spills past the right viewport', () => {
   const poses = Array.from({ length: 99 }, (_, index) => getHeadSlotPose(index));
   const minX = Math.min(...poses.map((pose) => pose.x));
   const maxX = Math.max(...poses.map((pose) => pose.x));
+  const rightOverflow = poses.filter((pose) => pose.x > 1.55).length;
   const positiveHeads = poses.filter((pose) => pose.x > 0).length;
 
-  assert.ok(minX < -3.5, `expected broad left canopy below -3.5, got ${minX}`);
-  assert.ok(maxX < 1.1, `expected right canopy constrained below 1.1, got ${maxX}`);
-  assert.ok(Math.abs(minX) > maxX * 3, 'left screen-space spread should dominate right spread');
+  assert.ok(minX < -3.4, `expected broad left canopy below -3.4, got ${minX}`);
+  assert.ok(maxX > 2.2, `expected natural right-edge overflow above 2.2, got ${maxX}`);
+  assert.ok(Math.abs(minX) > maxX, 'left mass should remain broader than the right spill');
 
-  // Right-side heads still exist so the silhouette reads as a fan/canopy rather
-  // than a one-sided curtain, but they are a minority.
-  assert.ok(positiveHeads >= 10, `expected some right-side heads, got ${positiveHeads}`);
-  assert.ok(positiveHeads < 35, `expected right-side heads to remain a minority, got ${positiveHeads}`);
+  // On the current portrait stage, local x ~1.55 is already around the right
+  // viewport edge. Several leaves must cross it so the canopy looks cropped by the
+  // camera rather than designed to avoid the screen boundary.
+  assert.ok(rightOverflow >= 5, `expected >=5 overflow heads, got ${rightOverflow}`);
+  assert.ok(positiveHeads >= 30, `expected a substantial right lobe, got ${positiveHeads}`);
+  assert.ok(positiveHeads < 50, `right lobe should remain secondary, got ${positiveHeads}`);
 });
 
-test('head slots fill canopy depth and carry finite radial neck geometry', () => {
+test('head slots fill canopy depth and carry finite clustered neck geometry', () => {
   const poses = Array.from({ length: 99 }, (_, index) => getHeadSlotPose(index));
   const minZ = Math.min(...poses.map((pose) => pose.z));
   const maxZ = Math.max(...poses.map((pose) => pose.z));
 
-  assert.ok(maxZ - minZ > 0.5, 'expected a folded 3D canopy rather than a planar fan');
+  assert.ok(maxZ - minZ > 0.8, 'expected a folded 3D canopy rather than a planar fan');
 
-  for (const index of [0, 4, 8, 9, 50, 98]) {
+  for (const index of [0, 4, 8, 9, 31, 32, 50, 98]) {
     const pose = getHeadSlotPose(index);
     assert.ok(Number.isFinite(pose.x));
     assert.ok(Number.isFinite(pose.y));
     assert.ok(Number.isFinite(pose.z));
+    assert.ok(Number.isFinite(pose.originX));
+    assert.ok(Number.isFinite(pose.originY));
     assert.ok(Number.isFinite(pose.rotationZ));
     assert.ok(Number.isFinite(pose.neckLength));
     assert.ok(pose.neckLength > 0);
@@ -88,6 +110,7 @@ test('top HUD stays above the battle canvas so tall Hydra heads are occluded by 
 
   assert.match(css, /\.top-hud,[\s\S]*z-index:\s*2/);
   assert.match(css, /\.battle-canvas\s*\{[\s\S]*position:\s*absolute/);
+  assert.match(css, /\.hud-strip\s*\{[\s\S]*background:\s*rgb\(8 8 12 \/ 9[0-9]%\)/);
 });
 
 test('Hydra view keeps only a small root base and remains inside View layer', async () => {
