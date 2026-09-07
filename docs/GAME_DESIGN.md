@@ -1,6 +1,6 @@
-# Hydra Clicker — Game Design v0.12
+# Hydra Clicker — Game Design v0.13
 
-> Playtest 4.4：依最新 `02_player_facing/ECONOMY_PROPOSAL.md` 修正 Command Spell I 節奏。Hydra I 在 27 APS 前採快速、幾乎教學式的 affordability ramp；Hydra II 才開始用 81 / 243 APS 與 Command Spell II 爭奪 Humanity Evil。729 APS 屬於 Hydra III，但正式價格暫不設定。
+> Playtest 4.5.1：對齊 `02_player_facing/COMMAND_SPELL_UI.md` 的 Hydra II anti-softlock 規則。Command Spell II 第一級改為「蛇二第一刀揭露反轉後、同一隻蛇仍活著時即可取得資格」，不要求先殺死 Hydra II；同時封住 NP active 自充與重複寶解，並完成令咒 modal 的手機退出手感。
 
 ## 1. 核心一句話
 
@@ -57,7 +57,7 @@ Regen curve：
 
 ```text
 NP MAX = 66
-1 accepted head cut = +1 NP
+1 accepted head cut outside NP = +1 NP
 66 / 66 = READY
 release = 0
 window = 3000ms
@@ -93,14 +93,17 @@ NP active
 → 已購 Auto capability / APS 不消失
 → Manual Cut 仍可使用
 → Command Spell II STRIKE 決定每次 tap 解析幾刀
+→ active window 內的 cuts 不充下一條 NP
+→ active window 內再次寶解會被拒絕
 
 NP ends
 → emit time-resume semantic cue
 → Auto Slash 重新開始運作
+→ NP charge 重新開始
 → 後續普通切割恢復 Hydra 正常生長規則
 ```
 
-NP 期間砍掉的頭不是延後債務；window 結束時不會補回。
+NP 期間砍掉的頭不是延後債務；window 結束時不會補回。NP window 是「花掉已蓄能量的特殊技法狀態」，不是在同一個時停內養出下一發寶具的循環。
 
 ### 可見倒數
 
@@ -226,6 +229,12 @@ Hydra II：
 
 ## 5. Command Spell II — formal NP progression
 
+玩家端文字身份：
+
+> **「快點……再快點……！」**
+
+`射殺す百頭` 留給 Noble Phantasm presentation，不作為第二令咒名稱。
+
 基礎：
 
 ```text
@@ -234,22 +243,41 @@ Hydra II：
 
 正式 canonical 9-beat：
 
-| Lv | Beat | Cost | NP requirement | NP manual | Duration |
-|---:|---|---:|---:|---:|---:|
-| 1 | STRIKE | 297 | 132 | ×3 | 3 s |
-| 2 | EFFICIENCY I | 198 | 66 | ×3 | 3 s |
-| 3 | TIME | 396 | 198 | ×3 | 9 s |
-| 4 | STRIKE | 396 | 396 | ×6 | 9 s |
-| 5 | EFFICIENCY II | 330 | 198 | ×6 | 9 s |
-| 6 | TIME | 495 | 594 | ×6 | 27 s |
-| 7 | STRIKE | 594 | 792 | ×9 | 27 s |
-| 8 | EFFICIENCY III | 495 | 396 | ×9 | 27 s |
-| 9 | TIME · MAX | 693 | 1188 | ×9 | 81 s |
+| Lv | Beat | Eligibility / reveal | Cost | NP requirement | NP manual | Duration |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | STRIKE | Hydra II first manual reversal cut · **0 kills** | 297 | 132 | ×3 | 3 s |
+| 2 | EFFICIENCY I | Hydra II 9 kills | 198 | 66 | ×3 | 3 s |
+| 3 | TIME | Hydra II 18 kills | 396 | 198 | ×3 | 9 s |
+| 4 | STRIKE | Hydra II 27 kills | 396 | 396 | ×6 | 9 s |
+| 5 | EFFICIENCY II | Hydra II 39 kills | 330 | 198 | ×6 | 9 s |
+| 6 | TIME | Hydra II 54 kills | 495 | 594 | ×6 | 27 s |
+| 7 | STRIKE | Hydra II 66 kills | 594 | 792 | ×9 | 27 s |
+| 8 | EFFICIENCY III | Hydra II 81 kills | 495 | 396 | ×9 | 27 s |
+| 9 | TIME · MAX | Hydra II 99 kills | 693 | 1188 | ×9 | 81 s |
 
-Hydra II reveal cadence：
+### First-level anti-softlock invariant
+
+第一級**不得要求先殺死任何 Hydra II**。
+
+正式教學節奏是：
 
 ```text
-3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99 Hydra II kills
+Hydra II encounter 1 · 9 heads
+→ Auto 暫停，玩家手動第一刀
+→ 9 → 10 / CUT 1 → GROW +2
+→ first-reversal milestone 成立
+→ 同一隻 Hydra II 仍活著
+→ 若 Humanity Evil >= 297，令咒 II 立即亮起可買
+```
+
+也就是「問題出現 → 解法入口出現」，而不是「先解掉問題 → 才出售解法」。
+
+正常 Hydra I 路徑買完 27 APS 後預期約帶 792 人類惡進 Hydra II，因此 297 的首級價格應可安全負擔；未來若 Hydra I 新增其他花費，必須重新檢查這個 anti-softlock 保證。
+
+後續 reveal cadence：
+
+```text
+9 / 18 / 27 / 39 / 54 / 66 / 81 / 99 Hydra II kills
 ```
 
 Canonical NP requirement rhythm：
@@ -276,6 +304,15 @@ NP max 改變時保留**實際已充點數**，而不是保留百分比。例如
 buy STRIKE I
 → 33 / 132
 ```
+
+升級 modal 的 `NEXT` 必須揭露完整結果，而不是只顯示獎勵名稱：
+
+```text
+CURRENT  ×3 · NP 66  · 3s
+NEXT     ×3 · NP 198 · 9s
+```
+
+如此玩家能在購買前看見 sawtooth 的力量與充能代價。
 
 目前 runtime 依 canonical 9-beat 線性購買。玩家端另有三 branch 自由購買構想，但尚未定義跨 branch 任意購買順序時的 NP requirement composition；實作不自行發明公式。
 
@@ -310,7 +347,7 @@ NP 是 encounter 內的切頭循環資源；Humanity Evil 是跨 encounter / 跨
 → starting heads = 9
 ```
 
-第一次登場仍保留 first-cut reveal：Auto Slash 暫停，等玩家手動第一刀。
+第一次登場保留 first-cut reveal：Auto Slash 暫停，等玩家手動第一刀。該第一刀除了揭露 `CUT 1 → GROW +2`，同時也是 Command Spell II Lv.1 的 gameplay eligibility milestone。
 
 ### 正常規則
 
@@ -338,6 +375,7 @@ max heads = 81 = 9²
 ```text
 head growth disabled
 Auto Slash paused
+NP charge paused
 ↓
 manual CUT / multistrike
 → GROW 0
@@ -352,7 +390,7 @@ manual CUT / multistrike
 → +33 人類惡
 ```
 
-下一隻 Hydra II 重新從 9 頭開始；同一 NP window 若仍有效，可以跨 encounter 繼續禁止生長。
+下一隻 Hydra II 重新從 9 頭開始；同一 NP window 若仍有效，可以跨 encounter 繼續禁止生長，但不能在該 window 中重新蓄滿或再次 release NP。
 
 ### 世代完成
 
@@ -390,17 +428,26 @@ Hydra II 已有玩家端章節層：
 
 切幕與 palette 都不改 logical state，也不暫停 GameClock。
 
-## 10. Playtest 4.4 要回答的問題
+## 10. Command Spell modal UX
 
-1. 1 → 3 → 9 → 27 APS 是否真的能在 Hydra I 約 9 / 12 / 18 / 27 kill 自然連續買到。
-2. 27 APS 是否足以消除原本約 Hydra I #50 的 9 APS 等待牆。
-3. Hydra I 後段是否變成可接受的「快速補 NP → 三秒手動收尾」，而不是被動乾等。
-4. 帶約 792 人類惡進 Hydra II 是否讓 81 APS = 1782 成為清楚但不立即可得的目標。
-5. 玩家在 Hydra II 是否真的會因 Command Spell II 消費而延後 81 / 243 APS。
-6. 243 APS 若約在純自動流 Hydra II #96 到手，是否太晚、剛好，或仍過早。
-7. 729 APS 顯示 PRICE TBD 時，是否足以保留下一世代期待而不誤導成可購買內容。
+三槽令咒 panel 的 detail modal 現在遵守手機優先退出規則：
 
-## 11. Analyzer / Tree View 候選後續
+- 成功 PURCHASE / LV UP 後自動關閉。
+- 右上角 `×` 至少提供 **44×44 px** 的觸控目標。
+- 點擊 modal card 外的 backdrop 關閉。
+- 點擊 card / CURRENT / NEXT / COST / purchase 本體不會因 bubbling 誤關。
+- 查看資訊本身不花費 Humanity Evil；只有 purchase action 走 runtime API。
+
+## 11. Playtest 4.5.1 要回答的問題
+
+1. Hydra II 第一刀後令咒 II 是否在**同一隻蛇仍活著時**立即可見／可買，完全避開軟鎖。
+2. 297 首價在正常 Hydra I 花費後是否確實總能負擔。
+3. NP 期間不再自充後，TIME RESUMES 是否重新成為清楚的循環分界。
+4. ×3 / ×6 / ×9 加上 sawtooth NP requirement 是否仍形成想升級、但不是永久時停的壓力。
+5. modal 自動關閉、44px `×`、點背景關閉在 iOS 上是否順手。
+6. NEXT 顯示完整 `×N · NP N · Ns` 後，EFF / TIME 的代價是否更容易理解。
+
+## 12. Analyzer / Tree View 候選後續
 
 Hydra II 已開始提供自然的分析需求：
 
@@ -414,7 +461,7 @@ MAX HEADS
 
 但此輪仍不加入。只有當玩家真的因 Hydra II / III 規則需要「看懂系統」時再登場。
 
-## 12. Logical Heads ≠ Visible Heads
+## 13. Logical Heads ≠ Visible Heads
 
 View contract 不變：
 
@@ -434,9 +481,11 @@ Hydra III max = 729
 → 畫面仍只顯示最多 99 顆
 ```
 
-## 13. 目前刻意未決
+## 14. 目前刻意未決
 
 `N2` 已不再是待填數字：Command Spell I 新版由 **affordability** 決定何時亮起／可買，不另設 kill reveal gate。
+
+Command Spell II Lv.1 的 reveal 也已不再是待填數字：固定為 **Hydra II 第一刀 reversal milestone + 0 Hydra II kills + affordability**。
 
 仍未決：
 
@@ -446,6 +495,7 @@ Hydra III max = 729
 - N6：Tree View 第一個正式 reveal point。
 - Hydra II 81-cap 最終 hit / replacement 演出。
 - Command Spell II 三 branch 若允許自由購買時的 NP requirement composition rule。
+- multistrike logical resolution 已正確，但 Hydra 頭數逐刀可見 presentation queue 尚可再 polish。
 - Hydra III 正式 cut / growth / termination rule。
 - Hydra III 的 729 上限如何與真正 tree structure 對應。
 - Command Spell I 729 APS 正式 Humanity Evil 價格。
