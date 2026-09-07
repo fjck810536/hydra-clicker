@@ -269,10 +269,21 @@ function enterNonPersistentTestSession() {
   suppressPersistence = true;
 }
 
+const COMMAND_SPELL_I_TEST_LEVELS = Object.freeze([1, 3, 6, 7]);
+let commandSpellITestCursor = -1;
+
+function formatCommandSpellITestLevel(level) {
+  return level === COMMAND_SPELL_I_TEST_LEVELS.at(-1) ? 'MAX' : `Lv.${level}`;
+}
+
 const handleTestCommandSpellMax = () => {
   enterNonPersistentTestSession();
-  const result = runtime.testPresets.maxCommandSpellI();
-  hud.setStatus(`TEST · COMMAND SPELL I Lv.MAX · ${result.attacksPerSecond} APS · NOT SAVED`);
+  commandSpellITestCursor = (commandSpellITestCursor + 1) % COMMAND_SPELL_I_TEST_LEVELS.length;
+  const level = COMMAND_SPELL_I_TEST_LEVELS[commandSpellITestCursor];
+  const result = runtime.testPresets.setCommandSpellILevel(level);
+  const label = formatCommandSpellITestLevel(result.level);
+  testCommandSpellMaxButton.textContent = `CS I TEST · ${label} · ${result.attacksPerSecond} APS`;
+  hud.setStatus(`TEST · COMMAND SPELL I ${label} · ${result.attacksPerSecond} APS · NOT SAVED`);
   renderSnapshot();
 };
 const unbindTestCommandSpellMax = bindFixedControl(testCommandSpellMaxButton, handleTestCommandSpellMax);
