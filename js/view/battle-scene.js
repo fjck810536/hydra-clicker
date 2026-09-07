@@ -6,6 +6,27 @@ export const BATTLE_STAGE_SPEC = Object.freeze({
   target: Object.freeze({ x: 0, y: 2.65, z: 0 }),
 });
 
+const GENERATION_STAGE_PALETTES = Object.freeze({
+  1: Object.freeze({
+    clear: Object.freeze([0.035, 0.035, 0.045]),
+    backdrop: Object.freeze([0.055, 0.06, 0.075]),
+    backdropEmissive: Object.freeze([0, 0, 0]),
+    groundEmissive: Object.freeze([0, 0, 0]),
+  }),
+  2: Object.freeze({
+    clear: Object.freeze([0.038, 0.044, 0.027]),
+    backdrop: Object.freeze([0.068, 0.078, 0.046]),
+    backdropEmissive: Object.freeze([0.008, 0.012, 0.003]),
+    groundEmissive: Object.freeze([0.005, 0.008, 0.002]),
+  }),
+  3: Object.freeze({
+    clear: Object.freeze([0.033, 0.029, 0.047]),
+    backdrop: Object.freeze([0.062, 0.052, 0.080]),
+    backdropEmissive: Object.freeze([0.007, 0.004, 0.012]),
+    groundEmissive: Object.freeze([0.004, 0.002, 0.008]),
+  }),
+});
+
 function requireBabylon(babylon) {
   const required = [
     'Engine',
@@ -143,22 +164,39 @@ export function createBattleStage({
   ground.material = groundMaterial;
 
   let npTintActive = false;
-  const setNpActive = (active) => {
-    const nextActive = Boolean(active);
-    if (nextActive === npTintActive) return;
-    npTintActive = nextActive;
+  let generationAppearance = 1;
 
+  const applyVisualState = () => {
     if (npTintActive) {
       scene.clearColor.copyFromFloats(0.075, 0.018, 0.022, 1);
       backdropMaterial.diffuseColor.copyFromFloats(0.12, 0.028, 0.035);
       backdropMaterial.emissiveColor.copyFromFloats(0.055, 0.006, 0.008);
       groundMaterial.emissiveColor.copyFromFloats(0.035, 0.004, 0.005);
-    } else {
-      scene.clearColor.copyFromFloats(0.035, 0.035, 0.045, 1);
-      backdropMaterial.diffuseColor.copyFromFloats(0.055, 0.06, 0.075);
-      backdropMaterial.emissiveColor.copyFromFloats(0, 0, 0);
-      groundMaterial.emissiveColor.copyFromFloats(0, 0, 0);
+      return;
     }
+
+    const palette = GENERATION_STAGE_PALETTES[generationAppearance]
+      ?? GENERATION_STAGE_PALETTES[1];
+    scene.clearColor.copyFromFloats(...palette.clear, 1);
+    backdropMaterial.diffuseColor.copyFromFloats(...palette.backdrop);
+    backdropMaterial.emissiveColor.copyFromFloats(...palette.backdropEmissive);
+    groundMaterial.emissiveColor.copyFromFloats(...palette.groundEmissive);
+  };
+
+  const setGenerationAppearance = (generation) => {
+    if (!Number.isInteger(generation) || generation < 1) {
+      throw new TypeError('generation appearance must be a positive integer.');
+    }
+    if (generation === generationAppearance) return;
+    generationAppearance = generation;
+    applyVisualState();
+  };
+
+  const setNpActive = (active) => {
+    const nextActive = Boolean(active);
+    if (nextActive === npTintActive) return;
+    npTintActive = nextActive;
+    applyVisualState();
   };
 
   const berserkerAnchor = createAnchorMarker({
@@ -211,6 +249,7 @@ export function createBattleStage({
     scene,
     camera,
     setNpActive,
+    setGenerationAppearance,
     anchors: Object.freeze({
       berserker: berserkerAnchor,
       hydra: hydraAnchor,
