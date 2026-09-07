@@ -15,6 +15,7 @@ const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
 const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
+const autoApsReadout = document.querySelector('[data-test-auto-aps]');
 
 if (
   !app
@@ -25,6 +26,7 @@ if (
   || !testToolsPanel
   || !resetSaveButton
   || !regenDelayReadout
+  || !autoApsReadout
 ) {
   throw new Error('Hydra Clicker app shell is missing.');
 }
@@ -169,6 +171,9 @@ const renderSnapshot = () => {
   hydraView.render(snapshot);
   stage.setNpActive(isNpWindowActive(snapshot));
   regenDelayReadout.textContent = `${runtime.currentRegenDelayMs()} ms`;
+  autoApsReadout.textContent = snapshot.master.commandSpells.autoSlash
+    ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+    : 'LOCKED';
 };
 
 const handleNpPress = () => {
@@ -184,7 +189,9 @@ const handleCommandSpellPress = () => {
   const result = runtime.buyCommandSpellI();
   if (result.accepted) {
     persistNow();
-    hud.setStatus('COMMAND SPELL I · AUTO SLASH UNLOCKED');
+    hud.setStatus(result.level === 1
+      ? 'COMMAND SPELL I Lv.1 · AUTO SLASH UNLOCKED'
+      : `COMMAND SPELL I Lv.${result.level} · ${result.status.attacksPerSecond} APS`);
   }
   renderSnapshot();
 };
@@ -254,13 +261,18 @@ const offRespawned = runtime.events.on('hydra:respawned', ({ payload }) => {
   hud.setStatus(`HYDRA I · ENCOUNTER ${payload.encounter.toString()}`);
   renderSnapshot();
 });
-const offSpellAvailable = runtime.events.on('command-spell:available', () => {
-  hud.setStatus('COMMAND SPELL I AVAILABLE · 99 人類惡');
+const offSpellAvailable = runtime.events.on('command-spell:available', ({ payload }) => {
+  hud.setStatus(`COMMAND SPELL I Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.attacksPerSecond} APS`);
   renderSnapshot();
 });
-const offSpellUnlocked = runtime.events.on('command-spell:unlocked', () => {
+const offSpellUnlocked = runtime.events.on('command-spell:unlocked', ({ payload }) => {
   persistNow();
-  hud.setStatus('AUTO SLASH ONLINE');
+  hud.setStatus(`AUTO SLASH ONLINE · ${payload.attacksPerSecond} APS`);
+  renderSnapshot();
+});
+const offSpellUpgraded = runtime.events.on('command-spell:upgraded', ({ payload }) => {
+  persistNow();
+  hud.setStatus(`COMMAND SPELL I Lv.${payload.level} · ${payload.attacksPerSecond} APS`);
   renderSnapshot();
 });
 
@@ -295,6 +307,7 @@ window.addEventListener('pagehide', () => {
   offRespawned();
   offSpellAvailable();
   offSpellUnlocked();
+  offSpellUpgraded();
   berserkerView.destroy();
   hydraView.destroy();
   stage.destroy();
