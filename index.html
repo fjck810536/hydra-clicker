@@ -108,12 +108,28 @@
         <span>KILLS <strong data-hud="kills">0/99</strong></span>
         <span>人類惡 <strong data-hud="humanity-evil">0</strong></span>
       </div>
-      <button class="command-spell-button" type="button" data-command-spell-button data-fixed-control disabled>
-        COMMAND SPELL I · LOCKED
-      </button>
-      <button class="command-spell-button command-spell-button--ii" type="button" data-command-spell-ii-button data-fixed-control disabled>
-        COMMAND SPELL II · LOCKED · HYDRA II
-      </button>
+
+      <section class="command-spell-panel" data-command-spell-panel aria-label="令咒">
+        <span class="command-spell-panel-title">令咒</span>
+        <div class="command-spell-slots">
+          <button class="command-spell-slot" type="button" data-command-spell-slot="1" data-state="dormant" data-fixed-control disabled>
+            <span class="command-spell-sigil">I</span>
+            <strong data-command-spell-slot-level>—</strong>
+            <small data-command-spell-slot-meta>EMPTY</small>
+          </button>
+          <button class="command-spell-slot" type="button" data-command-spell-slot="2" data-state="dormant" data-fixed-control disabled>
+            <span class="command-spell-sigil">II</span>
+            <strong data-command-spell-slot-level>—</strong>
+            <small data-command-spell-slot-meta>EMPTY</small>
+          </button>
+          <button class="command-spell-slot" type="button" data-command-spell-slot="3" data-state="dormant" data-fixed-control disabled>
+            <span class="command-spell-sigil">III</span>
+            <strong data-command-spell-slot-level>—</strong>
+            <small data-command-spell-slot-meta>EMPTY</small>
+          </button>
+        </div>
+      </section>
+
       <button class="np-button" type="button" data-np-button data-fixed-control disabled>
         NP · 0/66
       </button>
@@ -121,6 +137,22 @@
       <p class="tap-hint">TAP STAGE · MANUAL CUT</p>
       <p class="subtitle">拔—灑卡，幹死那頭海德拉！</p>
     </footer>
+
+    <section class="command-spell-modal" data-command-spell-modal hidden aria-modal="true" role="dialog" aria-labelledby="command-spell-modal-title">
+      <div class="command-spell-modal-card">
+        <button class="command-spell-modal-close" type="button" data-command-spell-close data-fixed-control aria-label="Close">×</button>
+        <span class="command-spell-modal-subtitle" data-command-spell-modal-subtitle>COMMAND SPELL I</span>
+        <strong id="command-spell-modal-title" data-command-spell-modal-title>「幫我撐十秒。」</strong>
+        <span class="command-spell-modal-level" data-command-spell-modal-level>Lv.0</span>
+        <dl class="command-spell-modal-stats">
+          <div><dt>CURRENT</dt><dd data-command-spell-modal-current>—</dd></div>
+          <div><dt>NEXT</dt><dd data-command-spell-modal-next>—</dd></div>
+          <div><dt>COST</dt><dd data-command-spell-modal-cost>—</dd></div>
+        </dl>
+        <p data-command-spell-modal-description></p>
+        <button class="command-spell-modal-purchase" type="button" data-command-spell-purchase data-fixed-control disabled>PURCHASE</button>
+      </div>
+    </section>
 
     <aside class="landscape-guard" aria-live="polite">
       <strong>PORTRAIT MODE</strong>
