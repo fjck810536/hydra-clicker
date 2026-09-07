@@ -117,19 +117,19 @@ function createDensePose(index) {
 
   // Dense mode is screen-space composition, not a geometric safety cone. The
   // left side still carries more mass, but the right edge is deliberately soft:
-  // some leaves extend beyond the portrait viewport and are cropped by the camera.
+  // several leaves extend beyond the portrait viewport and are cropped naturally.
   const heightT = height ** 0.68;
   let y = lerp(1.28, 6.55, heightT);
 
   const leftWidth = lerp(1.15, 4.45, heightT ** 0.78);
-  const rightWidth = lerp(0.90, 2.55, heightT ** 0.88);
+  const rightWidth = lerp(1.00, 3.15, heightT ** 0.88);
   let x = -leftWidth + lateral * (leftWidth + rightWidth);
 
   // Pull samples into loose lobes instead of filling one uniform wedge. This is
   // only a visual fractal-like cue for now: repeated local clusters, not a true
   // recursive Hydra tree.
   const lobe = Math.floor(clusterSample * 5);
-  const lobeBiases = [-0.72, -0.34, -0.02, 0.32, 0.66];
+  const lobeBiases = [-0.72, -0.34, -0.02, 0.34, 0.78];
   const lobeHeights = [0.12, -0.08, 0.16, -0.14, 0.06];
   const lobeBias = lobeBiases[Math.min(lobe, lobeBiases.length - 1)];
   const lobeHeight = lobeHeights[Math.min(lobe, lobeHeights.length - 1)];
