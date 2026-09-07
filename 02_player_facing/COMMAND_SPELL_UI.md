@@ -79,31 +79,70 @@ The intended feeling is:
 
 ---
 
-## 4. Availability appears at the moment the player can afford it
+## 4. Availability appears when eligibility and affordability meet
 
 ### Confirmed direction
 
-For Command Spell I, when Humanity Evil first reaches the purchase requirement (currently **99 Humanity Evil**):
+A Command Spell does not appear merely because the player has enough currency in an unrelated earlier chapter. Its slot becomes a real purchase affordance when **both** are true:
 
-1. the previously empty first slot visibly updates;
-2. the Command Spell I sigil / purchase affordance appears;
-3. the affordance should be **clear and bright enough to notice**;
-4. the game does not need to force-open the detail modal;
-5. the player chooses to tap / click the slot.
+1. the relevant gameplay eligibility condition has been reached;
+2. the player has enough Humanity Evil for that Command Spell's first purchase.
 
-Command Spell II and III follow the same reveal logic:
+Before both conditions are satisfied:
 
-> **their sigils first appear when the player has enough Humanity Evil to purchase that Command Spell for the first time.**
+> empty / dormant slot
 
-This means there is no long intermediate state where a future Command Spell is fully revealed but still fundamentally unavailable.
+When both become true:
 
-Before first affordability:
+> real sigil / purchase button appears and lights clearly
 
-> empty slot
+The game does not need to force-open the detail modal; the player chooses to inspect and buy it.
 
-At first affordability:
+### Command Spell I first reveal
 
-> real sigil / purchase button appears
+For Command Spell I, the gameplay eligibility condition is already active in Hydra I. Therefore its first visible reveal is effectively governed by affordability:
+
+> Humanity Evil reaches **99**
+> → first slot updates from empty to a bright purchasable sigil
+
+### Command Spell II first reveal — hard anti-softlock rule
+
+Command Spell II must **not** require the player to kill a Hydra II before it can be purchased.
+
+This is a progression safety invariant:
+
+> **Command Spell II first purchase requires zero Hydra II kills.**
+
+Preferred first-encounter sequence:
+
+> Hydra II encounter 1 begins at 9 heads  
+> → first manual cut reveals the reversal: `9 → 10` / `CUT 1 → GROW +2`  
+> → while that same first Hydra II is still alive, Command Spell II becomes eligible  
+> → if the player already holds enough Humanity Evil, slot II immediately changes from empty to a bright purchasable sigil
+
+The ideal trigger is therefore the **first Hydra II cut / rule-reversal reveal milestone**, not `Hydra II kills >= 1`.
+
+Reason:
+
+- the first Hydra II is precisely where the player discovers that the old solution has failed;
+- requiring that Hydra to be killed before selling the new solution can create a softlock / restart trap;
+- the desired teaching rhythm is **problem appears → new option appears**, not **problem must already be solved → solution unlocks**.
+
+### Command Spell II affordability safety
+
+The first Command Spell II price must also be low enough that a normal player entering Hydra II after following the intended Hydra I economy can actually afford it when the first-cut reveal occurs.
+
+Under the current provisional economy, a player who buys Command Spell I through 27 APS is expected to carry roughly **792 Humanity Evil** into Hydra II. Therefore the first Command Spell II purchase should be comfortably below that guaranteed / intended entry reserve. The earlier **297 Humanity Evil** first-level candidate satisfies this safety target, but exact pricing remains subject to economy playtest.
+
+The important invariant is stronger than the exact number:
+
+> **Do not price the first Command Spell II level above the minimum Humanity Evil that the intended Hydra I progression guarantees at Hydra II entry.**
+
+If later Hydra I side-spending is introduced, this guarantee must be rechecked rather than silently allowing the first Hydra II encounter to become an economy trap.
+
+### Command Spell III
+
+Command Spell III should use the same eligibility + affordability grammar, but its gameplay eligibility condition is intentionally still open.
 
 ---
 
@@ -124,15 +163,29 @@ For Command Spell I the current text identity is:
 
 > **「幫我撐十秒。」**
 
-The quote remains separate from the mechanical description so the SAO-reference mismatch can remain part of the joke.
+For Command Spell II the current text identity is:
 
-Example structure:
+> **「快點……再快點……！」**
+
+with Japanese **「速く……もっと速く……！」** as an alternate presentation candidate.
+
+The quotes remain separate from the mechanical descriptions so the SAO-reference mismatch can remain part of the joke.
+
+Example Command Spell I structure:
 
 > 「幫我撐十秒。」  
 > Command Spell I  
 > Lv.0 → Lv.1  
 > Effect: unlock / increase Auto Slash  
 > Cost: 99 Humanity Evil
+
+Example Command Spell II first purchase structure:
+
+> 「快點……再快點……！」  
+> Command Spell II  
+> Lv.0 → Lv.1  
+> Effect: during Noble Phantasm only, 1 click → 3 rapid visible cuts  
+> Cost: XXX Humanity Evil
 
 The modal should explain the mechanical delta without rewriting the joke-text into literal mechanics.
 
@@ -210,7 +263,7 @@ Example for Command Spell I:
 > Current: 9 APS  
 > Next: 27 APS  
 > Change: +18 APS  
-> Cost: 891 Humanity Evil
+> Cost: XXX Humanity Evil
 
 Example for Command Spell II multistrike:
 
@@ -233,7 +286,8 @@ Restrictions such as **"during Noble Phantasm only"** belong in this modal rathe
 All three Command Spells use the same simple lifecycle:
 
 > permanent empty slot  
-> → first becomes affordable  
+> → gameplay eligibility reached  
+> → first purchase becomes affordable  
 > → sigil / purchase affordance appears and lights up  
 > → click opens detail modal  
 > → purchase  
