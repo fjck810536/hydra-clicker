@@ -159,7 +159,7 @@ test('Playtest 4.5 markup reserves exactly three slots and keeps Command Spell I
   assert.match(html, /data-command-spell-modal-cost/);
   assert.match(html, /data-command-spell-close/);
   assert.match(html, /data-command-spell-purchase/);
-  assert.match(html, /data-command-spell-close[^>]*style="[^"]*width:44px;[^"]*height:44px/);
+  assert.match(html, /class="command-spell-modal-close"[^>]*style="width:44px;height:44px"/);
 });
 
 test('Command Spell II modal uses its own quote and exposes the full next NP technique tuple', async () => {
