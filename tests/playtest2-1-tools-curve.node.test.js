@@ -62,7 +62,8 @@ test('NP presentation uses a View-only red tint driven from the runtime active w
 
   assert.match(stageSource, /setNpActive/);
   assert.match(stageSource, /scene\.clearColor\.copyFromFloats\(0\.075, 0\.018, 0\.022, 1\)/);
-  assert.match(appSource, /const npActive = runtime\.isNpActive\(\)/);
+  assert.match(appSource, /const npWindow = runtime\.npWindowStatus\(\)/);
+  assert.match(appSource, /const npActive = npWindow\.active/);
   assert.match(appSource, /stage\.setNpActive\(npActive\)/);
   assert.doesNotMatch(stageSource, /from ['"]\.\.\/systems\//);
   assert.doesNotMatch(stageSource, /from ['"]\.\.\/math\//);
