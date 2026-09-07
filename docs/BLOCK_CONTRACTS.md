@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.18
+# Hydra Clicker — Block Contracts v0.19
 
-> v0.18 對齊 Playtest 4.3：Command Spell I 採正式 powers-of-nine APS / price curve；Command Spell II 成為正式 9-level progression block；NP configuration 可由 CS II 動態投影；Humanity Evil reward 改為 generation-aware。State schema 仍為1。
+> v0.19 對齊 Playtest 4.4：Command Spell I Lv.1–6 改成順序 prerequisite + Humanity Evil affordability；不再使用額外 kill reveal gate。729 APS 保留為有效等級，但 formal price 未定，所以正常購買回 `price-pending`。State schema 仍為1。
 
 ## 1. Attack Request
 
@@ -379,19 +379,73 @@ A multi-strike manual request emits separate `attack:resolved` / `head:cut` even
 
 ## 18. Command Spell I
 
-Confirmed Data：
+Current Data：
 
-| Existing reveal kills* | Lv | Cost | APS |
-|---:|---:|---:|---:|
-| 9 | 1 | 99 | 1 |
-| 12 | 2 | 198 | 3 |
-| 16 | 3 | 396 | 9 |
-| 22 | 4 | 891 | 27 |
-| 30 | 5 | 2673 | 81 |
-| 40 | 6 | 8019 | 243 |
-| 66 | MAX | 24057 | 729 |
+| Lv | Chapter role | Cost | APS | requiredHydraKills |
+|---:|---|---:|---:|---:|
+| 1 | Hydra I | 99 | 1 | null |
+| 2 | Hydra I | 33 | 3 | null |
+| 3 | Hydra I | 66 | 9 | null |
+| 4 | Hydra I | 99 | 27 | null |
+| 5 | Hydra II | 1782 | 81 | null |
+| 6 | Hydra II | 2178 | 243 | null |
+| 7 | Hydra III | **TBD** | 729 | null |
 
-`*` N2 was not selected this pass, so old reveal gates intentionally remain temporary。
+Lv.1～6 availability：
+
+```text
+previous level owned
+AND Humanity Evil >= cost
+→ available
+```
+
+因此 `killsMet` 對這些等級固定為 true；自然購買點來自 currency economy，不是另一層 kill gate。
+
+Status contract includes：
+
+```js
+{
+  level,
+  nextLevel,
+  attacksPerSecond,
+  nextAttacksPerSecond,
+  killsMet,
+  canAfford,
+  pricePending,
+  available,
+  requiredHydraKills,
+  cost,
+  balance
+}
+```
+
+Lv.7 current Data：
+
+```js
+{
+  level: 7,
+  attacksPerSecond: 729,
+  cost: null,
+  purchasePending: true,
+  intendedGeneration: 3
+}
+```
+
+因此 normal status：
+
+```text
+pricePending = true
+available = false
+cost = null
+```
+
+`purchase()` must return：
+
+```js
+{ accepted: false, reason: 'price-pending', status }
+```
+
+TEST / old owned saves may still place the player at Lv.7 / 729 APS；that state is valid and reads as MAX。
 
 Purchase changes only：
 
@@ -450,7 +504,7 @@ Hydra III max729 → visible ≤99
 
 ## 21. Player Controls / TEST Tools
 
-Formal footer：
+Formal footer currently：
 
 ```text
 COMMAND SPELL I purchase
@@ -458,11 +512,14 @@ COMMAND SPELL II purchase
 寶具解放
 ```
 
+Pending CS I 729 must be non-actionable and read `PRICE TBD` in this temporary UI。
+
 TEST remains session-only：
 
 ```text
-MAX COMMAND SPELL
+CS I TEST · 1 → 3 → 6 → MAX
 COMMAND SPELL II · ×3 NP
+人類惡 +999
 START HYDRA #98
 HYDRA II · 81 HEADS
 NP READY
@@ -470,7 +527,7 @@ RESET SAVE
 TOTAL KILLS
 ```
 
-TEST presets do not invent normal-save currency / kill progress。
+TEST presets do not invent normal-save kill progress and do not persist over the player's normal save。
 
 ## 22. Save
 
@@ -498,10 +555,15 @@ no head-cut Humanity Evil path
 
 Command Spell I:
 APS → 1 / 3 / 9 / 27 / 81 / 243 / 729
-cost → 99 / 198 / 396 / 891 / 2673 / 8019 / 24057
-N2 reveal gates unchanged this pass
+formal cost → 99 / 33 / 66 / 99 / 1782 / 2178 / TBD
+Lv1–6 requiredHydraKills = null
+affordability alone may unlock the next sequential purchase
+formal purchases stop at 243
+next 729 status → pricePending true / available false
+purchase 729 → reason price-pending
 legacy old-curve save cannot gain free 729 APS
-MAX TEST → 729 APS
+TEST can still set 729 APS
+owned 729 remains valid / MAX
 
 Command Spell II:
 reveal Hydra II kills → 3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99
