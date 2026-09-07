@@ -1,19 +1,52 @@
 export const INITIAL_HYDRA_HEAD_POOL_SIZE = 9;
 export const MAX_VISIBLE_HEADS = 99;
 
-// Playtest 2 silhouette: a narrow root that opens into a wider upward fan.
-// Higher heads move farther from center instead of converging into a crown.
-const HYDRA_I_HEAD_POSES = Object.freeze([
-  Object.freeze({ x: 0.00, y: 0.98, z: 0.08, rotationZ: 0.00 }),
-  Object.freeze({ x: -0.28, y: 1.22, z: -0.08, rotationZ: 0.08 }),
-  Object.freeze({ x: 0.32, y: 1.26, z: 0.10, rotationZ: -0.08 }),
-  Object.freeze({ x: -0.60, y: 1.50, z: 0.06, rotationZ: 0.15 }),
-  Object.freeze({ x: 0.66, y: 1.55, z: -0.10, rotationZ: -0.15 }),
-  Object.freeze({ x: -0.94, y: 1.78, z: -0.08, rotationZ: 0.22 }),
-  Object.freeze({ x: 1.02, y: 1.84, z: 0.08, rotationZ: -0.22 }),
-  Object.freeze({ x: -1.28, y: 2.08, z: 0.10, rotationZ: 0.30 }),
-  Object.freeze({ x: 1.36, y: 2.14, z: -0.06, rotationZ: -0.30 }),
-]);
+// Visual-only polar fan. Slots use a deterministic low-discrepancy sequence so
+// every prefix (9 heads, 20 heads, 99 heads...) fills the *area* of the fan
+// instead of tracing only its two V-shaped edges.
+const FAN_HALF_ANGLE_RADIANS = 0.78;
+const FAN_MIN_RADIUS = 0.72;
+const FAN_MAX_RADIUS = 2.15;
+const FAN_ORIGIN_Y = 0.38;
+const FAN_DEPTH = 0.22;
+
+function radicalInverse(index, base) {
+  let value = index;
+  let factor = 1;
+  let result = 0;
+
+  while (value > 0) {
+    factor /= base;
+    result += factor * (value % base);
+    value = Math.floor(value / base);
+  }
+
+  return result;
+}
+
+function createFilledFanPose(index) {
+  // Halton bases 2 / 3 distribute angular and radial coordinates independently.
+  // Radius is area-corrected with sqrt so points do not bunch up at the root.
+  const sequenceIndex = index + 1;
+  const angularSample = radicalInverse(sequenceIndex, 2);
+  const radialSample = radicalInverse(sequenceIndex, 3);
+  const depthSample = radicalInverse(sequenceIndex, 5);
+
+  const angle = -FAN_HALF_ANGLE_RADIANS
+    + angularSample * FAN_HALF_ANGLE_RADIANS * 2;
+  const radiusSquared = FAN_MIN_RADIUS ** 2
+    + radialSample * (FAN_MAX_RADIUS ** 2 - FAN_MIN_RADIUS ** 2);
+  const radius = Math.sqrt(radiusSquared);
+
+  return Object.freeze({
+    x: Math.sin(angle) * radius,
+    y: FAN_ORIGIN_Y + Math.cos(angle) * radius,
+    z: (depthSample - 0.5) * FAN_DEPTH,
+    // Local +Y points away from the common root, so each neck reads as one
+    // radial spoke rather than a vertical stalk placed somewhere in a triangle.
+    rotationZ: -angle,
+  });
+}
 
 function assertPoolLimit(maxVisibleHeads) {
   if (!Number.isInteger(maxVisibleHeads) || maxVisibleHeads < 1 || maxVisibleHeads > MAX_VISIBLE_HEADS) {
@@ -40,24 +73,7 @@ export function getHeadSlotPose(index) {
     throw new RangeError(`head slot index must be from 0 to ${MAX_VISIBLE_HEADS - 1}.`);
   }
 
-  if (index < HYDRA_I_HEAD_POSES.length) {
-    return HYDRA_I_HEAD_POSES[index];
-  }
-
-  const extraIndex = index - HYDRA_I_HEAD_POSES.length;
-  const tier = Math.floor(extraIndex / 18) + 1;
-  const slot = extraIndex % 18;
-  const normalized = slot / 17;
-  const side = normalized * 2 - 1;
-  const spread = 1.42 + tier * 0.22;
-  const height = 1.08 + Math.abs(side) * 1.55 + tier * 0.20;
-
-  return Object.freeze({
-    x: side * spread,
-    y: height,
-    z: ((slot % 3) - 1) * 0.10 - tier * 0.012,
-    rotationZ: -side * 0.30,
-  });
+  return createFilledFanPose(index);
 }
 
 function requireBabylon(babylon) {
