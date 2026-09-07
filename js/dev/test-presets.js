@@ -41,6 +41,25 @@ export function createTestPresets({ state, events, progression } = {}) {
     return Object.freeze(payload);
   }
 
+  function commandSpellIILv1() {
+    const definition = progression.commandSpellIIPrototype;
+    if (!definition?.firstLevelMilestone || !Number.isInteger(definition.npManualStrikeCount)) {
+      throw new TypeError('Command Spell II prototype data is unavailable.');
+    }
+
+    state.update((draft) => {
+      addMilestone(draft, definition.firstLevelMilestone);
+    });
+
+    const payload = {
+      preset: 'command-spell-ii-lv1',
+      level: 1,
+      npManualStrikeCount: definition.npManualStrikeCount,
+    };
+    events.emit('test:preset-applied', payload);
+    return Object.freeze(payload);
+  }
+
   function readyNp() {
     state.update((draft) => {
       // Persistent NP storage is normalized 0..1. A full test gauge is therefore
@@ -92,6 +111,7 @@ export function createTestPresets({ state, events, progression } = {}) {
 
   return Object.freeze({
     maxCommandSpellI,
+    commandSpellIILv1,
     readyNp,
     startHydraIEncounter98,
   });
