@@ -15,6 +15,7 @@ const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
 const testHydra98Button = document.querySelector('[data-test-hydra-98]');
+const testNpReadyButton = document.querySelector('[data-test-np-ready]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
 const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
 const autoApsReadout = document.querySelector('[data-test-auto-aps]');
@@ -28,6 +29,7 @@ if (
   || !testToolsPanel
   || !testCommandSpellMaxButton
   || !testHydra98Button
+  || !testNpReadyButton
   || !resetSaveButton
   || !regenDelayReadout
   || !autoApsReadout
@@ -232,6 +234,14 @@ const handleTestHydra98 = () => {
 };
 const unbindTestHydra98 = bindFixedControl(testHydra98Button, handleTestHydra98);
 
+const handleTestNpReady = () => {
+  enterNonPersistentTestSession();
+  const result = runtime.testPresets.readyNp();
+  hud.setStatus(`TEST · NP ${result.points}/${result.points} READY · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestNpReady = bindFixedControl(testNpReadyButton, handleTestNpReady);
+
 const handleResetSave = () => {
   suppressPersistence = true;
   try {
@@ -342,6 +352,7 @@ window.addEventListener('pagehide', () => {
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
   unbindTestHydra98();
+  unbindTestNpReady();
   unbindResetSave();
   offTick();
   offAttackResolved();
