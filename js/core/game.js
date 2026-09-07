@@ -1,7 +1,7 @@
 import { GameClock } from './clock.js';
 import { EventBus } from './event-bus.js';
 import { GameStateStore, createInitialState } from './state.js';
-import { createHydraIRule } from '../math/hydra-rules.js';
+import { createHydraIRule, createHydraIIRule } from '../math/hydra-rules.js';
 import { createHydraRegrowthSystem } from '../systems/hydra-regrowth.js';
 import { createCombatSystem } from '../systems/combat.js';
 import { createAutoSlashSystem } from '../systems/auto-slash.js';
@@ -78,11 +78,13 @@ export function createHydraIGameRuntime({
 } = {}) {
   const core = createCoreRuntime({ fixedStepMs, initialState });
   const staticRegenDelayMs = regenDelayMs;
-  const rule = createHydraIRule({
+  const ruleI = createHydraIRule({
     regenDelayMs: staticRegenDelayMs ?? progression.regenCurve?.baseDelayMs ?? 1500,
   });
+  const ruleII = createHydraIIRule();
 
   const resolveCurrentRegenDelayMs = (snapshot = core.state.read()) => {
+    if (snapshot.hydra.generation !== 1) return null;
     if (staticRegenDelayMs != null) return staticRegenDelayMs;
     return getHydraIRegenDelayMs(
       snapshot.statistics.totalHydrasKilled,
@@ -106,11 +108,10 @@ export function createHydraIGameRuntime({
     definition: progression.commandSpellI,
   });
 
-  // Progression must observe clock ticks before Auto Slash. During burst windows,
-  // a 100ms respawn can therefore be attacked on the same tick it becomes due.
   const hydraProgression = createHydraIProgressionSystem({
     ...core,
     respawnDelayMs: progression.respawnDelayMs,
+    hydraIIIntro: progression.hydraIIIntro,
     getRespawnDelayMs: (snapshot, payload) => (
       !isRegrowthEnabled(snapshot.modifiers.active, payload.atMs)
         ? progression.burstRespawnDelayMs ?? progression.respawnDelayMs
@@ -120,17 +121,39 @@ export function createHydraIGameRuntime({
 
   const combat = createCombatSystem({
     ...core,
-    getRule: () => rule,
-    getRuleContext: (snapshot) => ({
-      regrowthDelayMs: resolveCurrentRegenDelayMs(snapshot),
-    }),
+    getRule: (snapshot) => {
+      if (snapshot.hydra.generation === 1) return ruleI;
+      if (snapshot.hydra.generation === 2) return ruleII;
+      throw new RangeError(`Unsupported Hydra generation: ${snapshot.hydra.generation}`);
+    },
+    getRuleContext: (snapshot) => {
+      if (snapshot.hydra.generation !== 1) return {};
+      return { regrowthDelayMs: resolveCurrentRegenDelayMs(snapshot) };
+    },
   });
-  const autoSlash = createAutoSlashSystem(core);
+
+  const isHydraIIIntroBlockingAuto = (snapshot) => {
+    const intro = progression.hydraIIIntro;
+    return intro != null
+      && snapshot.hydra.generation === intro.generation
+      && !snapshot.progression.milestones.includes(intro.firstManualCutMilestone);
+  };
+
+  const autoSlash = createAutoSlashSystem({
+    ...core,
+    isEnabled: (snapshot) => (
+      snapshot.master.commandSpells.autoSlash
+      && !snapshot.hydra.defeated
+      && snapshot.hydra.logicalHeadCount > 0n
+      && !isHydraIIIntroBlockingAuto(snapshot)
+    ),
+  });
   const manual = createManualAttackInput(core);
 
   return {
     ...core,
-    rule,
+    rule: ruleI,
+    rules: Object.freeze({ I: ruleI, II: ruleII }),
     progression,
     manualAttack(options) {
       return manual.attack(options);
