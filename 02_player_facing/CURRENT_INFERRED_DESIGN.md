@@ -38,11 +38,11 @@ Normal Hydra II cutting follows the current conceptual rule:
 
 > CUT 1 → GROW +2
 
-Net head count change from a completed cut/regrowth cycle is therefore +1.
+Net head count change from a completed cut/regrowth cycle is therefore +1 until the current Hydra cap is reached.
 
 The player should not learn this primarily from explanatory UI text. The preferred teaching method is **visible cause and effect**.
 
-### Provisional presentation
+### Provisional presentation below cap
 
 A cut may visually read approximately as:
 
@@ -66,7 +66,44 @@ When heads are not being cut, the current head count does **not** automatically 
 
 ---
 
-## 3. NP / Noble Phantasm — temporary cancellation of Hydra law
+## 3. Hydra II cap state — deliberate stalemate
+
+### Confirmed player-facing direction
+
+Hydra II is currently treated as beginning around **9 heads** with a maximum scale of **9^2 = 81 heads**.
+
+At the 81-head cap, the preferred presentation changes.
+
+The player should **not** continue seeing a full theatrical "one falls, two visibly emerge" cycle on every click. Instead, the encounter enters a perceptual stalemate:
+
+> CUT → immediate replacement / recovery → still 81
+
+The important feeling is that the player is cutting successfully, but the overall problem is not getting smaller.
+
+### Confirmed feedback principle
+
+At cap, cutting should still feel tactile and satisfying while the count remains brutally unchanged.
+
+> satisfying hit feedback + no numerical progress
+
+This contrast is intentional. The player is not meant to feel that the input failed; they are meant to feel that **ordinary cutting has ceased to make progress**.
+
+### NP at cap
+
+The current player-facing direction is that continued cutting at cap can still contribute to NP. This prevents the cap from becoming a deadlock and allows 81 heads to function as a temporary **NP charging wall / stalemate state**.
+
+This does not mean the intended optimal strategy is always "rush to cap." The preferred pacing is that an ordinary player tends to reach full NP somewhere in the **70–81 head region**, so the first NP may occur just before or around the cap rather than at one exact scripted count.
+
+This keeps room for:
+
+- ordinary reactive play;
+- obsessive NP counting;
+- unusually efficient burst timing;
+- players who deliberately ride the cap to finish charging.
+
+---
+
+## 4. NP / Noble Phantasm — temporary cancellation of Hydra law
 
 ### Confirmed
 
@@ -103,7 +140,7 @@ The Fate / Nine Lives reference is intended to remain a reusable content languag
 
 ---
 
-## 4. NP as time stop
+## 5. NP as time stop
 
 ### Provisional, strongly preferred
 
@@ -117,13 +154,66 @@ During the early form of NP:
 - the player remains able to cut manually;
 - visual color, motion, sound, or UI state may clearly indicate that normal time has stopped.
 
-At the end of NP, there should be a brief, legible "time resumes" transition before normal Hydra rules and automation resume.
+### Confirmed end-of-window behavior
 
-This transition may deliberately evoke a DIO-like time-stop joke without requiring explicit explanatory text.
+When the NP window ends, normal Hydra rules should not silently resume in the background. There should be a brief, legible **time resumes** transition.
+
+Preferred sequence:
+
+> stopped world → resume cue → normal color / motion returns → normal Hydra rule becomes active again on subsequent cutting
+
+This may deliberately evoke a DIO-like time-stop joke without requiring explicit explanatory text.
+
+The first post-NP return to ordinary regrowth should therefore feel like a boundary crossing, not like a buff icon merely expiring.
 
 ---
 
-## 5. Command Spell progression
+## 6. First Hydra II NP loop
+
+### Confirmed target experience
+
+The first Hydra II NP is **not required to guarantee a kill**.
+
+The preferred outcome is skill-sensitive:
+
+- a fast manual player may be able to kill Hydra II in a single NP window;
+- a more typical player may require two NP cycles;
+- neither outcome should feel like failure.
+
+This preserves manual expression without turning high-speed clicking into a mandatory execution check.
+
+### Working encounter arc
+
+A likely Hydra II experience is:
+
+> ~9 heads
+> → player cuts normally
+> → delayed regrowth reveals that cutting increases the problem
+> → count climbs
+> → NP approaches full somewhere around 70–81
+> → if the cap is reached, ordinary cutting becomes a satisfying but numerically static stalemate
+> → NP reaches 66
+> → **寶具解放**
+> → time-stop / rule-cancellation window
+> → for the first time the count falls continuously: 81 → 80 → 79 → ...
+> → strong player may finish the Hydra; typical player may leave survivors
+> → time resumes visibly
+> → subsequent ordinary cutting again creates regrowth pressure
+> → second cycle if needed
+
+The core cathartic contrast is:
+
+> **81 → 81 → 81 ...**
+>
+> then
+>
+> **81 → 80 → 79 → 78 ...**
+
+The pleasure comes from finally watching the number genuinely decrease.
+
+---
+
+## 7. Command Spell progression
 
 ### Current preferred player-facing order
 
@@ -153,7 +243,7 @@ The exact relationship between these player-facing Command Spell beats and any a
 
 ---
 
-## 6. Hydra scale progression — powers of nine
+## 8. Hydra scale progression — powers of nine
 
 ### Confirmed direction
 
@@ -190,7 +280,7 @@ Hydra III does not necessarily require a new special rule. Keeping the same regr
 
 ---
 
-## 7. Main visual head limit and abstraction
+## 9. Main visual head limit and abstraction
 
 ### Confirmed direction
 
@@ -210,7 +300,7 @@ The goal is that increasing scale changes how the player **perceives** Hydra, in
 
 ---
 
-## 8. Tree view
+## 10. Tree view
 
 ### Confirmed direction
 
@@ -236,7 +326,7 @@ This is intentionally deferred. Tree interaction should not become mandatory mer
 
 ---
 
-## 9. Hydra death / corpse overlap
+## 11. Hydra death / corpse overlap
 
 ### Confirmed visual direction
 
@@ -253,11 +343,11 @@ The game does not currently need to explain whether successive Hydras are reinca
 
 ---
 
-## 10. Current player-facing progression hypothesis
+## 12. Current player-facing progression hypothesis
 
 One useful working model is:
 
-> **Manual suppression → self-created pressure → NP rule-breaking window → stronger automation → scale abstraction → structural understanding**
+> **Manual suppression → self-created pressure → cap stalemate → NP rule-breaking window → stronger automation → scale abstraction → structural understanding**
 
 A parallel transformation occurs in the meaning of a head:
 
@@ -271,16 +361,16 @@ These are working hypotheses to test against actual play rather than fixed lore.
 
 ---
 
-## 11. Open design questions
+## 13. Open design questions
 
 The next player-facing questions that remain genuinely unresolved include:
 
-1. **Hydra II pacing:** exactly how long should the severed-head → regrowth delay be so that cause is legible without slowing rapid play?
-2. **NP duration:** what base duration produces urgency and catharsis without feeling like a mandatory rhythm-game window?
-3. **APS paradox:** during Hydra II, how strongly should automation initially behave as both help (NP generation / throughput) and danger (creating more regrowth)?
-4. **Hydra I → II → III encounter pacing:** what head counts, starting states, and transition timing produce the intended cognitive steps before scale explodes?
-5. **Hydra III tree reveal:** what information should the first tree view actually expose, and what should remain hidden?
-6. **Text / micro-story:** how much Souls-like encounter naming / death text should coexist with the unexplained corpse conveyor-belt comedy?
-7. **Visual abstraction >99:** what exact visual grammar tells the player that the Hydra is still growing even though the main view stops drawing literal new heads?
-8. **Sound:** what should cutting, regrowth, NP time stop, and time resume sound like, especially under high-frequency clicking?
-
+1. **Hydra II regrowth timing below cap:** exactly how long should the severed-head → regrowth delay be so that cause is legible without slowing rapid play?
+2. **Hydra II cap feedback:** what exact animation communicates "you are still cutting successfully, but the population is no longer shrinking" without replaying a visually exhausting two-head regrowth sequence every click?
+3. **Base NP duration:** what duration makes one-cycle kills possible for strong manual players while making two cycles normal for typical players?
+4. **First NP timing:** what data tuning causes ordinary players to reach 66 NP naturally around the 70–81-head region rather than always at the same exact count?
+5. **APS paradox:** during Hydra II, how strongly should automation behave as both help (NP generation / throughput) and danger (creating more regrowth)?
+6. **Hydra III tree reveal:** what information should the first tree view actually expose, and what should remain hidden?
+7. **Text / micro-story:** how much Souls-like encounter naming / death text should coexist with the unexplained corpse conveyor-belt comedy?
+8. **Visual abstraction >99:** what exact visual grammar tells the player that the Hydra is still growing even though the main view stops drawing literal new heads?
+9. **Sound:** what should cutting, regrowth, cap stalemate, NP time stop, and time resume sound like, especially under high-frequency clicking?
