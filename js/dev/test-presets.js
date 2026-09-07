@@ -67,6 +67,24 @@ export function createTestPresets({ state, events, progression } = {}) {
     return setCommandSpellILevel(progression.commandSpellI.levels.at(-1).level);
   }
 
+  function addHumanityEvil999() {
+    const amount = 999n;
+    let balance = 0n;
+
+    state.update((draft) => {
+      draft.master.humanityEvil += amount;
+      balance = draft.master.humanityEvil;
+    });
+
+    const payload = {
+      preset: 'humanity-evil-plus-999',
+      amount,
+      balance,
+    };
+    events.emit('test:preset-applied', payload);
+    return Object.freeze(payload);
+  }
+
   function commandSpellIILv1() {
     const definition = progression.commandSpellII;
     const first = definition?.levels?.[0];
@@ -181,6 +199,7 @@ export function createTestPresets({ state, events, progression } = {}) {
   return Object.freeze({
     setCommandSpellILevel,
     maxCommandSpellI,
+    addHumanityEvil999,
     commandSpellIILv1,
     readyNp,
     startHydraIEncounter98,
