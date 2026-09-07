@@ -1,22 +1,45 @@
 export const INITIAL_HYDRA_HEAD_POOL_SIZE = 9;
 export const MAX_VISIBLE_HEADS = 99;
 
-// Visual-only canopy projection.
-//
-// The player should read a tall fan from the portrait camera, but the world-space
-// geometry is deliberately *not* a symmetric planar sector. We generate leaf/end
-// points inside an asymmetric screen-oriented envelope, then connect every point
-// back toward the common Hydra root. The left side opens aggressively, the right
-// side stays constrained, and depth folding keeps the crown from reading as a
-// flat diagram.
 const CANOPY_ROOT_Y = 0.38;
-const CANOPY_MIN_Y = 0.92;
-const CANOPY_MAX_Y = 6.10;
-const CANOPY_MIN_LEFT_WIDTH = 0.42;
-const CANOPY_MAX_LEFT_WIDTH = 4.15;
-const CANOPY_MIN_RIGHT_WIDTH = 0.28;
-const CANOPY_MAX_RIGHT_WIDTH = 0.92;
-const CANOPY_DEPTH = 0.72;
+const SPARSE_SLOT_COUNT = 9;
+const TRANSITION_SLOT_END = 32;
+
+// Visual-only layout strategy:
+//
+// 1–9   = authored sparse Hydra composition. Nine heads should read as one monster,
+//          not nine independent poles.
+// 10–32 = transition canopy. New heads fill gaps without moving the original nine.
+// 33–99 = dense canopy. The crown becomes large, clustered and partially off-screen.
+//
+// Existing slots never jump when head count changes; growth only reveals additional
+// slots. This keeps Hydra II proliferation visually continuous.
+const SPARSE_HEAD_POSES = Object.freeze([
+  Object.freeze({ x: -0.52, y: 1.15, z: -0.05, originX: -0.14, originY: 0.46 }),
+  Object.freeze({ x: 0.10, y: 1.32, z: 0.08, originX: 0.00, originY: 0.50 }),
+  Object.freeze({ x: 0.62, y: 1.50, z: -0.08, originX: 0.14, originY: 0.46 }),
+  Object.freeze({ x: -0.94, y: 1.82, z: 0.10, originX: -0.16, originY: 0.46 }),
+  Object.freeze({ x: -0.24, y: 2.04, z: -0.12, originX: -0.02, originY: 0.50 }),
+  Object.freeze({ x: 0.70, y: 2.28, z: 0.12, originX: 0.16, originY: 0.46 }),
+  Object.freeze({ x: -1.32, y: 2.78, z: -0.08, originX: -0.18, originY: 0.46 }),
+  Object.freeze({ x: -1.58, y: 4.20, z: 0.08, originX: -0.16, originY: 0.46 }),
+  Object.freeze({ x: 0.48, y: 5.10, z: -0.04, originX: 0.12, originY: 0.48 }),
+]);
+
+const TRANSITION_HUBS = Object.freeze([
+  Object.freeze({ x: -0.30, y: 0.50 }),
+  Object.freeze({ x: -0.08, y: 0.54 }),
+  Object.freeze({ x: 0.18, y: 0.50 }),
+  Object.freeze({ x: 0.34, y: 0.47 }),
+]);
+
+const DENSE_HUBS = Object.freeze([
+  Object.freeze({ x: -0.48, y: 0.54 }),
+  Object.freeze({ x: -0.25, y: 0.58 }),
+  Object.freeze({ x: -0.04, y: 0.60 }),
+  Object.freeze({ x: 0.18, y: 0.57 }),
+  Object.freeze({ x: 0.40, y: 0.52 }),
+]);
 
 function radicalInverse(index, base) {
   let value = index;
@@ -36,63 +59,105 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-function createBiasedCanopyPose(index) {
-  // Halton bases 2 / 3 / 5 give every prefix (9, 20, 50, 99...) broad coverage
-  // without obvious rows. This is intentionally fractal-ish / recursive-looking
-  // rather than a literal mathematical fractal.
-  const sequenceIndex = index + 1;
-  const lateralSample = radicalInverse(sequenceIndex, 2);
-  const heightSample = radicalInverse(sequenceIndex, 3);
-  const depthSample = radicalInverse(sequenceIndex, 5);
-
-  // A sub-linear exponent puts useful density into the upper crown while still
-  // preserving low heads close to the existing Hydra root position.
-  const heightT = heightSample ** 0.72;
-  const y = lerp(CANOPY_MIN_Y, CANOPY_MAX_Y, heightT);
-
-  // Screen-space silhouette first: the left envelope grows much faster than the
-  // right envelope. This keeps the crown away from the phone's right edge while
-  // allowing the upper-left mass to grow behind the HUD.
-  const leftWidth = lerp(
-    CANOPY_MIN_LEFT_WIDTH,
-    CANOPY_MAX_LEFT_WIDTH,
-    heightT ** 0.82,
-  );
-  const rightWidth = lerp(
-    CANOPY_MIN_RIGHT_WIDTH,
-    CANOPY_MAX_RIGHT_WIDTH,
-    heightT ** 0.95,
-  );
-
-  let x = -leftWidth + lateralSample * (leftWidth + rightWidth);
-
-  // Re-center the visible crown slightly toward the Hydra at higher levels so we
-  // still get a handful of right-side heads without allowing the canopy to spill
-  // heavily past the right screen edge.
-  x += 0.34 * (heightT ** 0.75);
-
-  // Tiny deterministic drift prevents the low-discrepancy samples from reading as
-  // a sterile scatter plot. It also gives neighboring necks slightly different
-  // silhouettes when the visible pool becomes dense.
-  x += (depthSample - 0.5) * 0.14 * (0.35 + heightT);
-
-  // Fold the crown in depth. The portrait camera still sees a fan-like silhouette,
-  // but from another angle this is a shallow 3D canopy rather than a planar fan.
-  const z = (depthSample - 0.5) * CANOPY_DEPTH
-    + Math.max(0, x) * 0.16
-    - Math.max(0, -x) * 0.03;
-
-  const deltaY = y - CANOPY_ROOT_Y;
-  const neckLength = Math.hypot(x, deltaY);
-  const rotationZ = -Math.atan2(x, deltaY);
+function finalizePose({ x, y, z, originX = 0, originY = CANOPY_ROOT_Y }) {
+  const deltaX = x - originX;
+  const deltaY = y - originY;
+  const neckLength = Math.hypot(deltaX, deltaY);
 
   return Object.freeze({
     x,
     y,
     z,
-    rotationZ,
+    originX,
+    originY,
+    rotationZ: -Math.atan2(deltaX, deltaY),
     neckLength,
   });
+}
+
+function createTransitionPose(index) {
+  const localIndex = index - SPARSE_SLOT_COUNT + 1;
+  const lateral = radicalInverse(localIndex, 2);
+  const height = radicalInverse(localIndex, 3);
+  const depth = radicalInverse(localIndex, 5);
+  const hubSample = radicalInverse(localIndex, 7);
+
+  const heightT = height ** 0.78;
+  const y = lerp(1.22, 5.55, heightT);
+  const leftWidth = lerp(0.82, 3.10, heightT ** 0.82);
+  const rightWidth = lerp(0.58, 1.58, heightT ** 0.92);
+
+  // Transition heads mostly fill the existing silhouette. A gentle right tail is
+  // already allowed so the later dense canopy does not suddenly discover the edge.
+  let x = -leftWidth + lateral * (leftWidth + rightWidth);
+  x += (depth - 0.5) * 0.18 * (0.45 + heightT);
+
+  const hubIndex = Math.min(
+    TRANSITION_HUBS.length - 1,
+    Math.floor(hubSample * TRANSITION_HUBS.length),
+  );
+  const hub = TRANSITION_HUBS[hubIndex];
+
+  return finalizePose({
+    x,
+    y,
+    z: (depth - 0.5) * 0.58 + x * 0.035,
+    originX: hub.x,
+    originY: hub.y,
+  });
+}
+
+function createDensePose(index) {
+  const localIndex = index - TRANSITION_SLOT_END + 1;
+  const lateral = radicalInverse(localIndex, 2);
+  const height = radicalInverse(localIndex, 3);
+  const depth = radicalInverse(localIndex, 5);
+  const hubSample = radicalInverse(localIndex, 7);
+  const clusterSample = radicalInverse(localIndex, 11);
+
+  // Dense mode is screen-space composition, not a geometric safety cone. The
+  // left side still carries more mass, but the right edge is deliberately soft:
+  // some leaves extend beyond the portrait viewport and are cropped by the camera.
+  const heightT = height ** 0.68;
+  let y = lerp(1.28, 6.55, heightT);
+
+  const leftWidth = lerp(1.15, 4.45, heightT ** 0.78);
+  const rightWidth = lerp(0.90, 2.55, heightT ** 0.88);
+  let x = -leftWidth + lateral * (leftWidth + rightWidth);
+
+  // Pull samples into loose lobes instead of filling one uniform wedge. This is
+  // only a visual fractal-like cue for now: repeated local clusters, not a true
+  // recursive Hydra tree.
+  const lobe = Math.floor(clusterSample * 5);
+  const lobeBiases = [-0.72, -0.34, -0.02, 0.32, 0.66];
+  const lobeHeights = [0.12, -0.08, 0.16, -0.14, 0.06];
+  const lobeBias = lobeBiases[Math.min(lobe, lobeBiases.length - 1)];
+  const lobeHeight = lobeHeights[Math.min(lobe, lobeHeights.length - 1)];
+
+  x += lobeBias * (0.20 + heightT * 0.42);
+  y += lobeHeight * (0.35 + heightT * 0.55);
+  x += (depth - 0.5) * 0.22 * (0.55 + heightT);
+
+  const hubIndex = Math.min(
+    DENSE_HUBS.length - 1,
+    Math.floor(hubSample * DENSE_HUBS.length),
+  );
+  const hub = DENSE_HUBS[hubIndex];
+
+  return finalizePose({
+    x,
+    y,
+    // A shallow fold in Z stops the canopy reading as a flat fan from alternate
+    // angles, while preserving the portrait silhouette from the gameplay camera.
+    z: (depth - 0.5) * 0.86 + Math.max(0, x) * 0.08 - Math.max(0, -x) * 0.025,
+    originX: hub.x,
+    originY: hub.y,
+  });
+}
+
+function createSparsePose(index) {
+  const pose = SPARSE_HEAD_POSES[index];
+  return finalizePose(pose);
 }
 
 function assertPoolLimit(maxVisibleHeads) {
@@ -120,7 +185,9 @@ export function getHeadSlotPose(index) {
     throw new RangeError(`head slot index must be from 0 to ${MAX_VISIBLE_HEADS - 1}.`);
   }
 
-  return createBiasedCanopyPose(index);
+  if (index < SPARSE_SLOT_COUNT) return createSparsePose(index);
+  if (index < TRANSITION_SLOT_END) return createTransitionPose(index);
+  return createDensePose(index);
 }
 
 function requireBabylon(babylon) {
@@ -143,12 +210,9 @@ function createHeadSlot({ babylon, scene, parent, index, neckMaterial, headMater
   root.parent = parent;
 
   const pose = getHeadSlotPose(index);
-  root.position.set(0, CANOPY_ROOT_Y, pose.z);
+  root.position.set(pose.originX, pose.originY, pose.z);
   root.rotation.z = pose.rotationZ;
 
-  // The neck now genuinely reaches from the common root toward its leaf/head
-  // position. Long upper heads therefore read as rays/branches instead of short
-  // vertical stalks floating around the fan area.
   const neck = babylon.MeshBuilder.CreateCylinder(`hydra-neck-${index}`, {
     height: pose.neckLength,
     diameterTop: 0.13,
