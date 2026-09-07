@@ -111,6 +111,14 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     unlocks: Object.freeze(['combat.autoSlash']),
     levels: COMMAND_SPELL_I_LEVELS,
   }),
+  // Player-facing design has confirmed the first Command Spell II effect but
+  // not its economy/unlock ladder yet. Keep the effect testable without
+  // inventing permanent pricing or progression thresholds.
+  commandSpellIIPrototype: Object.freeze({
+    id: 'command-spell-2',
+    firstLevelMilestone: 'command-spell-2-lv1',
+    npManualStrikeCount: 3,
+  }),
   hydraIIIntro: Object.freeze({
     unlockAtHydraKills: 99n,
     generation: 2,
