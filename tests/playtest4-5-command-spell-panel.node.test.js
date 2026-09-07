@@ -34,6 +34,9 @@ function spellII(overrides = {}) {
     npMaxPoints: 66,
     npDurationMs: 3000,
     nextRewardLabel: 'NP MANUAL ×3',
+    nextNpManualStrikeCount: 3,
+    nextNpMaxPoints: 132,
+    nextNpDurationMs: 3000,
     ...overrides,
   };
 }
@@ -156,6 +159,26 @@ test('Playtest 4.5 markup reserves exactly three slots and keeps Command Spell I
   assert.match(html, /data-command-spell-modal-cost/);
   assert.match(html, /data-command-spell-close/);
   assert.match(html, /data-command-spell-purchase/);
+  assert.match(html, /data-command-spell-close[^>]*style="[^"]*width:44px;[^"]*height:44px/);
+});
+
+test('Command Spell II modal uses its own quote and exposes the full next NP technique tuple', async () => {
+  const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
+
+  assert.match(panelSource, /「快點……再快點……！」/);
+  assert.doesNotMatch(panelSource, /title:\s*'射殺す百頭'/);
+  assert.match(panelSource, /status\.nextNpManualStrikeCount/);
+  assert.match(panelSource, /status\.nextNpMaxPoints/);
+  assert.match(panelSource, /status\.nextNpDurationMs/);
+});
+
+test('Command Spell modal closes after a successful purchase and backdrop taps close only outside the card', async () => {
+  const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+
+  assert.match(appSource, /function bindModalBackdropClose/);
+  assert.match(appSource, /if \(event\.target !== root\) return;/);
+  assert.match(appSource, /const unbindCommandSpellBackdrop = bindModalBackdropClose/);
+  assert.match(appSource, /if \(result\?\.accepted\) \{[\s\S]*persistNow\(\);[\s\S]*commandSpellPanel\.close\(\);[\s\S]*\}/);
 });
 
 test('Command Spell panel is a View projection and Application owns purchases', async () => {
