@@ -16,6 +16,10 @@ function formatCommandSpellI(status) {
     return `COMMAND SPELL I · Lv.MAX · ${status.attacksPerSecond} APS`;
   }
 
+  if (status.pricePending) {
+    return `COMMAND SPELL I · Lv.${status.level} · NEXT ${status.nextAttacksPerSecond} APS · PRICE TBD`;
+  }
+
   if (status.available) {
     return `COMMAND SPELL I · Lv.${status.nextLevel} · BUY ${formatInteger(status.cost)} · ${status.nextAttacksPerSecond} APS`;
   }
