@@ -70,8 +70,8 @@ const COMMAND_SPELL_I_LEVELS = Object.freeze([
   Object.freeze({ level: 4, requiredHydraKills: 22n, cost: 44n, attacksPerSecond: 8 }),
   Object.freeze({ level: 5, requiredHydraKills: 30n, cost: 66n, attacksPerSecond: 16 }),
   Object.freeze({ level: 6, requiredHydraKills: 40n, cost: 88n, attacksPerSecond: 32 }),
-  Object.freeze({ level: 7, requiredHydraKills: 52n, cost: 110n, attacksPerSecond: 64 }),
-  Object.freeze({ level: 8, requiredHydraKills: 66n, cost: 132n, attacksPerSecond: 128 }),
+  // Playtest 2.4: deliberately leave a long 32 APS plateau, then peak at kill 66.
+  Object.freeze({ level: 7, requiredHydraKills: 66n, cost: 132n, attacksPerSecond: 64 }),
 ]);
 
 export const HYDRA_I_PROGRESSION = Object.freeze({
@@ -79,6 +79,11 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
   respawnDelayMs: 300,
   burstRespawnDelayMs: 100,
   regenCurve: HYDRA_I_REGEN_CURVE,
+  np: Object.freeze({
+    maxPoints: 66,
+    pointsPerHead: 1,
+    durationMs: 3000,
+  }),
   commandSpellI: Object.freeze({
     id: 'command-spell-1',
     displayName: 'Command Spell I',
