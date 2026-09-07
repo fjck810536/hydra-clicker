@@ -129,7 +129,40 @@ prototype 暫時只透過 TEST 開啟，避免在手感確認前把經濟寫死�
 
 ---
 
-## 6. Playtest 4.2 要回答的問題
+## 6. 這輪實測方式
+
+TEST 直接提供 Hydra II 的 81-head cap，避免先跑蛇一或讓 Auto 影響比較。
+
+### A｜原本三秒純手砍
+
+```text
+TEST
+→ HYDRA II · 81 HEADS
+→ NP READY
+→ NP RELEASE
+→ 狂點三秒
+```
+
+### B｜令咒 II ×3
+
+```text
+TEST
+→ COMMAND SPELL II · ×3 NP
+→ HYDRA II · 81 HEADS
+→ NP READY
+→ NP RELEASE
+→ 狂點三秒
+```
+
+`MAX COMMAND SPELL` 在這輪比較中不需要開，因為 NP 時停內 Auto 本來就暫停。
+
+重點不是「B 一定要三秒殺 81」，而是比較：
+
+> ×1 時的「完全砍不動」是否在 ×3 後變成「有明顯推進、差一點、想再強一級」。
+
+---
+
+## 7. Playtest 4.2 要回答的問題
 
 1. **×3 是否把 Hydra II 從「完全砍不動」推到「差一點／有機會」？**
 2. 3.0 → 0.0 的可見倒數是否讓寶解更緊張、更好笑，還是反而太佔注意力？
