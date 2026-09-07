@@ -22,7 +22,7 @@
 
     <header class="top-hud" aria-label="遊戲狀態">
       <div class="brand-block">
-        <span class="eyebrow" data-hud="hydra-generation">HYDRA I · PROTOTYPE</span>
+        <span class="eyebrow" data-hud="hydra-generation">HYDRA I · 0/99</span>
         <strong>Hydra Clicker</strong>
       </div>
 
@@ -46,6 +46,12 @@
       </div>
     </header>
 
+    <section class="generation-transition" data-generation-transition hidden aria-live="polite">
+      <span class="generation-transition-kicker">NEXT GENERATION</span>
+      <strong data-generation-transition-title>HYDRA II</strong>
+      <span data-generation-transition-meta>START 9 · MAX 81 · KILL 99</span>
+    </section>
+
     <aside class="test-tools" aria-label="Playtest tools">
       <button class="test-tools-toggle" type="button" data-test-tools-toggle data-fixed-control>
         TEST
@@ -53,6 +59,7 @@
       <div class="test-tools-panel" data-test-tools-panel hidden>
         <span>REGEN <strong data-test-regen-delay>1500 ms</strong></span>
         <span>AUTO <strong data-test-auto-aps>LOCKED</strong></span>
+        <span>TOTAL KILLS <strong data-test-total-kills>0</strong></span>
         <button class="test-preset-button" type="button" data-test-command-spell-max data-fixed-control>
           MAX COMMAND SPELL
         </button>
@@ -77,7 +84,7 @@
 
     <footer class="bottom-hud">
       <div class="meta-strip" aria-label="Master progression">
-        <span>KILLS <strong data-hud="kills">0</strong></span>
+        <span>KILLS <strong data-hud="kills">0/99</strong></span>
         <span>人類惡 <strong data-hud="humanity-evil">0</strong></span>
       </div>
       <button class="command-spell-button" type="button" data-command-spell-button data-fixed-control disabled>
