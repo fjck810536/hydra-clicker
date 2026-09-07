@@ -70,8 +70,9 @@ export function createCoreRuntime({
 export function createHydraIGameRuntime({
   fixedStepMs = 100,
   regenDelayMs = null,
-  npGainPerHead = 0.125,
-  npDurationMs = 3000,
+  npMaxPoints = null,
+  npPointsPerHead = null,
+  npDurationMs = null,
   progression = HYDRA_I_PROGRESSION,
   initialState = createInitialState(),
 } = {}) {
@@ -92,8 +93,9 @@ export function createHydraIGameRuntime({
   const regrowth = createHydraRegrowthSystem(core);
   const np = createNpSystem({
     ...core,
-    gainPerHead: npGainPerHead,
-    durationMs: npDurationMs,
+    maxPoints: npMaxPoints ?? progression.np?.maxPoints ?? 66,
+    pointsPerHead: npPointsPerHead ?? progression.np?.pointsPerHead ?? 1,
+    durationMs: npDurationMs ?? progression.np?.durationMs ?? 3000,
   });
   const humanityEvil = createHumanityEvilSystem({
     ...core,
@@ -135,6 +137,9 @@ export function createHydraIGameRuntime({
     },
     releaseNp() {
       return np.release();
+    },
+    npStatus() {
+      return np.getStatus();
     },
     currentRegenDelayMs() {
       return resolveCurrentRegenDelayMs(core.state.read());
