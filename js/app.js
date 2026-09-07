@@ -8,14 +8,15 @@ import { projectGenerationProgress } from './view/generation-progress.js';
 import { createGenerationTransitionView } from './view/generation-transition-view.js';
 import { createNpPhaseView } from './view/np-phase-view.js';
 import { createNpTimerView } from './view/np-timer-view.js';
+import { createCommandSpellPanel } from './view/command-spell-panel.js';
 
 const AUTOSAVE_INTERVAL_MS = 5000;
 
 const app = document.querySelector('[data-app]');
 const canvas = document.querySelector('#battle-canvas');
 const npButton = document.querySelector('[data-np-button]');
-const commandSpellIButton = document.querySelector('[data-command-spell-button]');
-const commandSpellIIButton = document.querySelector('[data-command-spell-ii-button]');
+const commandSpellPanelRoot = document.querySelector('[data-command-spell-panel]');
+const commandSpellCloseButton = document.querySelector('[data-command-spell-close]');
 const generationTransitionRoot = document.querySelector('[data-generation-transition]');
 const npPhaseRoot = document.querySelector('[data-np-phase]');
 const npTimerRoot = document.querySelector('[data-np-timer]');
@@ -36,8 +37,8 @@ if (
   !app
   || !canvas
   || !npButton
-  || !commandSpellIButton
-  || !commandSpellIIButton
+  || !commandSpellPanelRoot
+  || !commandSpellCloseButton
   || !generationTransitionRoot
   || !npPhaseRoot
   || !npTimerRoot
@@ -152,6 +153,7 @@ if (restoredSave) {
 runtime ??= createHydraIGameRuntime();
 
 const hud = createHudView({ root: app });
+const commandSpellPanel = createCommandSpellPanel({ root: app });
 const generationTransition = createGenerationTransitionView({ root: generationTransitionRoot });
 const npPhase = createNpPhaseView({ root: npPhaseRoot });
 const npTimer = createNpTimerView({ root: npTimerRoot });
@@ -201,18 +203,18 @@ const renderSnapshot = () => {
   const introPending = isHydraIIIntroPending(snapshot);
   const npWindow = runtime.npWindowStatus();
   const npActive = npWindow.active;
+  const spellI = runtime.commandSpellIStatus();
   const spellII = runtime.commandSpellIIStatus();
   const generationConfig = getGenerationConfig(snapshot);
   const generationProgress = projectGenerationProgress(snapshot, generationConfig);
 
   hud.render(snapshot, {
-    commandSpellI: runtime.commandSpellIStatus(),
-    commandSpellII: spellII,
     np: runtime.npStatus(),
     npActive,
     hydraIIIntroPending: introPending,
     generationProgress,
   });
+  commandSpellPanel.render({ commandSpellI: spellI, commandSpellII: spellII });
   npTimer.render({
     active: npActive,
     remainingMs: npWindow.remainingMs,
@@ -248,19 +250,32 @@ const handleNpPress = () => {
 };
 const unbindNpButton = bindFixedControl(npButton, handleNpPress);
 
-const handleCommandSpellIPress = () => {
-  const result = runtime.buyCommandSpellI();
-  if (result.accepted) persistNow();
-  renderSnapshot();
+const handleCommandSpellSlotI = () => {
+  commandSpellPanel.open(1);
 };
-const unbindCommandSpellIButton = bindFixedControl(commandSpellIButton, handleCommandSpellIPress);
+const handleCommandSpellSlotII = () => {
+  commandSpellPanel.open(2);
+};
+const unbindCommandSpellSlotI = bindFixedControl(commandSpellPanel.slots[0], handleCommandSpellSlotI);
+const unbindCommandSpellSlotII = bindFixedControl(commandSpellPanel.slots[1], handleCommandSpellSlotII);
 
-const handleCommandSpellIIPress = () => {
-  const result = runtime.buyCommandSpellII();
-  if (result.accepted) persistNow();
+const handleCommandSpellClose = () => {
+  commandSpellPanel.close();
+};
+const unbindCommandSpellClose = bindFixedControl(commandSpellCloseButton, handleCommandSpellClose);
+
+const handleCommandSpellPurchase = () => {
+  const id = commandSpellPanel.currentOpenSpellId();
+  let result = null;
+  if (id === 'command-spell-1') result = runtime.buyCommandSpellI();
+  if (id === 'command-spell-2') result = runtime.buyCommandSpellII();
+  if (result?.accepted) persistNow();
   renderSnapshot();
 };
-const unbindCommandSpellIIButton = bindFixedControl(commandSpellIIButton, handleCommandSpellIIPress);
+const unbindCommandSpellPurchase = bindFixedControl(
+  commandSpellPanel.purchaseButton,
+  handleCommandSpellPurchase,
+);
 
 const handleTestToolsToggle = () => {
   testToolsPanel.hidden = !testToolsPanel.hidden;
@@ -362,8 +377,6 @@ const offAttackResolved = runtime.events.on('attack:resolved', ({ payload }) => 
   const strikeCount = isManual ? payload.request.strikeCount ?? 1 : 1;
 
   if (isManual && strikeCount > 1) {
-    // Combat emits one semantic resolution per strike. The View projects the
-    // whole manual request once, on strike 0, as a visibly discrete combo.
     if (payload.strikeIndex === 0) {
       berserkerView.playMultiAttack({ count: strikeCount });
     }
@@ -482,8 +495,10 @@ window.addEventListener('pagehide', () => {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   unbindBattleShellGestureLock();
   unbindNpButton();
-  unbindCommandSpellIButton();
-  unbindCommandSpellIIButton();
+  unbindCommandSpellSlotI();
+  unbindCommandSpellSlotII();
+  unbindCommandSpellClose();
+  unbindCommandSpellPurchase();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
   unbindTestHumanityEvil999();
@@ -506,6 +521,7 @@ window.addEventListener('pagehide', () => {
   offSpellAvailable();
   offSpellUnlocked();
   offSpellUpgraded();
+  commandSpellPanel.close();
   npPhase.destroy();
   generationTransition.destroy();
   berserkerView.destroy();
