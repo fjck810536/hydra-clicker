@@ -54,9 +54,25 @@ export function createNpSystem({
     });
   }
 
-  function isActive(snapshot = state.read()) {
+  function getWindowStatus(snapshot = state.read()) {
     const nowMs = snapshot.time.simulationTimeMs;
-    return snapshot.modifiers.active.some((modifier) => isNpModifierActive(modifier, nowMs));
+    const active = snapshot.modifiers.active.filter((modifier) => isNpModifierActive(modifier, nowMs));
+    if (active.length === 0) {
+      return Object.freeze({ active: false, startsAt: null, endsAt: null, remainingMs: 0 });
+    }
+
+    const startsAt = Math.min(...active.map((modifier) => modifier.startsAt ?? 0));
+    const endsAt = Math.max(...active.map((modifier) => modifier.endsAt ?? nowMs));
+    return Object.freeze({
+      active: true,
+      startsAt,
+      endsAt,
+      remainingMs: Math.max(0, endsAt - nowMs),
+    });
+  }
+
+  function isActive(snapshot = state.read()) {
+    return getWindowStatus(snapshot).active;
   }
 
   const offCut = events.on('head:cut', ({ payload }) => {
@@ -105,9 +121,6 @@ export function createNpSystem({
       ));
     });
 
-    // `np:ended` is semantic lifecycle output for presentation and application
-    // policies. If windows overlap, time only resumes when the final active NP
-    // window is gone.
     if (expiredNpModifiers.length > 0 && !npStillActive) {
       events.emit('np:ended', {
         atMs: tick.nowMs,
@@ -150,6 +163,7 @@ export function createNpSystem({
   return {
     release,
     getStatus,
+    getWindowStatus,
     isActive,
     isReady() {
       return getStatus().ready;
