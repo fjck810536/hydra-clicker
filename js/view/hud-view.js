@@ -2,10 +2,6 @@ function formatInteger(value) {
   return typeof value === 'bigint' ? value.toString() : String(value);
 }
 
-function formatPercent(value) {
-  return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
-}
-
 function formatCommandSpell(status) {
   if (!status) return 'COMMAND SPELL I';
 
@@ -22,6 +18,16 @@ function formatCommandSpell(status) {
   }
 
   return `COMMAND SPELL I · Lv.${status.level} · NEXT ${formatInteger(status.requiredHydraKills)} KILLS`;
+}
+
+function formatNpGauge(np) {
+  if (!np) return { label: '0/66', button: 'NP · 0/66', ready: false };
+  const label = `${np.points}/${np.maxPoints}`;
+  return {
+    label: np.ready ? 'READY' : label,
+    button: np.ready ? 'NP · RELEASE' : `NP · ${label}`,
+    ready: np.ready,
+  };
 }
 
 export function createHudView({ root } = {}) {
@@ -44,17 +50,16 @@ export function createHudView({ root } = {}) {
   }
 
   return {
-    render(snapshot, { commandSpellI = null } = {}) {
-      const npPercent = formatPercent(snapshot.berserker.np);
-      const npReady = snapshot.berserker.np >= 1;
+    render(snapshot, { commandSpellI = null, np = null } = {}) {
+      const npGauge = formatNpGauge(np);
 
       headCount.textContent = formatInteger(snapshot.hydra.logicalHeadCount);
       cutCount.textContent = formatInteger(snapshot.statistics.totalHeadsCut);
       killCount.textContent = formatInteger(snapshot.statistics.totalHydrasKilled);
       humanityEvil.textContent = formatInteger(snapshot.master.humanityEvil);
-      npValue.textContent = npReady ? 'READY' : npPercent;
-      npButton.textContent = npReady ? 'NP · RELEASE' : `NP · ${npPercent}`;
-      npButton.disabled = !npReady || snapshot.hydra.defeated;
+      npValue.textContent = npGauge.label;
+      npButton.textContent = npGauge.button;
+      npButton.disabled = !npGauge.ready || snapshot.hydra.defeated;
       autoSlash.textContent = snapshot.master.commandSpells.autoSlash
         ? `${snapshot.berserker.baseAttacksPerSecond} APS`
         : 'LOCKED';
