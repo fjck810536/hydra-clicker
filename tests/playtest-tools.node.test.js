@@ -60,6 +60,28 @@ test('legacy MAX COMMAND SPELL helper still grants current Lv.MAX / 729 APS', ()
   }
 });
 
+test('Humanity Evil +999 TEST preset is cumulative and changes no kill statistics', () => {
+  const runtime = createHydraIGameRuntime();
+
+  try {
+    const before = runtime.snapshot();
+    const first = runtime.testPresets.addHumanityEvil999();
+    const second = runtime.testPresets.addHumanityEvil999();
+    const third = runtime.testPresets.addHumanityEvil999();
+    const after = runtime.snapshot();
+
+    assert.equal(first.amount, 999n);
+    assert.equal(first.balance, 999n);
+    assert.equal(second.balance, 1998n);
+    assert.equal(third.balance, 2997n);
+    assert.equal(after.master.humanityEvil, 2997n);
+    assert.equal(after.statistics.totalHydrasKilled, before.statistics.totalHydrasKilled);
+    assert.equal(after.statistics.totalHeadsCut, before.statistics.totalHeadsCut);
+  } finally {
+    runtime.destroy();
+  }
+});
+
 test('START HYDRA #98 preset means 97 completed kills and a fresh Hydra I encounter 98', () => {
   const runtime = createHydraIGameRuntime();
 
@@ -102,7 +124,7 @@ test('playtest presets compose: selected Command Spell I level survives jumping 
   }
 });
 
-test('browser TEST Command Spell I control cycles 1 → 3 → 6 → MAX in non-persistent mode', async () => {
+test('browser TEST controls stay non-persistent and expose CS I cycle plus cumulative Humanity Evil', async () => {
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -111,8 +133,12 @@ test('browser TEST Command Spell I control cycles 1 → 3 → 6 → MAX in non-p
   assert.match(appSource, /COMMAND_SPELL_I_TEST_LEVELS\s*=\s*Object\.freeze\(\[1, 3, 6, 7\]\)/);
   assert.match(appSource, /runtime\.testPresets\.setCommandSpellILevel\(level\)/);
   assert.match(appSource, /commandSpellITestCursor\s*=\s*\(commandSpellITestCursor \+ 1\)/);
+  assert.match(appSource, /runtime\.testPresets\.addHumanityEvil999\(\)/);
+  assert.match(appSource, /unbindTestHumanityEvil999/);
   assert.match(appSource, /runtime\.testPresets\.startHydraIEncounter98\(\)/);
   assert.match(indexSource, /data-test-command-spell-max/);
   assert.match(indexSource, /CS I TEST · 1 → 3 → 6 → MAX/);
+  assert.match(indexSource, /data-test-humanity-evil-999/);
+  assert.match(indexSource, /人類惡 \+999/);
   assert.match(indexSource, /data-test-hydra-98/);
 });
