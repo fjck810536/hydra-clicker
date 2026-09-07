@@ -7,10 +7,13 @@ export function createManualAttackInput({ state, events } = {}) {
   }
 
   return {
-    attack({ headsPerStrike = null, target = null } = {}) {
+    attack({ strikeCount = 1, headsPerStrike = null, target = null } = {}) {
       const snapshot = state.read();
       const resolvedHeadsPerStrike = headsPerStrike ?? snapshot.berserker.headsPerStrike;
 
+      if (!Number.isInteger(strikeCount) || strikeCount < 1) {
+        throw new TypeError('strikeCount must be a positive integer.');
+      }
       if (typeof resolvedHeadsPerStrike !== 'bigint' || resolvedHeadsPerStrike < 1n) {
         throw new TypeError('headsPerStrike must be a positive BigInt.');
       }
@@ -18,7 +21,7 @@ export function createManualAttackInput({ state, events } = {}) {
       const request = {
         source: 'manual',
         timestamp: snapshot.time.simulationTimeMs,
-        strikeCount: 1,
+        strikeCount,
         headsPerStrike: resolvedHeadsPerStrike,
         target,
       };
