@@ -31,6 +31,13 @@ test('portrait shell exposes an NP control without reopening page scrolling', as
   assert.match(css, /html,[\s\S]*body[\s\S]*overflow:\s*hidden/);
 });
 
+test('READY NP stays releasable during the defeated respawn gap', async () => {
+  const hudSource = await readFile(new URL('../js/view/hud-view.js', import.meta.url), 'utf8');
+
+  assert.match(hudSource, /npButton\.disabled\s*=\s*!npGauge\.ready/);
+  assert.doesNotMatch(hudSource, /npButton\.disabled\s*=\s*!npGauge\.ready\s*\|\|\s*snapshot\.hydra\.defeated/);
+});
+
 test('UI requests NP release through runtime API and does not mutate Hydra state directly', async () => {
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const hudSource = await readFile(new URL('../js/view/hud-view.js', import.meta.url), 'utf8');
