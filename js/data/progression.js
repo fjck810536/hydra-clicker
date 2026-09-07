@@ -68,11 +68,33 @@ const COMMAND_SPELL_I_LEVELS = Object.freeze([
   Object.freeze({ level: 7, requiredHydraKills: 66n, cost: 132n, attacksPerSecond: 64 }),
 ]);
 
+export const HYDRA_GENERATIONS = Object.freeze({
+  1: Object.freeze({
+    generation: 1,
+    startingHeads: 9n,
+    maxHeads: 9n,
+    killsToNextGeneration: 99n,
+  }),
+  2: Object.freeze({
+    generation: 2,
+    startingHeads: 9n,
+    maxHeads: 81n,
+    killsToNextGeneration: 99n,
+  }),
+  3: Object.freeze({
+    generation: 3,
+    startingHeads: 9n,
+    maxHeads: 729n,
+    killsToNextGeneration: null,
+  }),
+});
+
 export const HYDRA_I_PROGRESSION = Object.freeze({
   humanityEvilPerKill: 11n,
   respawnDelayMs: 300,
   burstRespawnDelayMs: 100,
   regenCurve: HYDRA_I_REGEN_CURVE,
+  generations: HYDRA_GENERATIONS,
   np: Object.freeze({
     maxPoints: 66,
     pointsPerHead: 1,
@@ -93,5 +115,10 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     unlockAtHydraKills: 99n,
     generation: 2,
     firstManualCutMilestone: 'hydra-ii-first-manual-cut',
+  }),
+  hydraIIIIntro: Object.freeze({
+    fromGeneration: 2,
+    generation: 3,
+    unlockAfterGenerationKills: 99n,
   }),
 });
