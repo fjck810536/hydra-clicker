@@ -3,7 +3,9 @@ export function createHydraIProgressionSystem({
   events,
   respawnDelayMs = 1200,
   getRespawnDelayMs = null,
+  generations = null,
   hydraIIIntro = null,
+  hydraIIIIntro = null,
 } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Progression system requires a state store.');
@@ -17,6 +19,9 @@ export function createHydraIProgressionSystem({
   if (getRespawnDelayMs != null && typeof getRespawnDelayMs !== 'function') {
     throw new TypeError('getRespawnDelayMs must be a function when provided.');
   }
+  if (generations != null && typeof generations !== 'object') {
+    throw new TypeError('generations must be an object when provided.');
+  }
   if (hydraIIIntro != null) {
     if (typeof hydraIIIntro.unlockAtHydraKills !== 'bigint' || hydraIIIntro.unlockAtHydraKills < 1n) {
       throw new TypeError('hydraIIIntro.unlockAtHydraKills must be a positive BigInt.');
@@ -28,6 +33,29 @@ export function createHydraIProgressionSystem({
       throw new TypeError('hydraIIIntro.firstManualCutMilestone must be a non-empty string.');
     }
   }
+  if (hydraIIIIntro != null) {
+    if (!Number.isInteger(hydraIIIIntro.fromGeneration) || hydraIIIIntro.fromGeneration < 1) {
+      throw new TypeError('hydraIIIIntro.fromGeneration must be a positive integer.');
+    }
+    if (!Number.isInteger(hydraIIIIntro.generation) || hydraIIIIntro.generation <= hydraIIIIntro.fromGeneration) {
+      throw new TypeError('hydraIIIIntro.generation must be greater than fromGeneration.');
+    }
+    if (typeof hydraIIIIntro.unlockAfterGenerationKills !== 'bigint' || hydraIIIIntro.unlockAfterGenerationKills < 1n) {
+      throw new TypeError('hydraIIIIntro.unlockAfterGenerationKills must be a positive BigInt.');
+    }
+  }
+
+  const getGenerationConfig = (generation) => {
+    const config = generations?.[generation] ?? null;
+    if (config == null) return null;
+    if (typeof config.startingHeads !== 'bigint' || config.startingHeads < 1n) {
+      throw new TypeError(`Generation ${generation} startingHeads must be a positive BigInt.`);
+    }
+    if (typeof config.maxHeads !== 'bigint' || config.maxHeads < config.startingHeads) {
+      throw new TypeError(`Generation ${generation} maxHeads must be a BigInt >= startingHeads.`);
+    }
+    return config;
+  };
 
   const resolveRespawnDelayMs = (snapshot, payload) => {
     const delay = getRespawnDelayMs?.(snapshot, payload) ?? respawnDelayMs;
@@ -43,10 +71,36 @@ export function createHydraIProgressionSystem({
     && snapshot.statistics.totalHydrasKilled >= hydraIIIntro.unlockAtHydraKills
   );
 
-  function resetEncounterDraft(draft, { generation = draft.hydra.generation, encounter = null } = {}) {
+  const completedKillsInCurrentGeneration = (snapshot) => {
+    if (snapshot.hydra.encounter < 1n) return 0n;
+    return snapshot.hydra.defeated
+      ? snapshot.hydra.encounter
+      : snapshot.hydra.encounter - 1n;
+  };
+
+  const shouldEnterHydraIII = (snapshot) => (
+    hydraIIIIntro != null
+    && snapshot.hydra.generation === hydraIIIIntro.fromGeneration
+    && completedKillsInCurrentGeneration(snapshot) >= hydraIIIIntro.unlockAfterGenerationKills
+  );
+
+  function resetEncounterDraft(
+    draft,
+    {
+      generation = draft.hydra.generation,
+      encounter = null,
+      startingHeads = null,
+    } = {},
+  ) {
+    const generationConfig = getGenerationConfig(generation);
+    const resolvedStartingHeads = startingHeads
+      ?? generationConfig?.startingHeads
+      ?? draft.hydra.startingHeadCount;
+
     draft.hydra.generation = generation;
     draft.progression.hydraGeneration = generation;
-    draft.hydra.logicalHeadCount = draft.hydra.startingHeadCount;
+    draft.hydra.startingHeadCount = resolvedStartingHeads;
+    draft.hydra.logicalHeadCount = resolvedStartingHeads;
     draft.hydra.turn = 0n;
     draft.hydra.pendingRegrowth = [];
     draft.hydra.defeated = false;
@@ -57,22 +111,25 @@ export function createHydraIProgressionSystem({
     });
   }
 
-  function enterHydraII(atMs) {
+  function enterGeneration(generation, atMs, { introRequiresManualCut = false } = {}) {
+    const config = getGenerationConfig(generation);
     let heads = 0n;
     state.update((draft) => {
       resetEncounterDraft(draft, {
-        generation: hydraIIIntro.generation,
+        generation,
         encounter: 1n,
+        startingHeads: config?.startingHeads ?? 9n,
       });
       heads = draft.hydra.logicalHeadCount;
     });
 
     events.emit('hydra:generation-changed', {
       atMs,
-      generation: hydraIIIntro.generation,
+      generation,
       encounter: 1n,
       heads,
-      introRequiresManualCut: true,
+      maxHeads: config?.maxHeads ?? null,
+      introRequiresManualCut,
     });
   }
 
@@ -104,18 +161,32 @@ export function createHydraIProgressionSystem({
   const offTick = events.on('clock:tick', ({ payload: tick }) => {
     const snapshot = state.read();
 
-    // Compatibility path: a Playtest 2 save may already be sitting at 99 kills
-    // with a live Hydra I. Enter Hydra II on the next simulation tick.
-    if (shouldEnterHydraII(snapshot) && !snapshot.hydra.defeated) {
-      enterHydraII(tick.nowMs);
-      return;
+    // Compatibility paths for saves already beyond a generation threshold.
+    if (!snapshot.hydra.defeated) {
+      if (shouldEnterHydraIII(snapshot)) {
+        enterGeneration(hydraIIIIntro.generation, tick.nowMs);
+        return;
+      }
+      if (shouldEnterHydraII(snapshot)) {
+        enterGeneration(hydraIIIntro.generation, tick.nowMs, {
+          introRequiresManualCut: true,
+        });
+        return;
+      }
     }
 
     if (!snapshot.hydra.defeated || snapshot.hydra.respawnAtMs == null) return;
     if (tick.nowMs < snapshot.hydra.respawnAtMs) return;
 
+    if (shouldEnterHydraIII(snapshot)) {
+      enterGeneration(hydraIIIIntro.generation, tick.nowMs);
+      return;
+    }
+
     if (shouldEnterHydraII(snapshot)) {
-      enterHydraII(tick.nowMs);
+      enterGeneration(hydraIIIntro.generation, tick.nowMs, {
+        introRequiresManualCut: true,
+      });
       return;
     }
 
