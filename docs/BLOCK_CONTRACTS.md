@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.20
+# Hydra Clicker — Block Contracts v0.21
 
-> v0.20 對齊 Playtest 4.5：固定三槽 Command Spell panel 與 detail modal 成為正式玩家端 View contract。View 只投影 System status；Application 才能呼叫 purchase API。Command Spell III 目前只有 dormant slot。State schema 仍為1。
+> v0.21 對齊 Playtest 4.5.1：Command Spell II Lv.1 以 Hydra II first-reversal milestone + affordability 取得資格，0 Hydra II kills；NP active cuts 不充能且 nested release 被拒絕；Command Spell modal 增加 successful-purchase auto-close、44px close target 與 backdrop dismiss。State schema 仍為1。
 
 ## 1. Attack Request
 
@@ -240,6 +240,16 @@ np:ended {
 
 TIME upgrade affects future release configuration only；active modifier keeps its fixed `endsAt`。
 
+Active-window seal：
+
+```text
+head:cut while NP inactive → charge according to current config
+head:cut while NP active   → zero NP charge
+release while NP active    → { accepted:false, reason:'np-already-active' }
+```
+
+Normal gameplay must not stack a second NP modifier on top of an active NP window。
+
 ## 11. NP gauge preservation on CS II purchase
 
 Because Save stores `berserker.np` normalized 0..1, a gauge-max change must preserve absolute charged points：
@@ -283,6 +293,7 @@ Auto Slash produces no attack requests
 Auto accumulator resets while disabled
 purchased capability / APS remain unchanged
 Manual Input remains accepted
+NP charge remains paused
 ```
 
 Auto Slash System itself does not import or name NP；Core supplies policy。
@@ -301,6 +312,24 @@ Hydra II encounter 99 defeated
 ```
 
 Generation-local player progress uses `hydra.encounter + defeated`；no new persistent local kill counter。
+
+Hydra II first accepted manual cut writes：
+
+```text
+progression.milestones += hydra-ii-first-manual-cut
+```
+
+and emits：
+
+```js
+hydra:intro-complete {
+  atMs,
+  generation: 2,
+  milestone: 'hydra-ii-first-manual-cut'
+}
+```
+
+The same milestone may be consumed by multiple downstream Systems (Auto intro guard completion, CS II first eligibility) without direct System-to-System mutation。
 
 ## 14. Generation Progress View Projection
 
@@ -376,6 +405,8 @@ View-only；no View timer controls lifecycle。
 ```
 
 A multi-strike manual request emits separate `attack:resolved` / `head:cut` events per accepted strike。Terminal kill stops later strikes in the same request。
+
+NP charge consumer must inspect active NP lifecycle before crediting this event。
 
 ## 18. Command Spell I
 
@@ -466,25 +497,71 @@ Base：
 manual ×1 · NP66 · 3s
 ```
 
+Player-facing title：
+
+```text
+「快點……再快點……！」
+```
+
 Formal canonical levels：
 
-| Lv | Branch | Hydra II kills | Cost | NP max | Manual NP | Duration |
-|---:|---|---:|---:|---:|---:|---:|
-| 1 | STRIKE | 3 | 297 | 132 | ×3 | 3s |
-| 2 | EFF I | 9 | 198 | 66 | ×3 | 3s |
-| 3 | TIME | 18 | 396 | 198 | ×3 | 9s |
-| 4 | STRIKE | 27 | 396 | 396 | ×6 | 9s |
-| 5 | EFF II | 39 | 330 | 198 | ×6 | 9s |
-| 6 | TIME | 54 | 495 | 594 | ×6 | 27s |
-| 7 | STRIKE | 66 | 594 | 792 | ×9 | 27s |
-| 8 | EFF III | 81 | 495 | 396 | ×9 | 27s |
-| 9 | TIME · MAX | 99 | 693 | 1188 | ×9 | 81s |
+| Lv | Branch | Eligibility / Hydra II kills | Cost | NP max | Manual NP | Duration |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | STRIKE | `hydra-ii-first-manual-cut` · **0 kills** | 297 | 132 | ×3 | 3s |
+| 2 | EFF I | 9 kills | 198 | 66 | ×3 | 3s |
+| 3 | TIME | 18 kills | 396 | 198 | ×3 | 9s |
+| 4 | STRIKE | 27 kills | 396 | 396 | ×6 | 9s |
+| 5 | EFF II | 39 kills | 330 | 198 | ×6 | 9s |
+| 6 | TIME | 54 kills | 495 | 594 | ×6 | 27s |
+| 7 | STRIKE | 66 kills | 594 | 792 | ×9 | 27s |
+| 8 | EFF III | 81 kills | 495 | 396 | ×9 | 27s |
+| 9 | TIME · MAX | 99 kills | 693 | 1188 | ×9 | 81s |
+
+First purchase availability：
+
+```text
+Hydra generation >= II
+AND hydra-ii-first-manual-cut milestone exists
+AND Humanity Evil >= 297
+→ available
+```
+
+It must be possible before killing Hydra II encounter1。
+
+Status contract includes：
+
+```js
+{
+  level,
+  generationKills,
+  eligibilityMet,
+  killsMet,
+  canAfford,
+  available,
+  npManualStrikeCount,
+  npMaxPoints,
+  npDurationMs,
+  nextNpManualStrikeCount,
+  nextNpMaxPoints,
+  nextNpDurationMs,
+  ...
+}
+```
+
+Purchase rejection priority for Lv.1：
+
+```text
+missing first-cut milestone → eligibility-required
+then kill requirement       → kills-required
+then currency               → insufficient-humanity-evil
+```
 
 Formal System owns availability / purchase / current NP configuration projection。
 
 State milestones：
 
 ```text
+hydra-ii-first-manual-cut
 command-spell-2-lv1 ... command-spell-2-lv9
 ```
 
@@ -516,14 +593,21 @@ Formal player controls：
 Command Spell slot projection states：
 
 ```text
-dormant    = not yet first-affordable / unknown future spell
-available  = first purchase is currently affordable; display NEW
+dormant    = gameplay eligibility and/or first affordability not met
+available  = first purchase is currently eligible + affordable; display NEW
 owned-dim  = already owned but next upgrade unavailable / unaffordable / price pending
 affordable = owned and next upgrade can be purchased; display LV UP
 max        = completed owned state
 ```
 
-Slot I / II remain clickable after ownership even when dim so the detail modal can still explain current / next / cost。Before first affordability they remain dormant and non-clickable。
+For Command Spell II specifically：
+
+```text
+before Hydra II first reversal cut → dormant even if rich
+after first reversal cut + balance >=297 → NEW
+```
+
+Slot I / II remain clickable after ownership even when dim so the detail modal can still explain current / next / cost。Before first availability they remain dormant and non-clickable。
 
 Command Spell III is currently：
 
@@ -547,6 +631,14 @@ PURCHASE / LV UP / MAX / PRICE TBD
 close
 ```
 
+CS II CURRENT / NEXT each show the complete technique tuple：
+
+```text
+×N · NP M · Ns
+```
+
+so a TIME / STRIKE upgrade cannot hide its NP requirement increase。
+
 Purchase path：
 
 ```text
@@ -554,6 +646,15 @@ slot tap → View opens modal
 modal purchase → Application resolves open spell id
 → runtime.buyCommandSpellI() / runtime.buyCommandSpellII()
 → System validates and spends
+→ accepted purchase → modal closes automatically
+```
+
+Dismissal：
+
+```text
+close × target >= 44×44 px → close
+backdrop root tap          → close
+inside-card tap            → no backdrop close
 ```
 
 Forbidden：
@@ -562,6 +663,7 @@ Forbidden：
 View → draft.master.humanityEvil -= cost
 View → set milestones / APS / NP config
 slot tap → immediate purchase without modal action
+inside-card tap → accidental dismiss by bubbling
 ```
 
 CS I 243 → 729 pending state remains visible as `PRICE TBD` with disabled modal action。TEST / already-owned 729 may read MAX。
@@ -618,7 +720,11 @@ TEST can still set 729 APS
 owned 729 remains valid / MAX
 
 Command Spell II:
-reveal Hydra II kills → 3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99
+Lv1 requiredGenerationKills = 0
+Lv1 before first Hydra II manual cut → eligibilityMet false / unavailable
+Lv1 first Hydra II cut 9→10 with 0 Hydra II kills → eligibilityMet true
+first cut + balance297 → Lv1 purchasable while encounter1 alive
+Lv2+ reveal Hydra II kills → 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99
 NP max → 132 / 66 / 198 / 396 / 198 / 594 / 792 / 396 / 1188
 manual NP strike → 3 / 3 / 3 / 6 / 6 / 6 / 9 / 9 / 9
 duration → 3 / 3 / 9 / 9 / 9 / 27 / 27 / 27 / 81 s
@@ -629,12 +735,17 @@ inside NP → current CSII strike count
 
 Command Spell panel:
 exactly three fixed slots
-I / II first-affordable → available NEW
+I / II first-eligible+affordable → available NEW
 owned but poor → owned-dim and still clickable
 owned + affordable → LV UP state
 MAX distinct from dormant / dim
 243 APS next729 → PRICE TBD and no purchase
 III → dormant / disabled
+CSII title → 「快點……再快點……！」
+CSII NEXT exposes strike / NP requirement / duration
+successful purchase → modal closes
+close target >=44px
+backdrop tap closes; card tap does not
 View imports no Systems / Math / Core
 View never spends Humanity Evil
 Application modal action routes to runtime purchase APIs
@@ -642,7 +753,9 @@ Application modal action routes to runtime purchase APIs
 NP time stop:
 active NP + Auto unlocked → zero auto cuts
 Hydra II + active NP → structural growth suppressed
-expiry → normal Hydra law / Auto resume
+active NP cuts → zero NP charge
+active NP second release → np-already-active / no extra modifier
+expiry → normal Hydra law / Auto / NP charge resume
 
 View:
 NP timer is simulation-time driven / pointer-events none
