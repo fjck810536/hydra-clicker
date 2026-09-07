@@ -8,6 +8,20 @@ function removeMilestone(draft, id) {
   draft.progression.milestones = draft.progression.milestones.filter((value) => value !== id);
 }
 
+function currentCommandSpellIIEffect(snapshot, progression) {
+  const definition = progression.commandSpellII;
+  if (!definition?.base || !Array.isArray(definition.levels)) {
+    return progression.np ?? { maxPoints: 66, durationMs: 3000 };
+  }
+
+  let current = definition.base;
+  for (const level of definition.levels) {
+    if (!snapshot.progression.milestones.includes(`${definition.id}-lv${level.level}`)) break;
+    current = level;
+  }
+  return current;
+}
+
 export function createTestPresets({ state, events, progression } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Test presets require a state store.');
@@ -42,19 +56,22 @@ export function createTestPresets({ state, events, progression } = {}) {
   }
 
   function commandSpellIILv1() {
-    const definition = progression.commandSpellIIPrototype;
-    if (!definition?.firstLevelMilestone || !Number.isInteger(definition.npManualStrikeCount)) {
-      throw new TypeError('Command Spell II prototype data is unavailable.');
+    const definition = progression.commandSpellII;
+    const first = definition?.levels?.[0];
+    if (!definition || !first || !Number.isInteger(first.npManualStrikeCount)) {
+      throw new TypeError('Command Spell II level data is unavailable.');
     }
 
     state.update((draft) => {
-      addMilestone(draft, definition.firstLevelMilestone);
+      addMilestone(draft, `${definition.id}-lv${first.level}`);
     });
 
     const payload = {
       preset: 'command-spell-ii-lv1',
-      level: 1,
-      npManualStrikeCount: definition.npManualStrikeCount,
+      level: first.level,
+      npManualStrikeCount: first.npManualStrikeCount,
+      npMaxPoints: first.npMaxPoints,
+      npDurationMs: first.npDurationMs,
     };
     events.emit('test:preset-applied', payload);
     return Object.freeze(payload);
@@ -67,9 +84,10 @@ export function createTestPresets({ state, events, progression } = {}) {
       draft.berserker.np = 1;
     });
 
+    const effect = currentCommandSpellIIEffect(state.read(), progression);
     const payload = {
       preset: 'np-ready',
-      points: progression.np?.maxPoints ?? 66,
+      points: effect.npMaxPoints ?? progression.np?.maxPoints ?? 66,
     };
     events.emit('test:preset-applied', payload);
     return Object.freeze(payload);
