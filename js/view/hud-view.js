@@ -2,6 +2,13 @@ function formatInteger(value) {
   return typeof value === 'bigint' ? value.toString() : String(value);
 }
 
+function formatGeneration(generation) {
+  if (generation === 1) return 'I';
+  if (generation === 2) return 'II';
+  if (generation === 3) return 'III';
+  return String(generation);
+}
+
 function formatCommandSpell(status) {
   if (!status) return 'COMMAND SPELL I';
 
@@ -58,7 +65,7 @@ export function createHudView({ root } = {}) {
     } = {}) {
       const npGauge = formatNpGauge(np);
 
-      generation.textContent = `HYDRA ${snapshot.hydra.generation === 1 ? 'I' : 'II'} · PROTOTYPE`;
+      generation.textContent = `HYDRA ${formatGeneration(snapshot.hydra.generation)} · PROTOTYPE`;
       headCount.textContent = formatInteger(snapshot.hydra.logicalHeadCount);
       cutCount.textContent = formatInteger(snapshot.statistics.totalHeadsCut);
       killCount.textContent = formatInteger(snapshot.statistics.totalHydrasKilled);
@@ -70,11 +77,13 @@ export function createHudView({ root } = {}) {
       // releasable even during an empty respawn gap.
       npButton.disabled = !npGauge.ready;
 
-      autoSlash.textContent = hydraIIIntroPending
-        ? 'PAUSED · TAP'
-        : snapshot.master.commandSpells.autoSlash
-          ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-          : 'LOCKED';
+      autoSlash.textContent = snapshot.hydra.generation >= 3
+        ? 'PAUSED'
+        : hydraIIIntroPending
+          ? 'PAUSED · TAP'
+          : snapshot.master.commandSpells.autoSlash
+            ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+            : 'LOCKED';
 
       commandSpellButton.textContent = formatCommandSpell(commandSpellI);
       commandSpellButton.disabled = !commandSpellI?.available;
