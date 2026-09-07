@@ -11,6 +11,7 @@ function assertDefinition(definition) {
 
   let previousKills = -1n;
   let previousLevel = 0;
+  let previousAps = 0;
   for (const level of definition.levels) {
     if (!Number.isInteger(level.level) || level.level !== previousLevel + 1) {
       throw new TypeError('Command Spell I levels must be contiguous positive integers.');
@@ -27,9 +28,13 @@ function assertDefinition(definition) {
     if (!Number.isFinite(level.attacksPerSecond) || level.attacksPerSecond <= 0) {
       throw new RangeError('Command Spell I attacksPerSecond must be a finite number > 0.');
     }
+    if (level.attacksPerSecond <= previousAps) {
+      throw new RangeError('Command Spell I attacksPerSecond must strictly increase.');
+    }
 
     previousKills = level.requiredHydraKills;
     previousLevel = level.level;
+    previousAps = level.attacksPerSecond;
   }
 }
 
@@ -58,6 +63,41 @@ function getCurrentLevel(snapshot, definition) {
   return level;
 }
 
+function reconcileLegacyCurve(state, definition) {
+  const snapshot = state.read();
+  if (!snapshot.master.commandSpells.autoSlash) return;
+
+  const markedLevels = snapshot.progression.milestones
+    .map((id) => parseMilestoneLevel(definition, id))
+    .filter((level) => level != null);
+
+  // A bare autoSlash capability with a manually overridden APS is common in
+  // tests/dev states. Only reinterpret saves that actually carry old upgrade
+  // milestones (including the old removed Lv.8 experiment).
+  if (markedLevels.length === 0) return;
+
+  const currentLevel = getCurrentLevel(snapshot, definition);
+  const expected = definition.levels[currentLevel - 1]?.attacksPerSecond ?? null;
+  const hasObsoleteHigherLevel = markedLevels.some((level) => level > definition.levels.length);
+  if (!hasObsoleteHigherLevel && snapshot.berserker.baseAttacksPerSecond === expected) return;
+
+  const storedAps = snapshot.berserker.baseAttacksPerSecond;
+  const target = definition.levels
+    .filter((level) => level.attacksPerSecond <= storedAps)
+    .at(-1) ?? definition.levels[0];
+
+  state.update((draft) => {
+    draft.berserker.baseAttacksPerSecond = target.attacksPerSecond;
+    draft.progression.milestones = draft.progression.milestones.filter((id) => (
+      parseMilestoneLevel(definition, id) == null
+    ));
+
+    for (const level of definition.levels.slice(1, target.level)) {
+      draft.progression.milestones.push(milestoneId(definition, level.level));
+    }
+  });
+}
+
 export function createCommandSpellSystem({ state, events, definition } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Command Spell system requires a state store.');
@@ -66,26 +106,7 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
     throw new TypeError('Command Spell system requires an event bus.');
   }
   assertDefinition(definition);
-
-  // Playtest tuning may remove levels. Preserve already-earned lower milestones,
-  // but clamp saves that still carry an obsolete level above the current MAX.
-  // This specifically migrates the old Lv.8 / 128 APS experiment to 64 APS MAX
-  // without introducing a new state schema version.
-  const initialSnapshot = state.read();
-  const maxDefinition = definition.levels.at(-1);
-  const hasObsoleteHigherLevel = initialSnapshot.progression.milestones.some((id) => {
-    const level = parseMilestoneLevel(definition, id);
-    return level != null && level > maxDefinition.level;
-  });
-  if (
-    initialSnapshot.master.commandSpells.autoSlash
-    && hasObsoleteHigherLevel
-    && initialSnapshot.berserker.baseAttacksPerSecond > maxDefinition.attacksPerSecond
-  ) {
-    state.update((draft) => {
-      draft.berserker.baseAttacksPerSecond = maxDefinition.attacksPerSecond;
-    });
-  }
+  reconcileLegacyCurve(state, definition);
 
   let announcedLevel = null;
 
