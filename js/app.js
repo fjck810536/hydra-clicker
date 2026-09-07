@@ -23,6 +23,7 @@ const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
 const testCommandSpellIIButton = document.querySelector('[data-test-command-spell-ii]');
 const testHydra98Button = document.querySelector('[data-test-hydra-98]');
+const testHydraIICapButton = document.querySelector('[data-test-hydra-ii-cap]');
 const testNpReadyButton = document.querySelector('[data-test-np-ready]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
 const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
@@ -42,6 +43,7 @@ if (
   || !testCommandSpellMaxButton
   || !testCommandSpellIIButton
   || !testHydra98Button
+  || !testHydraIICapButton
   || !testNpReadyButton
   || !resetSaveButton
   || !regenDelayReadout
@@ -281,6 +283,14 @@ const handleTestHydra98 = () => {
 };
 const unbindTestHydra98 = bindFixedControl(testHydra98Button, handleTestHydra98);
 
+const handleTestHydraIICap = () => {
+  enterNonPersistentTestSession();
+  const result = runtime.testPresets.startHydraIIAtCap();
+  hud.setStatus(`TEST · HYDRA II · ${result.heads.toString()} HEADS · NOT SAVED`);
+  renderSnapshot();
+};
+const unbindTestHydraIICap = bindFixedControl(testHydraIICapButton, handleTestHydraIICap);
+
 const handleTestNpReady = () => {
   enterNonPersistentTestSession();
   const result = runtime.testPresets.readyNp();
@@ -433,6 +443,7 @@ window.addEventListener('pagehide', () => {
   unbindTestCommandSpellMax();
   unbindTestCommandSpellII();
   unbindTestHydra98();
+  unbindTestHydraIICap();
   unbindTestNpReady();
   unbindResetSave();
   offTick();
