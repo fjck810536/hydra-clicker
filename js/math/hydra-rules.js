@@ -20,7 +20,7 @@ function normalizeHeadsPerStrike(attack) {
   return value;
 }
 
-function rejectedAtZero(ruleId, turn) {
+function rejected(ruleId, turn, { depleted = false, reason = null } = {}) {
   return {
     accepted: false,
     ruleId,
@@ -31,17 +31,14 @@ function rejectedAtZero(ruleId, turn) {
     materialsProduced: 0n,
     regrowth: [],
     cancelPendingRegrowth: false,
-    depleted: true,
+    depleted,
     killed: false,
-    effects: [],
+    effects: reason ? [reason] : [],
   };
 }
 
-function isHeadGrowthEnabled(ruleContext) {
-  if (ruleContext?.headGrowthEnabled === false) return false;
-  // Legacy direct rule tests/callers may still provide the old specific field.
-  if (ruleContext?.regrowthEnabled === false) return false;
-  return true;
+function rejectedAtZero(ruleId, turn) {
+  return rejected(ruleId, turn, { depleted: true });
 }
 
 export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
@@ -67,7 +64,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
 
       const headsPerStrike = normalizeHeadsPerStrike(attack);
       const removable = minBigInt(headsPerStrike, hydraState.logicalHeadCount);
-      const headGrowthEnabled = isHeadGrowthEnabled(ruleContext);
+      const headGrowthEnabled = ruleContext.headGrowthEnabled !== false;
       const effectiveRegenDelayMs = ruleContext.regrowthDelayMs ?? regenDelayMs;
 
       if (!Number.isFinite(effectiveRegenDelayMs) || effectiveRegenDelayMs < 0) {
@@ -108,10 +105,15 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
   });
 }
 
-export function createHydraIIRule() {
+export function createHydraIIRule({ maxHeadCount = 81n } = {}) {
+  if (typeof maxHeadCount !== 'bigint' || maxHeadCount < 1n) {
+    throw new TypeError('maxHeadCount must be a positive BigInt.');
+  }
+
   return Object.freeze({
     id: 'hydra-ii-cut-one-grow-two',
     generation: 2,
+    maxHeadCount,
 
     resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0, ruleContext = {} } = {}) {
       assertHydraState(hydraState);
@@ -129,10 +131,21 @@ export function createHydraIIRule() {
         return rejectedAtZero(this.id, turn);
       }
 
-      // Hydra II normally turns every removed head into two immediate heads. A
-      // generic head-growth suppression modifier (currently NP) can disable this
-      // structural spawn without changing the cut itself.
-      const spawned = isHeadGrowthEnabled(ruleContext) ? removable * 2n : 0n;
+      const remaining = hydraState.logicalHeadCount - removable;
+      const headGrowthEnabled = ruleContext.headGrowthEnabled !== false;
+      let spawned = 0n;
+
+      if (headGrowthEnabled) {
+        const desiredSpawn = removable * 2n;
+        const availableCapacity = maxHeadCount > remaining
+          ? maxHeadCount - remaining
+          : 0n;
+        spawned = minBigInt(desiredSpawn, availableCapacity);
+      }
+
+      const killed = remaining === 0n && spawned === 0n;
+      const effects = ['slash-hit'];
+      if (spawned > 0n) effects.push('hydra-grow-two');
 
       return {
         accepted: true,
@@ -143,13 +156,37 @@ export function createHydraIIRule() {
         headsSpawned: spawned,
         materialsProduced: 0n,
         regrowth: [],
-        cancelPendingRegrowth: false,
-        depleted: false,
-        killed: false,
-        effects: spawned > 0n
-          ? ['slash-hit', 'hydra-grow-two']
-          : ['slash-hit', 'hydra-growth-suppressed'],
+        cancelPendingRegrowth: killed,
+        depleted: killed,
+        killed,
+        effects,
       };
+    },
+  });
+}
+
+export function createHydraShellRule({ generation, maxHeadCount } = {}) {
+  if (!Number.isInteger(generation) || generation < 1) {
+    throw new TypeError('generation must be a positive integer.');
+  }
+  if (typeof maxHeadCount !== 'bigint' || maxHeadCount < 1n) {
+    throw new TypeError('maxHeadCount must be a positive BigInt.');
+  }
+
+  const id = `hydra-${generation}-shell`;
+  return Object.freeze({
+    id,
+    generation,
+    maxHeadCount,
+    resolveCut({ hydraState, turn = 0n, nowMs = 0 } = {}) {
+      assertHydraState(hydraState);
+      if (typeof turn !== 'bigint' || turn < 0n) {
+        throw new TypeError('turn must be a non-negative BigInt.');
+      }
+      if (!Number.isFinite(nowMs) || nowMs < 0) {
+        throw new RangeError('nowMs must be a finite number >= 0.');
+      }
+      return rejected(id, turn, { reason: 'generation-rule-not-implemented' });
     },
   });
 }
@@ -157,4 +194,5 @@ export function createHydraIIRule() {
 export const HydraRules = Object.freeze({
   I: createHydraIRule(),
   II: createHydraIIRule(),
+  III: createHydraShellRule({ generation: 3, maxHeadCount: 729n }),
 });
