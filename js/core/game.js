@@ -1,7 +1,7 @@
 import { GameClock } from './clock.js';
 import { EventBus } from './event-bus.js';
 import { GameStateStore, createInitialState } from './state.js';
-import { createHydraIRule, createHydraIIRule, createHydraShellRule } from '../math/hydra-rules.js';
+import { createHydraIRule, createHydraIIRule, createHydraIIIRule } from '../math/hydra-rules.js';
 import { createHydraRegrowthSystem } from '../systems/hydra-regrowth.js';
 import { createCombatSystem } from '../systems/combat.js';
 import { createAutoSlashSystem } from '../systems/auto-slash.js';
@@ -9,6 +9,7 @@ import { createNpSystem } from '../systems/np.js';
 import { createHumanityEvilSystem } from '../systems/humanity-evil.js';
 import { createCommandSpellSystem } from '../systems/command-spells.js';
 import { createCommandSpellIISystem } from '../systems/command-spell-ii.js';
+import { createCommandSpellIIISystem } from '../systems/command-spell-iii.js';
 import { createHydraIProgressionSystem } from '../systems/progression.js';
 import { isRegrowthEnabled } from '../systems/modifiers.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
@@ -89,8 +90,7 @@ export function createHydraIGameRuntime({
   const ruleII = createHydraIIRule({
     maxHeadCount: hydraIIConfig?.maxHeads ?? 81n,
   });
-  const ruleIII = createHydraShellRule({
-    generation: 3,
+  const ruleIII = createHydraIIIRule({
     maxHeadCount: hydraIIIConfig?.maxHeads ?? 729n,
   });
 
@@ -108,6 +108,10 @@ export function createHydraIGameRuntime({
     ...core,
     definition: progression.commandSpellII,
     generations: progression.generations,
+  });
+  const commandSpellIII = createCommandSpellIIISystem({
+    ...core,
+    definition: progression.commandSpellIII,
   });
   const np = createNpSystem({
     ...core,
@@ -173,18 +177,27 @@ export function createHydraIGameRuntime({
       && !snapshot.progression.milestones.includes(intro.firstManualCutMilestone);
   };
 
-  const isPlayableGeneration = (snapshot) => snapshot.hydra.generation <= 2;
+  const isPlayableGeneration = (snapshot) => snapshot.hydra.generation <= 3;
 
   const autoSlash = createAutoSlashSystem({
     ...core,
-    isEnabled: (snapshot) => (
-      isPlayableGeneration(snapshot)
-      && !np.isActive(snapshot)
-      && snapshot.master.commandSpells.autoSlash
-      && !snapshot.hydra.defeated
-      && snapshot.hydra.logicalHeadCount > 0n
-      && !isHydraIIIntroBlockingAuto(snapshot)
-    ),
+    isEnabled: (snapshot) => {
+      const npActive = np.isActive(snapshot);
+      const spellIII = commandSpellIII.getStatus(snapshot);
+      const npAutoAllowed = !npActive || spellIII.autoNpFraction > 0;
+      return (
+        isPlayableGeneration(snapshot)
+        && npAutoAllowed
+        && snapshot.master.commandSpells.autoSlash
+        && !snapshot.hydra.defeated
+        && snapshot.hydra.logicalHeadCount > 0n
+        && !isHydraIIIntroBlockingAuto(snapshot)
+      );
+    },
+    getAttacksPerSecond: (snapshot) => {
+      if (!np.isActive(snapshot)) return snapshot.berserker.baseAttacksPerSecond;
+      return commandSpellIII.getStatus(snapshot).autoNpAps;
+    },
   });
   const manual = createManualAttackInput(core);
   const testPresets = createTestPresets({
@@ -233,6 +246,12 @@ export function createHydraIGameRuntime({
     buyCommandSpellII() {
       return commandSpellII.purchase();
     },
+    commandSpellIIIStatus() {
+      return commandSpellIII.getStatus();
+    },
+    buyCommandSpellIII() {
+      return commandSpellIII.purchase();
+    },
     commandSpellIIPrototypeStatus() {
       return compatibilitySpellIIStatus(core.state.read());
     },
@@ -254,6 +273,7 @@ export function createHydraIGameRuntime({
       humanityEvil,
       commandSpells,
       commandSpellII,
+      commandSpellIII,
       hydraProgression,
     }),
     destroy() {
@@ -262,6 +282,7 @@ export function createHydraIGameRuntime({
       hydraProgression.destroy();
       commandSpells.destroy();
       commandSpellII.destroy();
+      commandSpellIII.destroy();
       humanityEvil.destroy();
       np.destroy();
       regrowth.destroy();
