@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import { createHydraIGameRuntime } from '../js/core/game.js';
 
-test('MAX COMMAND SPELL preset grants Lv.MAX / 64 APS without inventing kills or currency', () => {
+test('MAX COMMAND SPELL preset grants current Lv.MAX / 729 APS without inventing kills or currency', () => {
   const runtime = createHydraIGameRuntime();
 
   try {
@@ -14,9 +14,9 @@ test('MAX COMMAND SPELL preset grants Lv.MAX / 64 APS without inventing kills or
     const status = runtime.commandSpellIStatus();
 
     assert.equal(result.level, 7);
-    assert.equal(result.attacksPerSecond, 64);
+    assert.equal(result.attacksPerSecond, 729);
     assert.equal(after.master.commandSpells.autoSlash, true);
-    assert.equal(after.berserker.baseAttacksPerSecond, 64);
+    assert.equal(after.berserker.baseAttacksPerSecond, 729);
     assert.equal(status.level, 7);
     assert.equal(status.maxed, true);
 
@@ -66,7 +66,7 @@ test('playtest presets compose: max spell survives jumping to Hydra #98', () => 
     assert.equal(snapshot.statistics.totalHydrasKilled, 97n);
     assert.equal(snapshot.hydra.encounter, 98n);
     assert.equal(snapshot.master.commandSpells.autoSlash, true);
-    assert.equal(snapshot.berserker.baseAttacksPerSecond, 64);
+    assert.equal(snapshot.berserker.baseAttacksPerSecond, 729);
     assert.equal(runtime.commandSpellIStatus().maxed, true);
   } finally {
     runtime.destroy();
