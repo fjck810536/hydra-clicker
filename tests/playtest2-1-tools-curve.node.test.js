@@ -56,13 +56,14 @@ test('Playtest tools expose regen readout and reset save without direct gameplay
   assert.doesNotMatch(appSource, /humanityEvil\s*[+\-]?=/);
 });
 
-test('NP presentation uses a View-only red tint driven from the logical active window', async () => {
+test('NP presentation uses a View-only red tint driven from the runtime active window', async () => {
   const stageSource = await readFile(new URL('../js/view/battle-scene.js', import.meta.url), 'utf8');
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
 
   assert.match(stageSource, /setNpActive/);
   assert.match(stageSource, /scene\.clearColor\.copyFromFloats\(0\.075, 0\.018, 0\.022, 1\)/);
-  assert.match(appSource, /stage\.setNpActive\(isNpWindowActive\(snapshot\)\)/);
+  assert.match(appSource, /const npActive = runtime\.isNpActive\(\)/);
+  assert.match(appSource, /stage\.setNpActive\(npActive\)/);
   assert.doesNotMatch(stageSource, /from ['"]\.\.\/systems\//);
   assert.doesNotMatch(stageSource, /from ['"]\.\.\/math\//);
 });
