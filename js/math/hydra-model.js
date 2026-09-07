@@ -14,11 +14,16 @@ export function applyCutResolution(draft, resolution) {
     throw new TypeError('resolution.headsRemoved must be a non-negative BigInt.');
   }
 
+  if (typeof resolution.headsSpawned !== 'bigint' || resolution.headsSpawned < 0n) {
+    throw new TypeError('resolution.headsSpawned must be a non-negative BigInt.');
+  }
+
   if (resolution.headsRemoved > draft.hydra.logicalHeadCount) {
     throw new RangeError('Cannot remove more heads than currently exist.');
   }
 
   draft.hydra.logicalHeadCount -= resolution.headsRemoved;
+  draft.hydra.logicalHeadCount += resolution.headsSpawned;
   draft.hydra.turn = resolution.turnAfter;
 
   if (resolution.cancelPendingRegrowth) {
