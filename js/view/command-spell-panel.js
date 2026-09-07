@@ -12,6 +12,18 @@ function formatNpTechnique({ strikeCount, maxPoints, durationMs }) {
   return `×${strikeCount} · NP ${maxPoints} · ${formatSeconds(durationMs)}`;
 }
 
+function formatAutoNpFraction(numerator, denominator) {
+  if (!Number.isInteger(numerator) || !Number.isInteger(denominator) || denominator < 1) return '—';
+  if (numerator <= 0) return 'OFF';
+  if (numerator === denominator) return 'FULL';
+  return `${numerator}/${denominator}`;
+}
+
+function formatAps(value) {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
 export function projectCommandSpellISlot(status) {
   if (!status) {
     return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
@@ -93,6 +105,43 @@ export function projectCommandSpellIISlot(status) {
   });
 }
 
+export function projectCommandSpellIIISlot(status) {
+  if (!status) {
+    return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
+  }
+
+  if (!status.unlocked) {
+    if (!status.eligible) {
+      return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
+    }
+    return Object.freeze({
+      state: 'available',
+      level: 'NEW',
+      meta: status.pricePending ? 'PRICE TBD' : `${formatInteger(status.cost)} 人類惡`,
+      clickable: true,
+    });
+  }
+
+  const currentFraction = formatAutoNpFraction(status.autoNpNumerator, status.autoNpDenominator);
+  if (status.maxed) {
+    return Object.freeze({
+      state: 'max',
+      level: 'MAX',
+      meta: `NP AUTO ${currentFraction}`,
+      clickable: true,
+    });
+  }
+
+  return Object.freeze({
+    state: status.available ? 'affordable' : 'owned-dim',
+    level: `Lv.${status.level}`,
+    meta: status.available
+      ? `LV UP · ${formatInteger(status.cost)}`
+      : `NP AUTO ${currentFraction} · ${status.pricePending ? 'PRICE TBD' : `NEXT ${formatInteger(status.cost)}`}`,
+    clickable: true,
+  });
+}
+
 function renderSlot(slot, projection) {
   slot.dataset.state = projection.state;
   slot.disabled = !projection.clickable;
@@ -107,6 +156,7 @@ function renderSlot(slot, projection) {
 function spellIDFromNumber(number) {
   if (number === 1) return 'command-spell-1';
   if (number === 2) return 'command-spell-2';
+  if (number === 3) return 'command-spell-3';
   return null;
 }
 
@@ -138,34 +188,60 @@ function modalModel(number, status) {
       current,
       next,
       cost,
-      description: '普通時間的 Auto Slash。寶具時停期間仍會暫停。',
+      description: '普通時間的 Auto Slash。寶具時停期間是否能運作，交給令咒 III。',
       action,
       canPurchase: status.available,
     };
   }
 
-  const current = formatNpTechnique({
-    strikeCount: status.npManualStrikeCount,
-    maxPoints: status.npMaxPoints,
-    durationMs: status.npDurationMs,
-  });
+  if (number === 2) {
+    const current = formatNpTechnique({
+      strikeCount: status.npManualStrikeCount,
+      maxPoints: status.npMaxPoints,
+      durationMs: status.npDurationMs,
+    });
+    const next = status.maxed
+      ? 'MAX'
+      : formatNpTechnique({
+        strikeCount: status.nextNpManualStrikeCount,
+        maxPoints: status.nextNpMaxPoints,
+        durationMs: status.nextNpDurationMs,
+      });
+
+    return {
+      title: '「快點……再快點……！」',
+      subtitle: 'COMMAND SPELL II',
+      level: status.unlocked ? `Lv.${status.level}` : 'Lv.0',
+      current,
+      next,
+      cost: status.maxed ? '—' : `${formatInteger(status.cost)} 人類惡`,
+      description: '只強化寶具／時停技法：連斬、NP效率與時停時間。',
+      action: status.maxed ? 'MAX' : status.unlocked ? 'LV UP' : 'PURCHASE',
+      canPurchase: status.available,
+    };
+  }
+
+  const currentFraction = formatAutoNpFraction(status.autoNpNumerator, status.autoNpDenominator);
+  const nextFraction = formatAutoNpFraction(status.nextAutoNpNumerator, status.nextAutoNpDenominator);
+  const current = `AUTO IN NP · ${currentFraction} · ${formatAps(status.autoNpAps)} APS`;
   const next = status.maxed
     ? 'MAX'
-    : formatNpTechnique({
-      strikeCount: status.nextNpManualStrikeCount,
-      maxPoints: status.nextNpMaxPoints,
-      durationMs: status.nextNpDurationMs,
-    });
+    : `AUTO IN NP · ${nextFraction} · ${formatAps(status.nextAutoNpAps)} APS`;
+  const cost = status.maxed
+    ? '—'
+    : status.pricePending
+      ? 'PRICE TBD'
+      : `${formatInteger(status.cost)} 人類惡`;
 
   return {
-    title: '「快點……再快點……！」',
-    subtitle: 'COMMAND SPELL II',
+    title: '「這裡怎麼沒有 SKIP???」',
+    subtitle: 'COMMAND SPELL III',
     level: status.unlocked ? `Lv.${status.level}` : 'Lv.0',
     current,
     next,
-    cost: status.maxed ? '—' : `${formatInteger(status.cost)} 人類惡`,
-    description: '只強化寶具／時停技法：連斬、NP效率與時停時間。',
-    action: status.maxed ? 'MAX' : status.unlocked ? 'LV UP' : 'PURCHASE',
+    cost,
+    description: '把令咒 I 的 Auto Slash 帶進寶具／時停。自動斬不繼承令咒 II 的手動連斬。',
+    action: status.maxed ? 'MAX' : status.pricePending ? 'PRICE TBD' : status.unlocked ? 'LV UP' : 'PURCHASE',
     canPurchase: status.available,
   };
 }
@@ -193,24 +269,34 @@ export function createCommandSpellPanel({ root } = {}) {
 
   let latestI = null;
   let latestII = null;
+  let latestIII = null;
   let openSpell = null;
 
-  function render({ commandSpellI, commandSpellII } = {}) {
+  function render({ commandSpellI, commandSpellII, commandSpellIII } = {}) {
     latestI = commandSpellI ?? null;
     latestII = commandSpellII ?? null;
+    latestIII = commandSpellIII ?? null;
     renderSlot(slots[0], projectCommandSpellISlot(latestI));
     renderSlot(slots[1], projectCommandSpellIISlot(latestII));
-    renderSlot(slots[2], { state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
+    renderSlot(slots[2], projectCommandSpellIIISlot(latestIII));
 
     if (openSpell != null) open(openSpell);
   }
 
   function open(number) {
-    const status = number === 1 ? latestI : number === 2 ? latestII : null;
+    const status = number === 1
+      ? latestI
+      : number === 2
+        ? latestII
+        : number === 3
+          ? latestIII
+          : null;
     if (!status) return false;
     const projection = number === 1
       ? projectCommandSpellISlot(status)
-      : projectCommandSpellIISlot(status);
+      : number === 2
+        ? projectCommandSpellIISlot(status)
+        : projectCommandSpellIIISlot(status);
     if (!projection.clickable) return false;
 
     const model = modalModel(number, status);
