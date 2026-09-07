@@ -4,6 +4,8 @@ import { createBattleStage } from './view/battle-scene.js';
 import { createHudView } from './view/hud-view.js';
 import { createHydraView } from './view/hydra-view.js';
 import { createBerserkerView } from './view/berserker-view.js';
+import { projectGenerationProgress } from './view/generation-progress.js';
+import { createGenerationTransitionView } from './view/generation-transition-view.js';
 
 const AUTOSAVE_INTERVAL_MS = 5000;
 
@@ -11,6 +13,7 @@ const app = document.querySelector('[data-app]');
 const canvas = document.querySelector('#battle-canvas');
 const npButton = document.querySelector('[data-np-button]');
 const commandSpellButton = document.querySelector('[data-command-spell-button]');
+const generationTransitionRoot = document.querySelector('[data-generation-transition]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
 const testCommandSpellMaxButton = document.querySelector('[data-test-command-spell-max]');
@@ -19,12 +22,14 @@ const testNpReadyButton = document.querySelector('[data-test-np-ready]');
 const resetSaveButton = document.querySelector('[data-reset-save]');
 const regenDelayReadout = document.querySelector('[data-test-regen-delay]');
 const autoApsReadout = document.querySelector('[data-test-auto-aps]');
+const totalKillsReadout = document.querySelector('[data-test-total-kills]');
 
 if (
   !app
   || !canvas
   || !npButton
   || !commandSpellButton
+  || !generationTransitionRoot
   || !testToolsToggle
   || !testToolsPanel
   || !testCommandSpellMaxButton
@@ -33,6 +38,7 @@ if (
   || !resetSaveButton
   || !regenDelayReadout
   || !autoApsReadout
+  || !totalKillsReadout
 ) {
   throw new Error('Hydra Clicker app shell is missing.');
 }
@@ -136,12 +142,17 @@ if (restoredSave) {
 runtime ??= createHydraIGameRuntime();
 
 const hud = createHudView({ root: app });
+const generationTransition = createGenerationTransitionView({ root: generationTransitionRoot });
 
 function isHydraIIIntroPending(snapshot) {
   const intro = runtime.progression.hydraIIIntro;
   return intro != null
     && snapshot.hydra.generation === intro.generation
     && !snapshot.progression.milestones.includes(intro.firstManualCutMilestone);
+}
+
+function getGenerationConfig(snapshot) {
+  return runtime.progression.generations?.[snapshot.hydra.generation] ?? null;
 }
 
 function persistNow() {
@@ -176,13 +187,19 @@ const berserkerView = createBerserkerView({
 const renderSnapshot = () => {
   const snapshot = runtime.snapshot();
   const introPending = isHydraIIIntroPending(snapshot);
+  const generationConfig = getGenerationConfig(snapshot);
+  const generationProgress = projectGenerationProgress(snapshot, generationConfig);
+
   hud.render(snapshot, {
     commandSpellI: runtime.commandSpellIStatus(),
     np: runtime.npStatus(),
     hydraIIIntroPending: introPending,
+    generationProgress,
   });
   hydraView.render(snapshot);
+  stage.setGenerationAppearance(snapshot.hydra.generation);
   stage.setNpActive(isNpWindowActive(snapshot));
+  app.dataset.hydraGeneration = String(snapshot.hydra.generation);
 
   const regenDelayMs = runtime.currentRegenDelayMs();
   regenDelayReadout.textContent = snapshot.hydra.generation >= 3
@@ -197,6 +214,7 @@ const renderSnapshot = () => {
       : snapshot.master.commandSpells.autoSlash
         ? `${snapshot.berserker.baseAttacksPerSecond} APS`
         : 'LOCKED';
+  totalKillsReadout.textContent = snapshot.statistics.totalHydrasKilled.toString();
 };
 
 const handleNpPress = () => {
@@ -320,6 +338,13 @@ const offRespawned = runtime.events.on('hydra:respawned', ({ payload }) => {
 });
 const offGenerationChanged = runtime.events.on('hydra:generation-changed', ({ payload }) => {
   persistNow();
+  const config = runtime.progression.generations?.[payload.generation] ?? null;
+  generationTransition.show({
+    generation: payload.generation,
+    maxHeads: payload.maxHeads ?? config?.maxHeads ?? null,
+    killsToNextGeneration: config?.killsToNextGeneration ?? null,
+  });
+
   if (payload.generation === 2) {
     hud.setStatus('HYDRA II · AUTO PAUSED · TAP TO CUT');
   } else if (payload.generation === 3) {
@@ -385,6 +410,7 @@ window.addEventListener('pagehide', () => {
   offSpellAvailable();
   offSpellUnlocked();
   offSpellUpgraded();
+  generationTransition.destroy();
   berserkerView.destroy();
   hydraView.destroy();
   stage.destroy();
