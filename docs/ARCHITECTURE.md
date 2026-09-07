@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.15
+# Hydra Clicker — Architecture v0.16
 
-> v0.15 對齊 Playtest 4.4：Command Spell I Lv.1–6 改為 sequential prerequisite + Humanity Evil affordability 驅動，不再另外使用 kill reveal gate。Lv.7 / 729 APS 保留為可表示的等級，但正式價格 pending，因此正常 purchase 不可用。Save schema 維持1。
+> v0.16 對齊 Playtest 4.5：Command Spell 玩家端改為固定三槽 View + detail modal。View 只投影 I / II System status；Application 負責 modal purchase routing；Command Spell III 目前只有 dormant slot，不新增機制。Save schema 維持1。
 
 ## 1. Top-level flow
 
@@ -370,7 +370,7 @@ np:ended    → TIME RESUMES cue
 
 No View timer owns gameplay timing。
 
-## 16. View boundary
+## 16. View / Command Spell panel boundary
 
 Head pool contract：
 
@@ -381,9 +381,41 @@ logical 100+ → visible 99
 
 Hydra II max81 不碰 visual cap；Hydra III max729 可以 >99，但 View 最多99 meshes。
 
-Formal footer currently exposes Command Spell I / II purchase controls as functional playtest UI；final three-slot Command Spell UI is a later player-facing milestone。
+Command Spell 玩家端使用固定三槽：
 
-For the temporary footer, a pending 729 APS purchase must render as non-actionable `PRICE TBD` rather than showing an invented Humanity Evil price。
+```text
+令咒
+[ I ] [ II ] [ III ]
+```
+
+`js/view/command-spell-panel.js` 只消費 Command Spell I / II status projection，輸出：
+
+```text
+dormant
+available / NEW
+owned-dim
+affordable / LV UP
+MAX
+```
+
+Slot I / II 點擊只開 detail modal。真正消費 Humanity Evil 的動作仍由 Application routing：
+
+```text
+slot tap
+→ commandSpellPanel.open(I / II)
+→ modal
+→ PURCHASE / LV UP
+→ app.js calls runtime.buyCommandSpellI() / buyCommandSpellII()
+→ Systems validate affordability / prerequisites and spend
+```
+
+View 不直接改 currency、milestone、APS 或 NP config。
+
+Command Spell III 目前只有永久 dormant slot；沒有 click handler、沒有 System，也不因此宣告第三令咒機制已決定。
+
+CS I 243 APS 的下一級仍顯示 `729 APS · PRICE TBD`，但 modal purchase disabled；TEST / already-owned 729 則可投影成 MAX。
+
+Combat HUD 上額外的三個小令咒 icon group 尚未落地；本 milestone 只完成主三槽 panel + detail modal。
 
 ## 17. Persistence
 
@@ -417,6 +449,8 @@ save → serializable logical state
 
 ```text
 View → mutate encounter / head state
+Command Spell panel → spend Humanity Evil directly
+Command Spell panel → import Systems / Math / Core
 NP animation / timer → determine modifier expiry
 Auto Slash System → hardcode NP/Fate names
 NP System → directly disable Auto Slash internals
@@ -440,7 +474,10 @@ Command Spell II formal 9-beat economy             ✅
 CS I Hydra I fast 1/3/9/27 economy                 ✅
 CS I Hydra II 81/243 allocation economy            ✅
 CS I 729 formal price                              ⛔ pending Hydra III
-Final three-slot Command Spell UI                  ⛔ next player-facing milestone
+Fixed three-slot Command Spell panel               ✅
+Command Spell detail modal / purchase routing      ✅
+Command Spell III gameplay                         ⛔ dormant slot only
+Combat HUD three-icon Command Spell group          ⛔ later
 Hydra II cap hit final presentation                ⛔ later
 Hydra III combat rule                              ⛔ not yet
 Analyzer / Tree View                               ⛔ not yet
