@@ -9,21 +9,24 @@ function assertDefinition(definition) {
     throw new TypeError('Command Spell I requires at least one level definition.');
   }
 
-  let previousKills = -1n;
   let previousLevel = 0;
   let previousAps = 0;
   for (const level of definition.levels) {
     if (!Number.isInteger(level.level) || level.level !== previousLevel + 1) {
       throw new TypeError('Command Spell I levels must be contiguous positive integers.');
     }
-    if (typeof level.requiredHydraKills !== 'bigint' || level.requiredHydraKills < 0n) {
-      throw new TypeError('Command Spell I requiredHydraKills must be a non-negative BigInt.');
+    if (
+      level.requiredHydraKills != null
+      && (typeof level.requiredHydraKills !== 'bigint' || level.requiredHydraKills < 0n)
+    ) {
+      throw new TypeError('Command Spell I requiredHydraKills must be null or a non-negative BigInt.');
     }
-    if (level.requiredHydraKills <= previousKills) {
-      throw new RangeError('Command Spell I kill requirements must strictly increase.');
-    }
-    if (typeof level.cost !== 'bigint' || level.cost < 0n) {
-      throw new TypeError('Command Spell I level cost must be a non-negative BigInt.');
+    if (level.cost == null) {
+      if (level.purchasePending !== true) {
+        throw new TypeError('A Command Spell I level without a price must be marked purchasePending.');
+      }
+    } else if (typeof level.cost !== 'bigint' || level.cost < 0n) {
+      throw new TypeError('Command Spell I level cost must be a non-negative BigInt or null.');
     }
     if (!Number.isFinite(level.attacksPerSecond) || level.attacksPerSecond <= 0) {
       throw new RangeError('Command Spell I attacksPerSecond must be a finite number > 0.');
@@ -32,7 +35,6 @@ function assertDefinition(definition) {
       throw new RangeError('Command Spell I attacksPerSecond must strictly increase.');
     }
 
-    previousKills = level.requiredHydraKills;
     previousLevel = level.level;
     previousAps = level.attacksPerSecond;
   }
@@ -116,8 +118,13 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
     const maxLevel = definition.levels.length;
     const next = definition.levels[level] ?? null;
     const maxed = next == null;
-    const killsMet = maxed || snapshot.statistics.totalHydrasKilled >= next.requiredHydraKills;
-    const canAfford = maxed || snapshot.master.humanityEvil >= next.cost;
+    const requiredHydraKills = next?.requiredHydraKills ?? null;
+    const killsMet = maxed
+      || requiredHydraKills == null
+      || snapshot.statistics.totalHydrasKilled >= requiredHydraKills;
+    const pricePending = !maxed && next?.cost == null;
+    const canAfford = maxed
+      || (!pricePending && snapshot.master.humanityEvil >= next.cost);
 
     return Object.freeze({
       id: definition.id,
@@ -130,9 +137,10 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
       nextAttacksPerSecond: next?.attacksPerSecond ?? null,
       killsMet,
       canAfford,
-      available: !maxed && killsMet && canAfford,
-      requiredHydraKills: next?.requiredHydraKills ?? definition.levels.at(-1).requiredHydraKills,
-      cost: next?.cost ?? 0n,
+      pricePending,
+      available: !maxed && !pricePending && killsMet && canAfford,
+      requiredHydraKills,
+      cost: maxed ? 0n : next?.cost ?? null,
       balance: snapshot.master.humanityEvil,
       kills: snapshot.statistics.totalHydrasKilled,
     });
@@ -167,6 +175,7 @@ export function createCommandSpellSystem({ state, events, definition } = {}) {
   function purchase() {
     const status = getStatus();
     if (status.maxed) return { accepted: false, reason: 'max-level', status };
+    if (status.pricePending) return { accepted: false, reason: 'price-pending', status };
     if (!status.killsMet) return { accepted: false, reason: 'kills-required', status };
     if (!status.canAfford) return { accepted: false, reason: 'insufficient-humanity-evil', status };
 
