@@ -35,6 +35,7 @@ export function createHudView({ root } = {}) {
     throw new TypeError('createHudView requires a root element.');
   }
 
+  const generation = root.querySelector('[data-hud="hydra-generation"]');
   const headCount = root.querySelector('[data-hud="heads"]');
   const cutCount = root.querySelector('[data-hud="cuts"]');
   const killCount = root.querySelector('[data-hud="kills"]');
@@ -45,14 +46,19 @@ export function createHudView({ root } = {}) {
   const autoSlash = root.querySelector('[data-hud="auto-slash"]');
   const status = root.querySelector('[data-stage-status]');
 
-  if (!headCount || !cutCount || !killCount || !humanityEvil || !npValue || !npButton || !commandSpellButton || !autoSlash || !status) {
+  if (!generation || !headCount || !cutCount || !killCount || !humanityEvil || !npValue || !npButton || !commandSpellButton || !autoSlash || !status) {
     throw new Error('HUD markup is incomplete.');
   }
 
   return {
-    render(snapshot, { commandSpellI = null, np = null } = {}) {
+    render(snapshot, {
+      commandSpellI = null,
+      np = null,
+      hydraIIIntroPending = false,
+    } = {}) {
       const npGauge = formatNpGauge(np);
 
+      generation.textContent = `HYDRA ${snapshot.hydra.generation === 1 ? 'I' : 'II'} · PROTOTYPE`;
       headCount.textContent = formatInteger(snapshot.hydra.logicalHeadCount);
       cutCount.textContent = formatInteger(snapshot.statistics.totalHeadsCut);
       killCount.textContent = formatInteger(snapshot.statistics.totalHydrasKilled);
@@ -60,14 +66,15 @@ export function createHudView({ root } = {}) {
       npValue.textContent = npGauge.label;
       npButton.textContent = npGauge.button;
 
-      // NP is a timed rule modifier that can span encounters, so a READY NP
-      // remains releasable during the short defeated/respawn gap. The player
-      // simply spends part of the 3s window before the next Hydra appears.
+      // NP is a timed rule modifier that can span encounters, so READY remains
+      // releasable even during an empty respawn gap.
       npButton.disabled = !npGauge.ready;
 
-      autoSlash.textContent = snapshot.master.commandSpells.autoSlash
-        ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-        : 'LOCKED';
+      autoSlash.textContent = hydraIIIntroPending
+        ? 'PAUSED · TAP'
+        : snapshot.master.commandSpells.autoSlash
+          ? `${snapshot.berserker.baseAttacksPerSecond} APS`
+          : 'LOCKED';
 
       commandSpellButton.textContent = formatCommandSpell(commandSpellI);
       commandSpellButton.disabled = !commandSpellI?.available;
