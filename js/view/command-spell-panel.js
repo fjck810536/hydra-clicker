@@ -115,7 +115,7 @@ export function projectCommandSpellIIISlot(status) {
       return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
     }
     return Object.freeze({
-      state: 'available',
+      state: status.pricePending ? 'owned-dim' : 'available',
       level: 'NEW',
       meta: status.pricePending ? 'PRICE TBD' : `${formatInteger(status.cost)} 人類惡`,
       clickable: true,
