@@ -107,6 +107,36 @@ export function createTestPresets({ state, events, progression } = {}) {
     return Object.freeze(payload);
   }
 
+  function setCommandSpellIIILevel(level) {
+    const definition = progression.commandSpellIII;
+    const levels = definition?.levels;
+    const target = levels?.find((entry) => entry.level === level);
+    if (!definition || !target) {
+      throw new RangeError(`Unknown Command Spell III level: ${level}`);
+    }
+
+    state.update((draft) => {
+      if (definition.firstEligibilityMilestone) {
+        addMilestone(draft, definition.firstEligibilityMilestone);
+      }
+      for (const entry of levels) {
+        const milestone = `${definition.id}-lv${entry.level}`;
+        if (entry.level <= target.level) addMilestone(draft, milestone);
+        else removeMilestone(draft, milestone);
+      }
+    });
+
+    const payload = {
+      preset: 'command-spell-iii-level',
+      level: target.level,
+      maxed: target.level === levels.at(-1).level,
+      autoNpNumerator: target.autoNpNumerator,
+      autoNpDenominator: target.autoNpDenominator,
+    };
+    events.emit('test:preset-applied', payload);
+    return Object.freeze(payload);
+  }
+
   function readyNp() {
     state.update((draft) => {
       // Persistent NP storage is normalized 0..1. A full test gauge is therefore
@@ -196,13 +226,58 @@ export function createTestPresets({ state, events, progression } = {}) {
     return Object.freeze(payload);
   }
 
+  function startHydraIIIAt99() {
+    const config = progression.generations?.[3];
+    const intro = progression.hydraIIIIntro;
+    if (!config || typeof config.maxHeads !== 'bigint' || typeof config.startingHeads !== 'bigint') {
+      throw new TypeError('Hydra III generation data is unavailable.');
+    }
+
+    state.update((draft) => {
+      draft.hydra.generation = 3;
+      draft.hydra.encounter = 1n;
+      draft.hydra.logicalHeadCount = 99n;
+      draft.hydra.startingHeadCount = config.startingHeads;
+      draft.hydra.turn = 90n;
+      draft.hydra.pendingRegrowth = [];
+      draft.hydra.defeated = false;
+      draft.hydra.respawnAtMs = null;
+      draft.progression.hydraGeneration = 3;
+      draft.progression.treeViewUnlocked = false;
+
+      const hasCommandSpellIII = progression.commandSpellIII?.levels?.some((entry) => (
+        draft.progression.milestones.includes(`${progression.commandSpellIII.id}-lv${entry.level}`)
+      ));
+      if (!hasCommandSpellIII && intro?.firstNpReleaseMilestone) {
+        removeMilestone(draft, intro.firstNpReleaseMilestone);
+      }
+
+      // 99 Hydra I + 99 Hydra II kills completed before Hydra III encounter 1.
+      draft.statistics.totalHydrasKilled = 198n;
+      draft.berserker.np = 0;
+      draft.modifiers.active = [];
+    });
+
+    const payload = {
+      preset: 'hydra-iii-at-99',
+      generation: 3,
+      encounter: 1n,
+      heads: 99n,
+      maxHeads: config.maxHeads,
+    };
+    events.emit('test:preset-applied', payload);
+    return Object.freeze(payload);
+  }
+
   return Object.freeze({
     setCommandSpellILevel,
     maxCommandSpellI,
     addHumanityEvil999,
     commandSpellIILv1,
+    setCommandSpellIIILevel,
     readyNp,
     startHydraIEncounter98,
     startHydraIIAtCap,
+    startHydraIIIAt99,
   });
 }
