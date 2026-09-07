@@ -2,24 +2,172 @@
 
 > Status: **provisional player-facing proposal**. This file is intentionally not a core implementation spec.
 >
-> Scope: Hydra II resource allocation, NP requirement growth, Command Spell II upgrade structure, and Humanity Evil acquisition. Values below are design candidates for playtest, not confirmed implementation values.
+> Scope: cross-generation Command Spell I growth, Hydra II resource allocation, NP requirement growth, Command Spell II upgrade structure, and Humanity Evil acquisition. Values below are design candidates for playtest, not confirmed implementation values.
 
 ## 1. Existing economy facts used as baseline
 
 Current known values outside this folder are treated as read-only references:
 
 - Humanity Evil currently awards **11 per true Hydra kill**.
-- Command Spell I current total cost is **484 Humanity Evil** if all listed levels are purchased.
+- The currently implemented Command Spell I curve reaches **64 APS** and costs **484 Humanity Evil** in total.
 - Hydra I has **99 kills** in the generation, so at 11 Humanity Evil per kill it produces **1089 Humanity Evil** total.
-- A player who buys every current Command Spell I level as soon as possible would therefore enter Hydra II with roughly **605 Humanity Evil** remaining.
 - NP currently starts at **66 required points**, with one accepted head cut contributing one NP point.
-- Command Spell I can reach **64 APS** before Hydra II.
+- Command Spell I currently persists across Hydra generations.
 
-The important consequence is that a flat 66-NP requirement becomes extremely easy to refill once high APS is active. Hydra II therefore needs an NP economy that scales with burst power rather than leaving every Noble Phantasm release at the same 66-point requirement forever.
+The player-facing proposal below intentionally does **not** assume Command Spell I should be completed during Hydra I. Instead, Command Spell I becomes a long-running cross-generation progression line that competes with later Noble Phantasm upgrades for Humanity Evil.
 
 ---
 
-## 2. Recommended shape: sawtooth NP economy
+## 2. Command Spell I — recommended cross-generation 9-scale
+
+### Core idea
+
+Command Spell I should not feel like a disposable Hydra I tutorial tree that is fully solved before Hydra II begins.
+
+Recommended macro law:
+
+> **Each Hydra generation has a natural APS landmark at the same power-of-nine scale as that Hydra generation.**
+
+Use ×3 bridge steps between the powers of nine:
+
+> 1 → 3 → **9** → 27 → **81** → 243 → **729** → ...
+
+Suggested interpretation:
+
+| Era | Command Spell I APS | Player-facing role |
+|---|---:|---|
+| Hydra I early | 1 APS | automation appears |
+| Hydra I mid | 3 APS | extra hand becomes noticeable |
+| Hydra I late | **9 APS** | practical Hydra I landmark |
+| Hydra II early/mid | 27 APS | automation becomes dangerous / productive |
+| Hydra II mid/late | **81 APS** | Hydra II landmark |
+| Hydra III | 243 APS | first post-99-visible abstraction-scale automation |
+| Hydra III late | **729 APS** | Hydra III landmark |
+
+This gives Command Spell I a macro progression parallel to Hydra scale:
+
+> Hydra max heads: 9 → 81 → 729  
+> Command Spell I landmark APS: 9 → 81 → 729
+
+The player does not need to reach each APS landmark before leaving the matching generation. These are **natural scale landmarks, not mandatory chapter completion requirements**.
+
+### Important pacing rule: visible but unaffordable is allowed
+
+The next Command Spell I upgrade may be revealed before the player can realistically afford it.
+
+This is desirable when intentional:
+
+> player sees 27 APS during late Hydra I  
+> → realizes there is another scale of automation  
+> → cannot yet pay for it  
+> → enters Hydra II with an explicit long-term target
+
+Do not hard-lock every upgrade behind generation transitions if price pressure alone can create the desired anticipation.
+
+---
+
+## 3. Candidate Humanity Evil costs for Command Spell I
+
+A first playtest-oriented candidate curve:
+
+| APS after purchase | Candidate cost | Intended affordability |
+|---:|---:|---|
+| 1 | 99 | Hydra I early |
+| 3 | 198 | Hydra I early/mid |
+| 9 | 396 | Hydra I mid/late |
+| 27 | 891 | intentionally impractical to finish inside Hydra I after normal prior spending; Hydra II target |
+| 81 | 2673 | Hydra II major investment; late Hydra II or later if the player also invests in Command Spell II |
+| 243 | 8019 | Hydra III candidate |
+| 729 | 24057 | Hydra III / later long-term candidate |
+
+The exact prices are provisional. The important shape is:
+
+1. Hydra I can reasonably establish automation and reach roughly **9 APS**.
+2. **27 APS is visible before it is comfortably affordable**, creating a carry-over goal.
+3. **81 APS should compete directly with Command Spell II spending** rather than being an automatic Hydra II purchase.
+4. A player who prioritizes automation above everything else may reach 81 APS during Hydra II; a player investing heavily in Noble Phantasm power may not reach it until Hydra III.
+5. Later APS landmarks continue the same 9-scale rather than introducing a new arbitrary doubling ladder.
+
+### Hydra I budget check
+
+At the proposed 1 / 3 / 9 prices:
+
+> 99 + 198 + 396 = **693 Humanity Evil**
+
+Hydra I total production at the current 11-per-kill rate is:
+
+> 99 × 11 = **1089 Humanity Evil**
+
+So a player who buys through 9 APS enters Hydra II with approximately:
+
+> **396 Humanity Evil**
+
+The visible 27 APS upgrade costs 891, so even a player who reaches the end of Hydra I cannot buy it after following the normal earlier progression. This is intentional.
+
+### Hydra II timing if the player tunnels into APS
+
+If Hydra II follows the proposed 33 Humanity Evil per true kill:
+
+- enter with ~396;
+- 27 APS costs 891;
+- the missing 495 requires about 15 Hydra II kills at 33 each;
+- after buying 27 APS, 81 APS costs 2673;
+- funding 2673 from Hydra II kill income alone corresponds to 81 Hydra II kills.
+
+Therefore a player who almost completely ignores Command Spell II could approximately experience:
+
+> Hydra II ~15 kills → 27 APS  
+> Hydra II ~96 kills cumulative economy pressure → 81 APS around the end of the generation
+
+Any meaningful spending on Command Spell II delays 81 APS naturally into Hydra III.
+
+This is desirable because **resource allocation, not a hard content lock, determines which power fantasy arrives first**.
+
+---
+
+## 4. Recommended economy relationship between Command Spell I and II
+
+Hydra II should be the first chapter where Humanity Evil produces a real choice.
+
+The two main upgrade families answer different questions:
+
+### Command Spell I
+
+> **How much cutting happens in ordinary time?**
+
+- persistent APS;
+- always active outside time stop unless another rule pauses it;
+- in Hydra II, initially accelerates both NP generation and Hydra growth pressure;
+- becomes increasingly valuable once the player understands when to exploit NP.
+
+### Command Spell II
+
+> **How powerful is the Noble Phantasm state?**
+
+- NP-only multistrike;
+- NP efficiency;
+- longer time stop;
+- later Noble Phantasm-specific capabilities.
+
+The player should not be able to buy both trees to completion during Hydra II without significant opportunity cost.
+
+Desired player stories include:
+
+> "I rushed 81 APS and now ordinary time is insane, but my Noble Phantasm is still primitive."
+
+or
+
+> "I stayed at 27 APS but built a much stronger Nine Lives window."
+
+or
+
+> "I bought efficiency first, so I can use a weaker Noble Phantasm much more often."
+
+This creates actual build identity inside a clicker without requiring conventional class selection.
+
+---
+
+## 5. Recommended shape: sawtooth NP economy
 
 Do **not** increase NP requirement after every upgrade.
 
@@ -29,7 +177,7 @@ Instead use an alternating pressure / relief structure:
 > efficiency upgrade → NP requirement is reduced  
 > next power upgrade → requirement rises again
 
-This avoids making every upgrade feel like a tax while still preventing long / multistrike Noble Phantasms from becoming nearly permanent at 64 APS.
+This avoids making every upgrade feel like a tax while still preventing long / multistrike Noble Phantasms from becoming nearly permanent as APS rises toward 27 / 81 and beyond.
 
 Recommended principle:
 
@@ -39,7 +187,7 @@ Recommended principle:
 
 ---
 
-## 3. Command Spell II — proposed 3 × 3 structure
+## 6. Command Spell II — proposed 3 × 3 structure
 
 The cleanest current player-facing shape is three repeating beats:
 
@@ -74,20 +222,11 @@ The exact NP values are a candidate curve, but the **shape** is the important pa
 - The same pressure / relief rhythm repeats for 6-hit / 27 s and 9-hit / 81 s.
 - At MAX, the player is extremely powerful but still has a meaningful recharge phase.
 
-At 64 APS and ignoring manual taps, candidate recharge times are approximately:
-
-- 66 NP → 1.0 s
-- 198 NP → 3.1 s
-- 396 NP → 6.2 s
-- 594 NP → 9.3 s
-- 792 NP → 12.4 s
-- 1188 NP → 18.6 s
-
-This prevents the 81-second time stop from becoming literally free while still making MAX feel overwhelmingly strong.
+Note: recharge time depends strongly on which Command Spell I path the player has purchased. The same NP requirement feels very different at 9, 27, 81, or later APS. That dependency is intentional and is one reason the two trees create meaningful allocation decisions.
 
 ---
 
-## 4. Important rule: multistrike is NP-only
+## 7. Important rule: multistrike is NP-only
 
 Command Spell II multistrike should **not** apply during ordinary time.
 
@@ -105,7 +244,7 @@ The 3 / 6 / 9 cuts should be presented as rapid successive swings rather than an
 
 ---
 
-## 5. Humanity Evil — recommended acquisition law
+## 8. Humanity Evil — recommended acquisition law
 
 ### Do not award Humanity Evil per head or per cut
 
@@ -137,34 +276,52 @@ Therefore:
 Why ×3 rather than ×9:
 
 - Hydra head capacity already grows roughly as powers of nine.
+- Command Spell I now also has major APS landmarks on powers of nine.
 - Currency growing by ×9 as well would make old costs disappear too quickly.
-- ×3 gives each generation visibly richer rewards while preserving room for upgrade prices to matter.
+- ×3 gives each generation visibly richer rewards while preserving room for old and current upgrades to remain meaningful.
 
 This is a recommendation, not yet a confirmed rule.
 
+### Important economy identity
+
+Keep the currencies conceptually separate:
+
+> **NP = within-combat / head-cut cycle resource**  
+> **Humanity Evil = true-kill / long-term progression resource**
+
+This prevents the 81-head stalemate from becoming an infinite Humanity Evil farm while allowing it to remain an NP charging state.
+
 ---
 
-## 6. Hydra II purchasing power
+## 9. Hydra II purchasing power — revised with unfinished Command Spell I
 
-If the current Hydra I economy is left unchanged and the player buys all Command Spell I levels, expected Hydra II entry balance is roughly:
+If the player follows the proposed Command Spell I path through 9 APS during Hydra I:
 
-> **605 Humanity Evil**
+> Hydra I income 1089  
+> − CS I through 9 APS 693  
+> = **396 Humanity Evil carried into Hydra II**
 
-If Hydra II then awards the proposed **33 per kill**, its 99 kills generate:
+If Hydra II then awards the proposed 33 per kill, its 99 kills generate:
 
 > **3267 Humanity Evil**
 
-Total spending power across Hydra II would therefore be roughly:
+Total new + carried purchasing power across Hydra II is therefore roughly:
 
-> **3872 Humanity Evil**
+> **3663 Humanity Evil**
 
-This is a useful budget target for Command Spell II plus optional side upgrades.
+But unlike the earlier model, this is **not all available for Command Spell II**, because Command Spell I remains unfinished:
 
-The player should not be able to buy an entire Hydra II economy immediately from the 605 carryover, but that carryover should be enough to feel like useful seed capital.
+- 27 APS candidate cost: 891
+- 81 APS candidate cost: 2673
+- Command Spell II also competes for the same Humanity Evil pool
+
+This is the intended resource-allocation tension.
+
+A completionist should not expect both Command Spell I = 81 APS and Command Spell II = MAX by the Hydra II → III boundary.
 
 ---
 
-## 7. Recommended Command Spell II Humanity Evil costs
+## 10. Recommended Command Spell II Humanity Evil costs
 
 To create actual resource allocation, Command Spell II is better treated as three related branches rather than one mandatory linear purchase chain:
 
@@ -196,22 +353,15 @@ All three branch totals combined:
 
 > **3894 Humanity Evil**
 
-This is intentionally almost equal to the estimated **3872** available by the end of Hydra II for a player who entered with ~605 and earned 33 × 99 during the chapter.
+Since Hydra II provides only about 3663 total purchasing power under the revised 9-APS Hydra I path — before paying for 27 / 81 APS — Command Spell II MAX is now naturally pushed later unless the player heavily deprioritizes Command Spell I.
 
-Result:
-
-- a focused player can strongly specialize during Hydra II;
-- a completionist can almost finish everything by the generation boundary;
-- any optional side spending creates a real tradeoff;
-- the final missing amount can naturally spill into early Hydra III rather than requiring artificial grinding.
-
-The exact costs are provisional and should be tuned after Hydra II playtest timing is measured.
+This is intentional. Hydra II becomes the first generation where "what did you buy?" materially changes the feel of play.
 
 ---
 
-## 8. Recommended unlock cadence across Hydra II
+## 11. Recommended unlock cadence across Hydra II
 
-A possible 9-beat unlock schedule across the 99 Hydra II kills:
+A possible 9-beat Command Spell II reveal schedule across the 99 Hydra II kills:
 
 > **3 / 9 / 18 / 27 / 39 / 54 / 66 / 81 / 99 kills**
 
@@ -229,21 +379,33 @@ Suggested reveal order:
 
 Important: availability can be tied to kill milestones while purchases remain player-selected. The next card does not necessarily need the previous card from another branch to be purchased.
 
-Within a branch, however, normal prerequisites still make sense:
+Within a branch, normal prerequisites still make sense:
 
 > 3-hit → 6-hit → 9-hit  
 > Efficiency I → II → III  
 > 9 s → 27 s → 81 s
 
-This makes Humanity Evil allocation meaningful instead of reducing the economy to a fixed sequence of mandatory purchases.
+Command Spell I should have its own reveal cadence and should not be forced into the same nine milestones.
+
+Candidate cross-generation reveal idea:
+
+- 1 APS: Hydra I early
+- 3 APS: Hydra I early
+- 9 APS: Hydra I mid
+- 27 APS: reveal during Hydra I late, but price-gated into Hydra II
+- 81 APS: reveal once 27 APS is acquired or around Hydra II midgame
+- 243 / 729 APS: remain later-generation aspirations
 
 ---
 
-## 9. Design goals to test
+## 12. Design goals to test
 
-1. Does 64 APS make 66 NP obviously too cheap once Hydra II reaches its cap state?
-2. Does the sawtooth requirement curve create a pleasant rhythm of "new power is expensive → I make it efficient"?
-3. Do players choose between STRIKE, TIME, and EFFICIENCY, or is one branch obviously dominant?
-4. Is 33 Humanity Evil per Hydra II kill enough to make every kill feel economically relevant without trivializing prices?
-5. Does carrying ~605 from Hydra I feel like useful seed capital rather than an accidental economy break?
-6. Is Command Spell II MAX arriving around the Hydra II → III boundary satisfying, especially if 81 seconds becomes a power fantasy for entering Hydra III?
+1. Does Hydra I feel better when Command Spell I has a practical 9 APS landmark instead of racing to a completed 64 APS tree?
+2. Does seeing an unaffordable 27 APS upgrade before Hydra II create anticipation rather than frustration?
+3. In Hydra II, do players genuinely choose between **27/81 APS** and **Command Spell II Noble Phantasm upgrades**?
+4. Does higher APS initially make Hydra II feel more dangerous before the player learns to exploit the NP rhythm?
+5. Does the sawtooth NP requirement curve create a pleasant rhythm of "new power is expensive → I make it efficient"?
+6. Do players choose between STRIKE, TIME, and EFFICIENCY, or is one branch obviously dominant?
+7. Is 33 Humanity Evil per Hydra II kill enough to make every true kill economically relevant while supporting both unfinished Command Spell I and Command Spell II?
+8. Does Command Spell I = 81 APS naturally arrive in late Hydra II for automation-focused players and Hydra III for Noble-Phantasm-focused players?
+9. Do the 9 / 81 / 729 APS landmarks make the automation system feel like part of the same mathematical world as Hydra scale rather than a separate arbitrary idle-game stat?
