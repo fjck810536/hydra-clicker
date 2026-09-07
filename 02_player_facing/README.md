@@ -14,6 +14,10 @@ Topics that belong here include:
 - UI / UX and information design
 - inferred player-facing structure derived from playtests and known data
 
+## Working files
+
+- [`CURRENT_INFERRED_DESIGN.md`](./CURRENT_INFERRED_DESIGN.md) — current inferred player-facing architecture, confirmed decisions, provisional directions, and open questions.
+
 ## Write boundary for this chat
 
 This chat may read other parts of the repository for context, but may only create, modify, or delete files inside `02_player_facing/`.
