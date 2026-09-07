@@ -1,6 +1,6 @@
-# Hydra Clicker — Architecture v0.10
+# Hydra Clicker — Architecture v0.11
 
-> v0.10 對齊 Hydra II 99-kill loop 與 Hydra III shell。核心原則仍是：規則可以怪，積木邊界不要怪。
+> v0.11 在既有 Hydra II / III progression 上加入 Playtest 4 玩家端章節投影：generation-local progress、semantic transition overlay、generation stage palettes。核心規則與 Save schema 不變。
 
 ## 1. Top-level flow
 
@@ -25,7 +25,7 @@ View 只讀結果；Input 只描述玩家意圖；Persistence 只保存 logical 
 
 ## 2. Generation data owns scale
 
-`js/data/progression.js` 現在定義 generation scale：
+`js/data/progression.js`：
 
 ```text
 Hydra I   starting 9 · max 9   = 9¹ · 99 kills to next
@@ -37,160 +37,139 @@ Hydra III starting 9 · max 729 = 9³ · next rule undecided
 
 ## 3. Rule selection by generation
 
-Core / Application 擁有 rule composition：
-
 ```text
 generation 1 → Hydra I Rule
 generation 2 → Hydra II Rule
 generation 3 → Hydra III shell rule
 ```
 
-Combat 不寫 generation-specific `if` math；只呼叫注入的 `getRule(snapshot)`。
+Combat 不寫 generation-specific `if` math。
 
-### Hydra I
+Hydra I、II、III shell 規則與 v0.10 相同：Hydra II cap 81；NP suppress growth；Hydra III shell reject cut。
 
-```text
-cut 1
-→ -1 now
-→ delayed same-head regrowth unless head growth is suppressed
-→ reaching 0 = true kill
-```
-
-### Hydra II
-
-```text
-normal cut 1
-→ remove 1
-→ immediate structural spawn up to 2
-→ clamp final head count to max 81
-```
-
-因此：
-
-```text
-9  → 10
-80 → 81
-81 → 81
-```
-
-NP / generic growth suppression：
-
-```text
-headsSpawned = 0
-→ cut becomes net -1
-→ reaching 0 = true kill
-```
-
-### Hydra III shell
-
-目前只有安全 placeholder rule：
-
-```text
-generation = 3
-starting heads = 9
-max heads = 729
-resolveCut → rejected / no mutation
-```
-
-Auto Slash 在 generation >= 3 暫停，避免未實作規則被高速呼叫。
-
-## 4. Hydra Model owns immediate spawn application
-
-`applyCutResolution()` 統一套用：
-
-```text
-logicalHeadCount
-- headsRemoved
-+ headsSpawned
-```
-
-Hydra II 的 max 81 由 Rule 在輸出 `headsSpawned` 前處理，不由 View clamp logical state。
-
-## 5. Combat semantic output
-
-Accepted cut 發：
-
-```js
-{
-  type: 'head:cut',
-  payload: {
-    source,
-    amount: headsRemoved,
-    spawned: headsSpawned,
-    killed,
-    ...
-  }
-}
-```
-
-因此 Hydra II 在 81 cap 時可以合法發：
-
-```text
-CUT 1 · GROW +1 · Δ 0
-```
-
-NP active 則：
-
-```text
-CUT 1
-```
-
-## 6. Progression / generation transition
+## 4. Progression / generation transition
 
 ### I → II
 
 ```text
-99 total Hydra I kills
+99 Hydra I kills
 → generation 2
 → encounter 1
 → heads 9
 ```
 
-保留第一次 Hydra II manual-cut intro guard。
-
 ### Hydra II loop
 
-每隻 Hydra II 真 kill 後：
+每隻真 kill：
 
 ```text
 encounter n defeated
 → respawn delay
 → encounter n+1
-→ heads reset to generation startingHeads = 9
+→ heads 9
 ```
 
 ### II → III
-
-Progression 用 generation-local encounter completion 判斷：
 
 ```text
 Hydra II encounter 99 defeated
 → generation 3
 → encounter 1
 → heads 9
-→ maxHeads metadata 729
 ```
 
-不需要新增 generation-local kill counter field；`hydra.encounter` 已足以表示目前世代進度。
+Generation-local completion 仍由 `hydra.encounter + defeated` 表示，不新增 kill counter field。
 
-## 7. Hydra II first-cut Auto guard
+## 5. Playtest 4 generation progress projection
 
-Command Spell I capability 不被關閉。
-
-只有 Hydra II 第一次登場且 milestone 尚未完成時：
+新增 View projection：
 
 ```text
-Auto Slash paused
-→ first accepted manual cut
-→ milestone hydra-ii-first-manual-cut
-→ later tick Auto resumes
+snapshot.hydra.encounter
+snapshot.hydra.defeated
++ deterministic generation data
+↓
+projectGenerationProgress()
+↓
+completedKills / targetKills / maxHeads
 ```
 
-後續 Hydra II encounters 不重播 intro guard。
+規則：
 
-## 8. NP boundary
+```text
+alive    → completed = encounter - 1
+defeated → completed = encounter
+```
 
-NP：
+因此 lifetime statistics 不再直接餵玩家主 HUD。
+
+`statistics.totalHydrasKilled` 仍完整保留，TEST panel 可顯示 `TOTAL KILLS`。
+
+這是 presentation projection，不進 Save。
+
+## 6. Semantic generation transition view
+
+Progression 仍只 emit：
+
+```text
+hydra:generation-changed
+```
+
+Application / View 消費事件：
+
+```text
+hydra:generation-changed
+→ generation-transition-view.show()
+→ CSS animation
+```
+
+Important boundary：
+
+```text
+transition animation != gameplay delay
+```
+
+- 不暫停 GameClock。
+- 不使用 gameplay `setTimeout`。
+- View 用 `animationend` 收幕。
+- Hydra II first-cut Auto guard 仍是原本 progression policy。
+
+## 7. Generation stage palette
+
+`battle-scene.js` 擁有 presentation-only stage palette：
+
+```text
+Gen I   neutral dark
+Gen II  subtle sickly yellow-green
+Gen III cool violet shell
+```
+
+Application 每次 render 只傳：
+
+```text
+snapshot.hydra.generation
+→ stage.setGenerationAppearance(generation)
+```
+
+NP tint 是更高優先的 temporary visual state：
+
+```text
+NP active
+→ red battle tint
+
+NP ends
+→ restore current generation palette
+```
+
+Palette 不參與 Hydra rule、combat、head cap 或 Save。
+
+## 8. Hydra II first-cut Auto guard
+
+不變：Command Spell I capability 保留；Hydra II 第一次登場且 milestone 缺失時 Auto pause，accepted manual cut 後恢復。
+
+## 9. NP boundary
+
+不變：
 
 ```text
 66 heads = READY
@@ -198,69 +177,35 @@ NP：
 hydra.headGrowth = disabled
 ```
 
-Resolver：
-
-```js
-{
-  headGrowthEnabled: false,
-  regrowthEnabled: false
-}
-```
-
 Hydra I：不排 delayed regrowth。  
-Hydra II：`headsSpawned = 0`，因此可真正砍到 0。
-
-Legacy `hydra.regrowth / disable` 仍是相容 alias。
-
-## 9. Clock order
-
-Fixed step 目前 100ms。
-
-重要 listener order：
-
-```text
-Progression
-→ Combat / Auto composition
-→ Auto Slash
-```
-
-因此 due respawn / generation transition 都會先完成，再讓 Auto 判斷是否可攻擊。
+Hydra II：`headsSpawned = 0`，因此可砍到 0。
 
 ## 10. View boundary
 
-Head pool contract完全不變：
+Head pool contract不變：
 
 ```text
 logical 0–99 → same visible count
 logical 100+ → visible 99
 ```
 
-這代表：
+Hydra II max81 不碰 visual cap；Hydra III max729 可以 >99，但 View 仍最多 99 meshes。
 
-```text
-Hydra II max 81
-→ 永遠低於 visual cap
-
-Hydra III max 729
-→ logical 可以 >99
-→ View 仍最多 99 meshes
-```
-
-所以世代 scale 不要求重做 Hydra II visual implementation。
+Generation chapter overlay / HUD progress / palette 都不能改 logical heads。
 
 ## 11. Persistence
 
 State schema 仍為 1。
 
-沒有新增必填 state field：
+Playtest 4 新增的都是 derived / presentation state：
 
-- generation 已存在。
-- encounter 已存在。
-- startingHeadCount 已存在。
-- generation maxHeads 是 deterministic Data，不需存檔。
-- Hydra III shell 只使用既有 generation / encounter / head fields。
+```text
+generation progress projection  → not saved
+transition animation state       → not saved
+stage palette                    → not saved
+```
 
-所以 Save format 不需 migration。
+沒有 migration。
 
 ## 12. Dependency direction
 
@@ -271,30 +216,29 @@ data → none
 math → plain data/context
 systems → math + data + injected interfaces
 core → systems + math + data
-view → snapshot + semantic events + application projection
+view → snapshot + semantic events + data projection
 save → serializable logical state
 ```
 
 禁止：
 
 ```text
-math → Babylon / DOM
-view → mutate logical head cap
-NP → directly mutate Hydra heads
-progression → directly call Auto Slash
-combat → spawn next encounter
-save → calculate generation progression
+View → mutate encounter / kill counters
+transition overlay → pause GameClock
+stage palette → change Hydra rule context
+lifetime statistics → masquerade as generation-local HUD progress
 ```
 
 ## 13. Current stage
 
 ```text
-Hydra I 99-kill generation       ✅
-Hydra II 81-head / 99-kill loop ✅
-Hydra III 9-head / max729 shell ✅
-Hydra III combat rule           ⛔ not yet
-Analyzer                         ⛔ not yet
-Command Spell II                 ⛔ not yet
+Hydra I 99-kill generation        ✅
+Hydra II 81-head / 99-kill loop  ✅
+Hydra III 9-head / max729 shell  ✅
+Playtest 4 chapter presentation   ✅
+Hydra III combat rule            ⛔ not yet
+Analyzer                          ⛔ not yet
+Command Spell II                  ⛔ not yet
 ```
 
 最後檢查：
