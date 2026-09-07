@@ -33,26 +33,38 @@ export function createTestPresets({ state, events, progression } = {}) {
     throw new TypeError('Test presets require Command Spell I progression data.');
   }
 
-  function maxCommandSpellI() {
+  function setCommandSpellILevel(level) {
     const levels = progression.commandSpellI.levels;
-    const max = levels.at(-1);
+    const target = levels.find((entry) => entry.level === level);
+    if (!target) {
+      throw new RangeError(`Unknown Command Spell I level: ${level}`);
+    }
 
     state.update((draft) => {
       draft.master.commandSpells.autoSlash = true;
-      draft.berserker.baseAttacksPerSecond = max.attacksPerSecond;
+      draft.berserker.baseAttacksPerSecond = target.attacksPerSecond;
 
-      for (const level of levels.slice(1)) {
-        addMilestone(draft, `${progression.commandSpellI.id}-lv${level.level}`);
+      for (const entry of levels.slice(1)) {
+        const milestone = `${progression.commandSpellI.id}-lv${entry.level}`;
+        if (entry.level <= target.level) addMilestone(draft, milestone);
+        else removeMilestone(draft, milestone);
       }
     });
 
     const payload = {
-      preset: 'command-spell-i-max',
-      level: max.level,
-      attacksPerSecond: max.attacksPerSecond,
+      preset: 'command-spell-i-level',
+      level: target.level,
+      maxed: target.level === levels.at(-1).level,
+      attacksPerSecond: target.attacksPerSecond,
     };
     events.emit('test:preset-applied', payload);
     return Object.freeze(payload);
+  }
+
+  // Compatibility helper for older tests / links. The player-facing TEST UI now
+  // uses setCommandSpellILevel() to cycle Lv.1 → Lv.3 → Lv.6 → MAX.
+  function maxCommandSpellI() {
+    return setCommandSpellILevel(progression.commandSpellI.levels.at(-1).level);
   }
 
   function commandSpellIILv1() {
@@ -167,6 +179,7 @@ export function createTestPresets({ state, events, progression } = {}) {
   }
 
   return Object.freeze({
+    setCommandSpellILevel,
     maxCommandSpellI,
     commandSpellIILv1,
     readyNp,
