@@ -52,8 +52,6 @@ export function createNpSystem({
       throw new TypeError('head:cut amount must be a non-negative BigInt.');
     }
 
-    // The gauge caps at maxPoints, so there is no reason to convert an
-    // arbitrarily large BigInt head count into Number.
     const maxRelevantHeads = pointsPerHead === 0
       ? 0
       : Math.ceil(maxPoints / pointsPerHead);
@@ -68,8 +66,6 @@ export function createNpSystem({
       const currentPoints = normalizedToPoints(draft.berserker.np, maxPoints);
       valuePoints = Math.min(maxPoints, currentPoints + requestedPoints);
       gainedPoints = valuePoints - currentPoints;
-      // Persistence keeps the existing normalized 0..1 representation.
-      // This makes old percentage-based saves naturally map onto the 66-point gauge.
       draft.berserker.np = valuePoints / maxPoints;
     });
 
@@ -99,9 +95,9 @@ export function createNpSystem({
     const startsAt = snapshot.time.simulationTimeMs;
     const endsAt = startsAt + durationMs;
     const modifier = {
-      id: `np-regeneration-window-${snapshot.statistics.totalNpReleases.toString()}`,
+      id: `np-head-growth-window-${snapshot.statistics.totalNpReleases.toString()}`,
       type: 'rule-modifier',
-      target: 'hydra.regrowth',
+      target: 'hydra.headGrowth',
       effect: 'disable',
       startsAt,
       endsAt,
