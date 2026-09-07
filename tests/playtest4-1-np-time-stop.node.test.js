@@ -128,7 +128,8 @@ test('NP time-stop presentation is semantic-event driven and never blocks manual
   assert.doesNotMatch(phaseSource, /setTimeout/);
   assert.match(appSource, /events\.on\('np:released'/);
   assert.match(appSource, /events\.on\('np:ended'/);
-  assert.match(appSource, /runtime\.isNpActive\(\)/);
+  assert.match(appSource, /runtime\.npWindowStatus\(\)/);
+  assert.match(appSource, /const npActive = npWindow\.active/);
   assert.match(hudSource, /PAUSED · NP/);
   assert.match(hudSource, /寶具解放/);
 });
