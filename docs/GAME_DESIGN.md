@@ -1,6 +1,6 @@
-# Hydra Clicker — Game Design v0.7
+# Hydra Clicker — Game Design v0.8
 
-> Playtest 3：Hydra II 從單次 Intro 擴成完整 99-kill generation loop。Hydra 世代開始使用 `9^n` 邏輯頭數上限；Hydra III 目前只做登場 shell，不實作戰鬥規則。
+> Playtest 4：Hydra II 已有 81-head / 99-kill loop，這一版先補玩家端「章節感」：世代本地進度、短切幕、輕微場景色調身份。核心玩法數值不改。
 
 ## 1. 核心一句話
 
@@ -22,6 +22,7 @@ Hydra III starting 9 · max 729 = 9³
 2. Active tapping 與 idle automation 都有存在理由。
 3. 規則反轉本身要先好玩，再逐步揭露數學。
 4. 世代擴張與 View mesh cap 分離。
+5. 玩家先感覺「進入下一幕」，再去理解背後數學。
 
 ## 2. Hydra I — Seal Candidate
 
@@ -114,20 +115,18 @@ CUT 1
 → net +1
 ```
 
-但 Hydra II 有邏輯上限：
+Hydra II 邏輯上限：
 
 ```text
 max heads = 81 = 9²
 ```
 
-因此接近上限時 growth 會被 cap：
+接近上限時 growth 被 cap：
 
 ```text
 80 → cut 1 / grow 2 → 81
 81 → cut 1 / grow 1 → 81
 ```
-
-它不會長到 82。
 
 ### NP kill window
 
@@ -141,14 +140,14 @@ CUT 1
 → net -1
 ```
 
-當最後一頭被砍掉：
+最後一頭被砍掉：
 
 ```text
 1 → 0
 → Hydra II true kill
 ```
 
-之後生成下一隻 Hydra II，仍從 9 頭開始。
+下一隻 Hydra II 重新從 9 頭開始。
 
 ### 世代完成
 
@@ -159,8 +158,6 @@ kill encounter 99
 ↓
 HYDRA III
 ```
-
-也就是 Hydra II 本身要殺 99 隻。
 
 ## 6. Hydra III — shell only
 
@@ -176,9 +173,73 @@ combat rule = not implemented yet
 
 玩家可以看到 Hydra III 登場，但目前不進一步結算其戰鬥。
 
-這不是 Hydra III 正式規則，只是確保 generation progression 可以走到下一個設計節點而不讓 runtime crash。
+## 7. Playtest 4 — Hydra II as a Chapter
 
-## 7. Analyzer / Tree View 候選下一步
+這輪不調整 Hydra II 數值，不 nerf NP，也不加入 Analyzer。先讓玩家明確感覺世代切換是一個「新章節」。
+
+### 世代本地 KILLS
+
+玩家 HUD 不再直接顯示 lifetime Hydra kills。
+
+```text
+Hydra I  encounter 1 alive  → 0/99
+Hydra I  encounter 99 dead  → 99/99
+Hydra II encounter 1 alive  → 0/99
+Hydra II encounter 37 alive → 36/99
+Hydra II encounter 37 dead  → 37/99
+```
+
+因此進 Hydra II 時玩家看到的是：
+
+```text
+HYDRA II · 0/99
+```
+
+Lifetime kills 仍保留在 Statistics，開發中的 TEST panel 顯示 `TOTAL KILLS`，但不佔主玩家 HUD。
+
+這個進度由既有 `hydra.encounter + defeated` 投影，不新增 persistent generation-kill counter。
+
+### 世代切幕
+
+`hydra:generation-changed` 觸發短畫面切幕，例如：
+
+```text
+NEXT GENERATION
+HYDRA II
+START 9 · MAX 81 · KILL 99
+```
+
+切幕是純 presentation：
+
+- CSS animation 約 1.25 秒。
+- pointer-events none。
+- 不暫停 GameClock。
+- 不用 gameplay `setTimeout`。
+- Hydra II 真正的 first-cut Auto guard 仍由原 progression policy 負責。
+
+Hydra III shell 也可以使用同一個切幕，但顯示 `RULE PENDING`。
+
+### 世代色調
+
+不重畫已經合格的 Hydra II mesh；先用很輕的戰場色溫區分：
+
+```text
+Hydra I   → 原本中性黑灰
+Hydra II  → 輕微病態黃綠
+Hydra III → 冷紫 shell
+```
+
+NP 紅屏優先於世代色；NP 結束後回到目前世代 palette。
+
+### Playtest 4 要回答的問題
+
+1. I → II 是否明顯像「進入下一幕」，而不是同一隻怪數值變化。
+2. 0/99 是否讓 Hydra II 的 99 隻有清楚推進感。
+3. 81 頭爆滿 → NP → 清場是否本身就夠爽，先不要因理論上的效率問題 nerf。
+4. 中段 10～50 隻是否開始感到過度重複；若有，再決定加入第二令咒、事件或其他 progression。
+5. Hydra II #99 → Hydra III shell 的切幕是否足夠形成期待。
+
+## 8. Analyzer / Tree View 候選下一步
 
 Hydra II 已開始提供自然的分析需求：
 
@@ -190,9 +251,9 @@ NET GROWTH
 MAX HEADS
 ```
 
-Hydra III 之後才真正開始需要超過 99 顆頭的 logical / compressed representation。
+但 Playtest 4 先不加入。只有當玩家真的因 Hydra II / III 規則需要「看懂系統」時再登場。
 
-## 8. Logical Heads ≠ Visible Heads
+## 9. Logical Heads ≠ Visible Heads
 
 View contract 不變：
 
@@ -213,15 +274,14 @@ Hydra III max = 729
 → 畫面仍只顯示最多 99 顆
 ```
 
-View 不得以 visible 99 反推 logical head cap。
-
-## 9. 目前刻意未決
+## 10. 目前刻意未決
 
 - Hydra III 正式 cut / growth / termination rule。
 - Hydra III 的 729 上限如何與真正 tree structure 對應。
 - Command Spell II 功能。
 - Analyzer 出場節點。
+- Hydra II 99 隻中段是否需要新事件／升級節點。
 - Prestige / Offline Progress。
 - 真正 Kirby–Paris 規則在哪一代完整出現。
 
-原則：**世代數學可以長大，畫面不必暴力建立每一顆頭。**
+原則：**先讓玩家感覺規則在變，再讓玩家需要理解規則。**
