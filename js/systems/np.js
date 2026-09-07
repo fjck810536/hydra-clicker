@@ -35,6 +35,7 @@ export function createNpSystem({
   maxPoints = DEFAULT_MAX_POINTS,
   pointsPerHead = DEFAULT_POINTS_PER_HEAD,
   durationMs = DEFAULT_DURATION_MS,
+  getConfig = null,
 } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('NP system requires a state store.');
@@ -42,15 +43,35 @@ export function createNpSystem({
   if (!events || typeof events.on !== 'function' || typeof events.emit !== 'function') {
     throw new TypeError('NP system requires an event bus.');
   }
+  if (getConfig != null && typeof getConfig !== 'function') {
+    throw new TypeError('NP getConfig must be a function when provided.');
+  }
   assertGaugeConfig({ maxPoints, pointsPerHead, durationMs });
 
+  function resolveConfig(snapshot = state.read()) {
+    const dynamic = getConfig?.(snapshot) ?? {};
+    if (!dynamic || typeof dynamic !== 'object') {
+      throw new TypeError('NP getConfig() must return an object.');
+    }
+    const config = {
+      maxPoints: dynamic.maxPoints ?? maxPoints,
+      pointsPerHead: dynamic.pointsPerHead ?? pointsPerHead,
+      durationMs: dynamic.durationMs ?? durationMs,
+    };
+    assertGaugeConfig(config);
+    return Object.freeze(config);
+  }
+
   function getStatus(snapshot = state.read()) {
-    const points = normalizedToPoints(snapshot.berserker.np, maxPoints);
+    const config = resolveConfig(snapshot);
+    const points = normalizedToPoints(snapshot.berserker.np, config.maxPoints);
     return Object.freeze({
       points,
-      maxPoints,
-      ready: points >= maxPoints,
-      normalized: points / maxPoints,
+      maxPoints: config.maxPoints,
+      ready: points >= config.maxPoints,
+      normalized: points / config.maxPoints,
+      durationMs: config.durationMs,
+      pointsPerHead: config.pointsPerHead,
     });
   }
 
@@ -80,28 +101,30 @@ export function createNpSystem({
       throw new TypeError('head:cut amount must be a non-negative BigInt.');
     }
 
-    const maxRelevantHeads = pointsPerHead === 0
+    const snapshot = state.read();
+    const config = resolveConfig(snapshot);
+    const maxRelevantHeads = config.pointsPerHead === 0
       ? 0
-      : Math.ceil(maxPoints / pointsPerHead);
+      : Math.ceil(config.maxPoints / config.pointsPerHead);
     const relevantHeads = payload.amount > BigInt(maxRelevantHeads)
       ? maxRelevantHeads
       : Number(payload.amount);
-    const requestedPoints = relevantHeads * pointsPerHead;
+    const requestedPoints = relevantHeads * config.pointsPerHead;
 
     let gainedPoints = 0;
     let valuePoints = 0;
     state.update((draft) => {
-      const currentPoints = normalizedToPoints(draft.berserker.np, maxPoints);
-      valuePoints = Math.min(maxPoints, currentPoints + requestedPoints);
+      const currentPoints = normalizedToPoints(draft.berserker.np, config.maxPoints);
+      valuePoints = Math.min(config.maxPoints, currentPoints + requestedPoints);
       gainedPoints = valuePoints - currentPoints;
-      draft.berserker.np = valuePoints / maxPoints;
+      draft.berserker.np = valuePoints / config.maxPoints;
     });
 
     events.emit('np:charge', {
       atMs: payload.atMs,
       amount: gainedPoints,
       value: valuePoints,
-      max: maxPoints,
+      max: config.maxPoints,
     });
   });
 
@@ -136,8 +159,9 @@ export function createNpSystem({
       return { accepted: false, reason: 'np-not-ready', status };
     }
 
+    const config = resolveConfig(snapshot);
     const startsAt = snapshot.time.simulationTimeMs;
-    const endsAt = startsAt + durationMs;
+    const endsAt = startsAt + config.durationMs;
     const modifier = {
       id: `np-head-growth-window-${snapshot.statistics.totalNpReleases.toString()}`,
       type: 'rule-modifier',
@@ -155,7 +179,13 @@ export function createNpSystem({
       draft.statistics.totalNpReleases += 1n;
     });
 
-    const payload = { atMs: startsAt, endsAt, modifier };
+    const payload = {
+      atMs: startsAt,
+      endsAt,
+      durationMs: config.durationMs,
+      maxPoints: config.maxPoints,
+      modifier,
+    };
     events.emit('np:released', payload);
     return { accepted: true, ...payload };
   }
@@ -164,6 +194,9 @@ export function createNpSystem({
     release,
     getStatus,
     getWindowStatus,
+    getConfig(snapshot = state.read()) {
+      return resolveConfig(snapshot);
+    },
     isActive,
     isReady() {
       return getStatus().ready;
