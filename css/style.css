@@ -137,6 +137,7 @@ textarea {
 }
 
 .test-tools-toggle,
+.test-preset-button,
 .test-reset-button {
   border: 1px solid rgb(255 255 255 / 22%);
   color: inherit;
@@ -159,11 +160,11 @@ textarea {
 
 .test-tools-panel {
   display: grid;
-  min-width: 138px;
+  min-width: 160px;
   gap: 7px;
   padding: 9px;
   border: 1px solid rgb(255 255 255 / 14%);
-  background: rgb(8 8 12 / 86%);
+  background: rgb(8 8 12 / 90%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   font-size: 0.62rem;
@@ -183,13 +184,22 @@ textarea {
   margin-left: 4px;
 }
 
+.test-preset-button,
 .test-reset-button {
   padding: 7px 9px;
   border-radius: 4px;
-  background: rgb(255 72 72 / 14%);
   font-size: 0.61rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  text-align: left;
+}
+
+.test-preset-button {
+  background: rgb(235 235 255 / 8%);
+}
+
+.test-reset-button {
+  background: rgb(255 72 72 / 14%);
 }
 
 .anchor-label {
@@ -282,6 +292,7 @@ textarea {
 .command-spell-button:not(:disabled):active,
 .np-button:not(:disabled):active,
 .test-tools-toggle:active,
+.test-preset-button:active,
 .test-reset-button:active {
   transform: scale(0.97);
 }
