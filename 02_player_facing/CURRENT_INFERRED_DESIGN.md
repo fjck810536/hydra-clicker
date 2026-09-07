@@ -125,6 +125,20 @@ but:
 
 This is intended to prioritize catharsis and tactile pleasure over conservation of the normal regrowth rule.
 
+### Confirmed base duration
+
+The initial Noble Phantasm window is only:
+
+> **3 seconds**
+
+This short duration is intentional and is part of the joke / frustration / urgency of the early player experience. The first Noble Phantasm should feel powerful because Hydra law is turned off, but also comically brief.
+
+The player may therefore experience:
+
+> 寶具解放！ → 狂砍 → 「蛤？三秒就沒了？」
+
+The short base window is not extended by Command Spell I. Noble Phantasm duration progression begins only once Command Spell II enters the design.
+
 ### Noble Phantasm presentation
 
 The activation control is presented as a card / textual action:
@@ -150,9 +164,19 @@ During the early form of NP:
 
 - Hydra regrowth is disabled;
 - heads cut during NP permanently remain cut;
-- autonomous cutting / APS may stop;
+- autonomous cutting / APS may be governed separately by progression state rather than assumed active by default;
 - the player remains able to cut manually;
 - visual color, motion, sound, or UI state may clearly indicate that normal time has stopped.
+
+### Confirmed timer visibility
+
+The NP window should have a visible countdown timer rather than being readable only through atmosphere.
+
+Preferred UI direction:
+
+> a **small stopwatch / compact countdown** placed at the top or bottom edge of the play area
+
+The countdown should be precise enough to make the three-second absurdity legible, but visually secondary to the Hydra itself.
 
 ### Confirmed end-of-window behavior
 
@@ -176,11 +200,11 @@ The first Hydra II NP is **not required to guarantee a kill**.
 
 The preferred outcome is skill-sensitive:
 
-- a fast manual player may be able to kill Hydra II in a single NP window;
-- a more typical player may require two NP cycles;
+- a player using near-full-speed two-thumb clicking may be able to kill Hydra II in a single three-second NP window;
+- a more typical player may require two or more NP cycles;
 - neither outcome should feel like failure.
 
-This preserves manual expression without turning high-speed clicking into a mandatory execution check.
+This preserves manual expression without turning exotic multi-finger clicking into a mandatory execution check.
 
 ### Working encounter arc
 
@@ -194,12 +218,12 @@ A likely Hydra II experience is:
 > → if the cap is reached, ordinary cutting becomes a satisfying but numerically static stalemate
 > → NP reaches 66
 > → **寶具解放**
-> → time-stop / rule-cancellation window
+> → ~3-second time-stop / rule-cancellation window
 > → for the first time the count falls continuously: 81 → 80 → 79 → ...
-> → strong player may finish the Hydra; typical player may leave survivors
+> → very fast two-thumb player may finish the Hydra; typical player may leave survivors
 > → time resumes visibly
 > → subsequent ordinary cutting again creates regrowth pressure
-> → second cycle if needed
+> → another cycle if needed
 
 The core cathartic contrast is:
 
@@ -209,33 +233,58 @@ The core cathartic contrast is:
 >
 > **81 → 80 → 79 → 78 ...**
 
-The pleasure comes from finally watching the number genuinely decrease.
+The pleasure comes from finally watching the number genuinely decrease, while the three-second limit creates urgency and a deliberate "that's all I get?" joke.
 
 ---
 
 ## 7. Command Spell progression
 
-### Current preferred player-facing order
+### Corrected player-facing structure
 
-The first two Command Spell beats have been reordered from the earlier discussion.
+Command Spells and Noble Phantasm duration progression are separate systems and should not be conflated.
 
-#### Command Spell I
-
-> **「幫我撐十秒。」**
-
-Player-facing purpose: establish / extend the safe Noble Phantasm window and teach the player that **time itself is a resource**.
-
-#### Command Spell II
+#### Command Spell I — APS / throughput
 
 > **「快一點，再快一點。」**
 
-Player-facing purpose: escalate cutting speed / APS and turn the player's growing throughput into the next form of power.
+Command Spell I is the APS / attack-speed progression.
 
-#### Command Spell III
+Player-facing purpose:
+
+- introduce or escalate autonomous cutting throughput;
+- preserve the ability for the player to **interleave manual clicks with APS**, rather than replacing active play with idle play;
+- create the contrast that the player's overall cutting capability can become dramatically faster while the Noble Phantasm itself is still stuck at a ridiculous **3 seconds**.
+
+That mismatch is intentional and part of the joke.
+
+Command Spell I does **not** extend Noble Phantasm duration.
+
+#### Command Spell II — Noble Phantasm time progression
+
+> **「幫我撐十秒。」**
+
+Command Spell II is where Noble Phantasm duration progression begins.
+
+Current design direction:
+
+- the progression is organized into several stages around powers of three, **3^n**;
+- the progression may extend up to a ceiling associated with **81**;
+- only some of those stages need to increase Noble Phantasm duration;
+- other stages within the same Command Spell II progression may grant different related bonuses rather than making every step pure duration inflation.
+
+The exact mapping of each 3^n milestone to duration versus other bonuses remains open and should be tuned later.
+
+Player-facing meaning:
+
+> the player first becomes faster, and only later acquires the ability to keep the impossible three-second window open for longer.
+
+#### Later Command Spell / automation beat
 
 > **「這裡怎麼沒有 SKIP???」**
 
-Player-facing purpose: allow autonomous cutting to participate during the Noble Phantasm / time-stop window, transforming early manual burst play into a later automated massacre window.
+The later SKIP joke remains a candidate for enabling stronger automation during Noble Phantasm / time-stop play, turning an early manual burst window into a later automated massacre window.
+
+Its exact placement in the Command Spell structure remains provisional until the full Command Spell II / 3^n progression is mapped.
 
 ### Synchronization note
 
@@ -347,7 +396,7 @@ The game does not currently need to explain whether successive Hydras are reinca
 
 One useful working model is:
 
-> **Manual suppression → self-created pressure → cap stalemate → NP rule-breaking window → stronger automation → scale abstraction → structural understanding**
+> **Manual suppression → self-created pressure → cap stalemate → 3-second NP rule-breaking window → APS/manual hybrid escalation → longer NP control → scale abstraction → structural understanding**
 
 A parallel transformation occurs in the meaning of a head:
 
@@ -355,7 +404,7 @@ A parallel transformation occurs in the meaning of a head:
 
 And in the meaning of the player character / Heracles-side power:
 
-> hand → more time → faster hand → automated hand
+> hand → faster hand + autonomous cutting → more controlled time → later automation inside the impossible window
 
 These are working hypotheses to test against actual play rather than fixed lore.
 
@@ -367,10 +416,11 @@ The next player-facing questions that remain genuinely unresolved include:
 
 1. **Hydra II regrowth timing below cap:** exactly how long should the severed-head → regrowth delay be so that cause is legible without slowing rapid play?
 2. **Hydra II cap feedback:** what exact animation communicates "you are still cutting successfully, but the population is no longer shrinking" without replaying a visually exhausting two-head regrowth sequence every click?
-3. **Base NP duration:** what duration makes one-cycle kills possible for strong manual players while making two cycles normal for typical players?
-4. **First NP timing:** what data tuning causes ordinary players to reach 66 NP naturally around the 70–81-head region rather than always at the same exact count?
-5. **APS paradox:** during Hydra II, how strongly should automation behave as both help (NP generation / throughput) and danger (creating more regrowth)?
-6. **Hydra III tree reveal:** what information should the first tree view actually expose, and what should remain hidden?
-7. **Text / micro-story:** how much Souls-like encounter naming / death text should coexist with the unexplained corpse conveyor-belt comedy?
-8. **Visual abstraction >99:** what exact visual grammar tells the player that the Hydra is still growing even though the main view stops drawing literal new heads?
-9. **Sound:** what should cutting, regrowth, cap stalemate, NP time stop, and time resume sound like, especially under high-frequency clicking?
+3. **Three-second NP lethality:** with real two-thumb play, how many heads can a strong player actually remove in 3 seconds, and does that produce the desired one-cycle / multi-cycle split?
+4. **Command Spell I APS/manual interaction:** how should autonomous cuts and manual clicks coexist perceptually so that APS feels like additional hands rather than the game playing itself?
+5. **Command Spell II 3^n ladder:** which milestones increase NP duration, which provide other bonuses, and what does the ceiling at 81 represent player-facing?
+6. **NP timer placement:** should the small stopwatch live above or below the play field, and how visible should tenths / hundredths of seconds be?
+7. **Hydra III tree reveal:** what information should the first tree view actually expose, and what should remain hidden?
+8. **Text / micro-story:** how much Souls-like encounter naming / death text should coexist with the unexplained corpse conveyor-belt comedy?
+9. **Visual abstraction >99:** what exact visual grammar tells the player that the Hydra is still growing even though the main view stops drawing literal new heads?
+10. **Sound:** what should cutting, regrowth, cap stalemate, NP time stop, and time resume sound like, especially under high-frequency clicking?
