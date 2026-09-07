@@ -167,6 +167,7 @@ const renderSnapshot = () => {
   const snapshot = runtime.snapshot();
   hud.render(snapshot, {
     commandSpellI: runtime.commandSpellIStatus(),
+    np: runtime.npStatus(),
   });
   hydraView.render(snapshot);
   stage.setNpActive(isNpWindowActive(snapshot));
@@ -286,7 +287,7 @@ document.addEventListener('visibilitychange', handleVisibilityChange);
 renderSnapshot();
 hud.setStatus(restoredFromSave
   ? 'SAVE RESTORED · simulation resumes where it stopped.'
-  : 'Cut all 9 heads to defeat Hydra I. NP is a timed farming burst.');
+  : 'Cut heads to charge NP · 66 heads = READY.');
 runtime.start();
 
 window.addEventListener('pagehide', () => {
