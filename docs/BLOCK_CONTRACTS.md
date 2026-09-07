@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.9
+# Hydra Clicker — Block Contracts v0.10
 
-> 這份文件是積木之間的插頭規格。v0.9 對齊 Playtest 2.4：66-point NP gauge、第一令咒 64 APS MAX、95→99 NP 收尾假說。
+> v0.10 對齊 Playtest 3 Hydra II Intro。這是積木之間的資料插頭，不是最終 API。
 
 ## 1. Attack Request
 
@@ -14,46 +14,102 @@
 }
 ```
 
-Input / Auto 只描述「想砍」；不直接改 headCount、不播動畫。
+Input / Auto 只描述「想砍」。
 
-## 2. Cut Resolution / Hydra I
+## 2. Cut Resolution
+
+共同格式：
 
 ```js
 {
   accepted: true,
+  ruleId,
+  turnBefore,
+  turnAfter,
   headsRemoved: 1n,
   headsSpawned: 0n,
   materialsProduced: 0n,
+  regrowth: [],
+  cancelPendingRegrowth: false,
   depleted: false,
   killed: false,
-  cancelPendingRegrowth: false,
-  regrowth: [],
-  effects: ['slash-hit']
+  effects: []
 }
 ```
 
-Hydra I current rule：
+`headsRemoved` / `headsSpawned` 都是 exact BigInt。
+
+Hydra Model 套用順序：
 
 ```text
-remaining heads > 0 + regrowth enabled
-→ cut
-→ schedule same-head regrowth at now + regrowthDelayMs
-
-remaining heads > 0 + regrowth disabled
-→ cut
-→ no new regrowth
-
-remaining heads = 0
-→ depleted = true
-→ killed = true
-→ cancel all pending regrowth
+heads
+- headsRemoved
++ headsSpawned
+→ pending regrowth scheduling
 ```
 
-`depleted` 與 `killed` 仍是不同概念；只是 Playtest 2 的 Hydra I 暫時同時成立。
+## 3. Hydra I Rule
 
-## 3. Rule Context
+```text
+remaining > 0 + regen enabled
+→ remove head
+→ schedule same-head regrowth
 
-Combat 將 application / modifier context 合併後交給 Hydra Rule：
+remaining > 0 + regen disabled
+→ remove head
+→ no new regrowth
+
+remaining = 0
+→ depleted = true
+→ killed = true
+→ cancel pending regrowth
+```
+
+Hydra I：`headsSpawned = 0`。
+
+## 4. Hydra II Intro Rule
+
+Playtest 3：
+
+```text
+CUT 1
+→ headsRemoved = 1
+→ headsSpawned = 2 immediately
+→ no delayed regrowth
+→ net head delta = +1
+→ killed = false
+```
+
+所以第一刀：
+
+```text
+9 → 10
+```
+
+`headsSpawned` 是 structural immediate output，不是 Hydra I `regrowth` queue。
+
+現行 NP 的 `hydra.regrowth = disabled` **不會**取消 Hydra II `headsSpawned`。
+
+## 5. Rule selection
+
+Combat 接收 Core 注入：
+
+```js
+getRule(snapshot)
+```
+
+目前：
+
+```text
+generation 1 → Hydra I Rule
+generation 2 → Hydra II Rule
+```
+
+Combat 本身不硬寫 generation-specific rule math。
+
+## 6. Rule Context
+
+Hydra I example：
 
 ```js
 {
@@ -62,80 +118,63 @@ Combat 將 application / modifier context 合併後交給 Hydra Rule：
 }
 ```
 
-責任：
+來源：
 
 ```text
-Data / progression curve → regrowthDelayMs
-Modifier resolver         → regrowthEnabled
-Combat                    → 傳遞
-Hydra Rule                → 解算
+Data curve        → regrowthDelayMs
+Modifier resolver → regrowthEnabled
 ```
 
-Hydra Rule 不知道目前第幾殺，也不知道 disable 來自 NP、支援、科技或設施。
+Hydra II Intro 不需要 Hydra I regen delay。
 
-## 4. Regrowth Event
+## 7. head:cut semantic event
 
 ```js
 {
-  id,
-  executeAt,
-  type: 'hydra-regrow',
-  amount: 1n,
-  payload: { branchId: null, ruleId: 'regen-same-head' }
+  type: 'head:cut',
+  payload: {
+    atMs,
+    source,
+    amount: headsRemoved,
+    spawned: headsSpawned,
+    turn,
+    depleted,
+    killed
+  }
 }
 ```
 
-Gameplay delay 一律服從 Game Clock，不散成 `setTimeout()`。
+View 可以顯示：
 
-## 5. NP Gauge — Playtest 2.4
+```text
+CUT 1 · GROW +2 · Δ +1
+```
 
-### Player-facing gauge
+但不能從 UI 反寫 head count。
+
+## 8. NP Gauge
+
+Player-facing：
 
 ```text
 0 / 66
-1 head cut = +1 NP
+1 accepted head cut = +1
 66 / 66 = READY
-release = gauge returns to 0
+release = 0
 ```
 
-Manual 與 Auto Slash 的 accepted `head:cut` 都使用同一條規則；目前不做來源差別。
+Manual / Auto Slash 目前同規則。
 
-### Persistent representation
-
-`state.berserker.np` **仍保存 0..1 normalized ratio**，不是直接把 state schema 改成 0..66。
+Persistent：
 
 ```text
-player-facing points = round(normalized × 66)
-normalized = points / 66
+state.berserker.np = normalized 0..1
+points = round(normalized × 66)
 ```
 
-因此舊存檔自然相容：
+舊 `0.5` save → `33/66`。
 
-```text
-old np = 0.5
-→ Playtest 2.4 projection = 33 / 66
-```
-
-不需要 state schema migration。
-
-### NP status projection
-
-Runtime 對 UI 暴露：
-
-```js
-{
-  points: 33,
-  maxPoints: 66,
-  ready: false,
-  normalized: 0.5
-}
-```
-
-View 不自行知道 NP 上限。
-
-## 6. NP Timed Rule Modifier
-
-Release 後：
+## 9. NP Timed Modifier
 
 ```js
 {
@@ -149,65 +188,93 @@ Release 後：
 }
 ```
 
-目前 duration = 3000ms。
+Duration = 3000ms；可跨 encounters。
+
+NP READY 時，即使 Hydra defeated / respawn gap 也允許 release。
+
+## 10. Auto Slash
+
+Auto Slash 只透過 Game Clock 產生 Attack Request。
+
+普通 enable requirements：
 
 ```text
-existing pending regrowth → window 內暫停
-new cut                   → 不建立 regrowth
-Hydra A killed            → NP 不消失
-Hydra B / C / ...         → 同一 window 繼續
-endsAt                     → modifier expires
+autoSlash capability
+AND Hydra attackable
+AND heads > 0
 ```
 
-NP active 時 View 只做暗紅背景提示，不影響邏輯時間。
-
-## 7. Auto Slash
-
-Auto Slash 只讀：
+Playtest 3 另外由 Core 注入 Intro policy：
 
 ```text
-master.commandSpells.autoSlash
-berserker.baseAttacksPerSecond
-hydra attackable state
-Game Clock
+Hydra II
+AND first manual cut milestone missing
+→ Auto Slash temporarily disabled
 ```
 
-並產生 Attack Request。
+Auto Slash System 本身不知道 Hydra II 名稱。
 
-高攻速可在一個 tick batch 多刀；Combat 一旦 terminal kill 就停止該 batch，不把剩餘 strikes 套到死去的 Hydra。
+## 11. Hydra II first-cut milestone
 
-## 8. Encounter / Respawn
-
-普通 true kill：
+Progression 監聽 accepted `head:cut`：
 
 ```text
-kill
-→ defeated = true
-→ respawnAtMs = kill time + 300ms
+generation = 2
+source = manual
+first cut milestone absent
+↓
+progression.milestones += hydra-ii-first-manual-cut
+↓
+hydra:intro-complete
 ```
 
-regrowth-disabled burst：
+下一個 Game Clock tick Auto Slash 可恢復。
+
+## 12. Encounter / Generation Progression
+
+Hydra I true kill：
 
 ```text
-kill while regrowthEnabled = false
-→ respawnAtMs = kill time + 100ms
+defeated = true
+respawnAtMs = kill time + delay
 ```
 
-Progression 接受注入的 `getRespawnDelayMs(snapshot, payload)`，本身不判斷「是不是 NP」。
-
-Clock listener order：
+Delay：
 
 ```text
-clock tick
-→ Progression：處理 due respawn
-→ Auto Slash：同一 tick 可打新 Hydra
+regrowth enabled  → 300ms
+regrowth disabled → 100ms
 ```
 
-Combat / Hydra Math 不負責 spawn 下一隻。
+Playtest 3 threshold：
 
-## 9. Command Spell I — Playtest 2.4 Upgrade Curve
+```text
+totalHydrasKilled >= 99
+AND generation = 1
+→ next encounter = Hydra II
+```
 
-不新增第二令咒；第一令咒本身升級。
+Transition：
+
+```text
+hydra.generation = 2
+progression.hydraGeneration = 2
+encounter = 1
+heads = 9
+turn = 0
+pendingRegrowth = []
+defeated = false
+```
+
+並 emit：
+
+```text
+hydra:generation-changed
+```
+
+舊 save 若已經 `99 kills + live Hydra I`，下一個 simulation tick 直接 transition。
+
+## 13. Command Spell I — Playtest 2 Seal Curve
 
 ```text
 kills  level    cost   Auto Slash
@@ -220,70 +287,9 @@ kills  level    cost   Auto Slash
 66     Lv.MAX   132     64 APS
 ```
 
-Playtest 2.3 的：
+Capability / APS 跨 Hydra generation 保留。
 
-```text
-52 → 64 APS
-66 → 128 APS
-```
-
-已刪除。
-
-現在刻意保留：
-
-```text
-40 → 66 kills = 32 APS plateau
-66 kills       = 64 APS MAX
-```
-
-Lv.1：
-
-```text
-spend 99
-→ autoSlash = true
-→ baseAttacksPerSecond = 1
-→ command-spell:unlocked
-```
-
-Lv.2–MAX：
-
-```text
-spend cost
-→ progression.milestones += command-spell-1-lvN
-→ baseAttacksPerSecond = level APS
-→ command-spell:upgraded
-```
-
-舊存檔：
-
-```text
-autoSlash = true + no upgrade milestone
-→ 視為 Lv.1
-```
-
-## 10. Economy Shape
-
-Lv.1 後總升級成本：
-
-```text
-22 + 33 + 44 + 66 + 88 + 132 = 385 人類惡
-```
-
-第 9 → 66 隻收入：
-
-```text
-57 × 11 = 627 人類惡
-```
-
-若沿 milestone 購買，到 MAX 理論剩：
-
-```text
-627 - 385 = 242 人類惡
-```
-
-這只是 Playtest tuning。
-
-## 11. Hydra I Regen Curve
+## 14. Hydra I Regen Curve
 
 ```text
 0 kills  → 1500ms
@@ -294,102 +300,73 @@ Lv.1 後總升級成本：
 99 kills → 100ms floor
 ```
 
-0→9 快速惡化；9→99 繼續變快，但每隻造成的增幅遞減。
+Curve Data-owned；Combat 不知道 kill count。
 
-Curve 只在 Data；Combat 不知道 kill count。
-
-## 12. Current Endgame Hypothesis
-
-Playtest 2.4 不再要求 `66 kills >6 Hydra/sec`。
-
-實機目前較有價值的假說是：
+## 15. View / Head Pool
 
 ```text
-66 kills
-→ 64 APS MAX
-→ 普通 Auto 一路推進到約末段
-→ 約 95 左右自然卡住
-→ 玩家主動按一次 NP
-→ 3s burst 足以完成 95 → 99
+logical 0–99 → same visible count
+logical 100+ → 99 visible heads
 ```
 
-Headless test 只驗證：
+Hydra II logical growth 不受 visible cap 限制。
+
+HUD Playtest 3 projection：
 
 ```text
-64 APS + one NP at kill 95
-→ within 3 simulated seconds reaches at least kill 99
+HYDRA II
+AUTO PAUSED · TAP    // first-cut intro only
+CUT 1 · GROW +2 · Δ +1
 ```
 
-不再保留 128 APS / 10 Hydra-per-second 作為正式 contract。
+TEST regen readout在 Hydra II 可顯示 `STRUCTURAL`。
 
-## 13. Save
+## 16. Save
 
-Save 保存 logical state：
+State schema 仍為 1。
+
+Playtest 3 不新增必填 field：
 
 ```text
-currencies
-command-spell capability
-berserker base APS
-progression milestones
-normalized NP ratio
-Hydra logical encounter state
-pending regrowth
-active timed modifiers
-statistics
-simulation time / tick
+hydra.generation               existing
+progression.hydraGeneration    existing
+intro completion               milestones[]
+NP                             normalized existing field
 ```
 
-不保存 Babylon / DOM / animation / visible-head cache。
+No offline progress。
 
-Offline progress 仍 OFF。
-
-## 14. View / Test Tools
-
-HUD：
-
-```text
-NP 0/66 ... READY
-AUTO 16 APS
-COMMAND SPELL I Lv.N
-```
-
-TEST panel：
-
-```text
-REGEN xxx ms
-AUTO xxx APS / LOCKED
-RESET SAVE
-```
-
-View / Test Tools 只讀 runtime projection，不直接 mutate gameplay state。
-
-## 15. 最重要的自動測試
+## 17. Required tests
 
 ```text
 Hydra I:
-9 → cut → 8 → regen deadline → 9
-terminal cut → 0 → killed → pending queue cleared
+9 → cut → 8 → regen → 9
+terminal cut → killed
 
 NP:
-65 accepted head cuts → 65/66, not ready
-66th accepted head cut → 66/66, ready
-old normalized 0.5 save → 33/66
-release → 0/66 + 3s timed modifier
+65 cuts → not ready
+66 cuts → ready
+release → timed modifier
 
 Command Spell I:
-APS = 1,2,4,8,16,32,64
-kill requirements = 9,12,16,22,30,40,66
-64 APS MAX at kill 66
+1,2,4,8,16,32,64 APS
+64 MAX at 66 kills
 
-End stretch:
-kill 95 + 64 APS + one NP
-→ reaches at least 99 inside 3s
+Hydra II pure rule:
+9 + one cut → 10
+headsRemoved=1
+headsSpawned=2
+no delayed regrowth
+NP suppression does not cancel spawn
 
-Save:
-BigInt exact round-trip
-normalized NP round-trip
-milestones / APS round-trip
-no wall-clock offline catchup
+Hydra II intro:
+99th Hydra I kill → generation 2
+Auto remains paused before first manual cut
+first manual cut → 9→10 + milestone
+next tick → Auto resumes and logical heads increase
+
+Legacy:
+99-kill live Hydra I save → next tick enters Hydra II
 ```
 
-核心原則不變：**怪遊戲，正常架構。**
+核心原則：**怪遊戲，正常架構。**
