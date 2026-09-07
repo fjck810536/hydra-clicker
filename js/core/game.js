@@ -8,6 +8,7 @@ import { createAutoSlashSystem } from '../systems/auto-slash.js';
 import { createNpSystem } from '../systems/np.js';
 import { createHumanityEvilSystem } from '../systems/humanity-evil.js';
 import { createCommandSpellSystem } from '../systems/command-spells.js';
+import { createCommandSpellIISystem } from '../systems/command-spell-ii.js';
 import { createHydraIProgressionSystem } from '../systems/progression.js';
 import { isRegrowthEnabled } from '../systems/modifiers.js';
 import { createManualAttackInput } from '../input/manual-attack.js';
@@ -15,6 +16,7 @@ import { createTestPresets } from '../dev/test-presets.js';
 import {
   HYDRA_I_PROGRESSION,
   getHydraIRegenDelayMs,
+  getHumanityEvilRewardForGeneration,
 } from '../data/progression.js';
 
 export function createCoreRuntime({
@@ -102,15 +104,35 @@ export function createHydraIGameRuntime({
   };
 
   const regrowth = createHydraRegrowthSystem(core);
+  const commandSpellII = createCommandSpellIISystem({
+    ...core,
+    definition: progression.commandSpellII,
+    generations: progression.generations,
+  });
   const np = createNpSystem({
     ...core,
-    maxPoints: npMaxPoints ?? progression.np?.maxPoints ?? 66,
-    pointsPerHead: npPointsPerHead ?? progression.np?.pointsPerHead ?? 1,
-    durationMs: npDurationMs ?? progression.np?.durationMs ?? 3000,
+    maxPoints: progression.np?.maxPoints ?? 66,
+    pointsPerHead: progression.np?.pointsPerHead ?? 1,
+    durationMs: progression.np?.durationMs ?? 3000,
+    getConfig: (snapshot) => {
+      const spellII = commandSpellII.getStatus(snapshot);
+      return {
+        maxPoints: npMaxPoints ?? spellII.npMaxPoints,
+        pointsPerHead: npPointsPerHead ?? progression.np?.pointsPerHead ?? 1,
+        durationMs: npDurationMs ?? spellII.npDurationMs,
+      };
+    },
   });
   const humanityEvil = createHumanityEvilSystem({
     ...core,
-    rewardPerHydraKill: progression.humanityEvilPerKill,
+    rewardPerHydraKill: progression.humanityEvilPerKill ?? 11n,
+    getRewardPerHydraKill: (payload) => getHumanityEvilRewardForGeneration(
+      payload.generation ?? core.state.read().hydra.generation,
+      progression.humanityEvil ?? {
+        basePerKill: progression.humanityEvilPerKill ?? 11n,
+        generationMultiplier: 3n,
+      },
+    ),
   });
   const commandSpells = createCommandSpellSystem({
     ...core,
@@ -170,17 +192,13 @@ export function createHydraIGameRuntime({
     progression,
   });
 
-  function commandSpellIIPrototypeStatus(snapshot = core.state.read()) {
-    const definition = progression.commandSpellIIPrototype ?? null;
-    const unlocked = Boolean(
-      definition?.firstLevelMilestone
-      && snapshot.progression.milestones.includes(definition.firstLevelMilestone)
-    );
+  const compatibilitySpellIIStatus = (snapshot = core.state.read()) => {
+    const status = commandSpellII.getStatus(snapshot);
     return Object.freeze({
-      unlocked,
-      npManualStrikeCount: unlocked ? definition.npManualStrikeCount : 1,
+      unlocked: status.level >= 1,
+      npManualStrikeCount: status.npManualStrikeCount,
     });
-  }
+  };
 
   return {
     ...core,
@@ -189,9 +207,9 @@ export function createHydraIGameRuntime({
     progression,
     manualAttack(options = {}) {
       const snapshot = core.state.read();
-      const spellII = commandSpellIIPrototypeStatus(snapshot);
+      const spellII = commandSpellII.getStatus(snapshot);
       const strikeCount = options.strikeCount ?? (
-        np.isActive(snapshot) && spellII.unlocked
+        np.isActive(snapshot)
           ? spellII.npManualStrikeCount
           : 1
       );
@@ -209,8 +227,14 @@ export function createHydraIGameRuntime({
     isNpActive() {
       return np.isActive(core.state.read());
     },
+    commandSpellIIStatus() {
+      return commandSpellII.getStatus();
+    },
+    buyCommandSpellII() {
+      return commandSpellII.purchase();
+    },
     commandSpellIIPrototypeStatus() {
-      return commandSpellIIPrototypeStatus(core.state.read());
+      return compatibilitySpellIIStatus(core.state.read());
     },
     currentRegenDelayMs() {
       return resolveCurrentRegenDelayMs(core.state.read());
@@ -229,6 +253,7 @@ export function createHydraIGameRuntime({
       np,
       humanityEvil,
       commandSpells,
+      commandSpellII,
       hydraProgression,
     }),
     destroy() {
@@ -236,6 +261,7 @@ export function createHydraIGameRuntime({
       combat.destroy();
       hydraProgression.destroy();
       commandSpells.destroy();
+      commandSpellII.destroy();
       humanityEvil.destroy();
       np.destroy();
       regrowth.destroy();
