@@ -6,7 +6,7 @@ import { createInitialState } from '../js/core/state.js';
 import { createHydraIIRule } from '../js/math/hydra-rules.js';
 import { applyCutResolution } from '../js/math/hydra-model.js';
 
-test('Hydra II pure rule turns one cut into immediate net +1 head', () => {
+test('Hydra II pure rule turns one cut into immediate net +1 head when growth is enabled', () => {
   const rule = createHydraIIRule();
   const state = createInitialState();
   state.hydra.generation = 2;
@@ -17,7 +17,7 @@ test('Hydra II pure rule turns one cut into immediate net +1 head', () => {
     attack: { headsPerStrike: 1n },
     turn: 0n,
     nowMs: 0,
-    ruleContext: { regrowthEnabled: false },
+    ruleContext: { headGrowthEnabled: true },
   });
 
   assert.equal(resolution.accepted, true);
@@ -28,6 +28,27 @@ test('Hydra II pure rule turns one cut into immediate net +1 head', () => {
 
   applyCutResolution(state, resolution);
   assert.equal(state.hydra.logicalHeadCount, 10n);
+});
+
+test('Hydra II pure rule cuts without spawning when head growth is disabled', () => {
+  const rule = createHydraIIRule();
+  const state = createInitialState();
+  state.hydra.generation = 2;
+  state.progression.hydraGeneration = 2;
+
+  const resolution = rule.resolveCut({
+    hydraState: state.hydra,
+    attack: { headsPerStrike: 1n },
+    turn: 0n,
+    nowMs: 0,
+    ruleContext: { headGrowthEnabled: false },
+  });
+
+  assert.equal(resolution.accepted, true);
+  assert.equal(resolution.headsRemoved, 1n);
+  assert.equal(resolution.headsSpawned, 0n);
+  applyCutResolution(state, resolution);
+  assert.equal(state.hydra.logicalHeadCount, 8n);
 });
 
 test('the 99th Hydra I kill transitions into Hydra II after the encounter gap', () => {
@@ -90,7 +111,7 @@ test('Hydra II pauses Auto Slash until the player makes the first manual cut', (
   runtime.destroy();
 });
 
-test('NP regrowth suppression does not cancel Hydra II structural grow-two rule', () => {
+test('NP head-growth suppression turns Hydra II CUT 1 into net -1', () => {
   const initialState = createInitialState();
   initialState.hydra.generation = 2;
   initialState.progression.hydraGeneration = 2;
@@ -101,7 +122,7 @@ test('NP regrowth suppression does not cancel Hydra II structural grow-two rule'
   assert.equal(runtime.releaseNp().accepted, true);
   runtime.manualAttack();
 
-  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 10n);
+  assert.equal(runtime.snapshot().hydra.logicalHeadCount, 8n);
   assert.equal(runtime.snapshot().modifiers.active.length, 1);
 
   runtime.destroy();
