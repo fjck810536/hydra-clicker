@@ -59,7 +59,12 @@ export function createHudView({ root } = {}) {
       humanityEvil.textContent = formatInteger(snapshot.master.humanityEvil);
       npValue.textContent = npGauge.label;
       npButton.textContent = npGauge.button;
-      npButton.disabled = !npGauge.ready || snapshot.hydra.defeated;
+
+      // NP is a timed rule modifier that can span encounters, so a READY NP
+      // remains releasable during the short defeated/respawn gap. The player
+      // simply spends part of the 3s window before the next Hydra appears.
+      npButton.disabled = !npGauge.ready;
+
       autoSlash.textContent = snapshot.master.commandSpells.autoSlash
         ? `${snapshot.berserker.baseAttacksPerSecond} APS`
         : 'LOCKED';
