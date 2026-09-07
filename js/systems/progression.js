@@ -3,6 +3,7 @@ export function createHydraIProgressionSystem({
   events,
   respawnDelayMs = 1200,
   getRespawnDelayMs = null,
+  hydraIIIntro = null,
 } = {}) {
   if (!state || typeof state.read !== 'function' || typeof state.update !== 'function') {
     throw new TypeError('Progression system requires a state store.');
@@ -16,6 +17,17 @@ export function createHydraIProgressionSystem({
   if (getRespawnDelayMs != null && typeof getRespawnDelayMs !== 'function') {
     throw new TypeError('getRespawnDelayMs must be a function when provided.');
   }
+  if (hydraIIIntro != null) {
+    if (typeof hydraIIIntro.unlockAtHydraKills !== 'bigint' || hydraIIIntro.unlockAtHydraKills < 1n) {
+      throw new TypeError('hydraIIIntro.unlockAtHydraKills must be a positive BigInt.');
+    }
+    if (!Number.isInteger(hydraIIIntro.generation) || hydraIIIntro.generation < 2) {
+      throw new TypeError('hydraIIIntro.generation must be an integer >= 2.');
+    }
+    if (typeof hydraIIIntro.firstManualCutMilestone !== 'string' || hydraIIIntro.firstManualCutMilestone.length < 1) {
+      throw new TypeError('hydraIIIntro.firstManualCutMilestone must be a non-empty string.');
+    }
+  }
 
   const resolveRespawnDelayMs = (snapshot, payload) => {
     const delay = getRespawnDelayMs?.(snapshot, payload) ?? respawnDelayMs;
@@ -25,6 +37,45 @@ export function createHydraIProgressionSystem({
     return delay;
   };
 
+  const shouldEnterHydraII = (snapshot) => (
+    hydraIIIntro != null
+    && snapshot.hydra.generation === 1
+    && snapshot.statistics.totalHydrasKilled >= hydraIIIntro.unlockAtHydraKills
+  );
+
+  function resetEncounterDraft(draft, { generation = draft.hydra.generation, encounter = null } = {}) {
+    draft.hydra.generation = generation;
+    draft.progression.hydraGeneration = generation;
+    draft.hydra.logicalHeadCount = draft.hydra.startingHeadCount;
+    draft.hydra.turn = 0n;
+    draft.hydra.pendingRegrowth = [];
+    draft.hydra.defeated = false;
+    draft.hydra.respawnAtMs = null;
+    draft.hydra.encounter = encounter ?? (draft.hydra.encounter + 1n);
+    draft.modifiers.active = draft.modifiers.active.filter((modifier) => {
+      return modifier.scope !== 'encounter';
+    });
+  }
+
+  function enterHydraII(atMs) {
+    let heads = 0n;
+    state.update((draft) => {
+      resetEncounterDraft(draft, {
+        generation: hydraIIIntro.generation,
+        encounter: 1n,
+      });
+      heads = draft.hydra.logicalHeadCount;
+    });
+
+    events.emit('hydra:generation-changed', {
+      atMs,
+      generation: hydraIIIntro.generation,
+      encounter: 1n,
+      heads,
+      introRequiresManualCut: true,
+    });
+  }
+
   const offKilled = events.on('hydra:killed', ({ payload }) => {
     const delay = resolveRespawnDelayMs(state.read(), payload);
     state.update((draft) => {
@@ -33,29 +84,52 @@ export function createHydraIProgressionSystem({
     });
   });
 
+  const offCut = events.on('head:cut', ({ payload }) => {
+    if (hydraIIIntro == null || payload.source !== 'manual') return;
+    const snapshot = state.read();
+    if (snapshot.hydra.generation !== hydraIIIntro.generation) return;
+    if (snapshot.progression.milestones.includes(hydraIIIntro.firstManualCutMilestone)) return;
+
+    state.update((draft) => {
+      draft.progression.milestones.push(hydraIIIntro.firstManualCutMilestone);
+    });
+
+    events.emit('hydra:intro-complete', {
+      atMs: payload.atMs,
+      generation: hydraIIIntro.generation,
+      milestone: hydraIIIntro.firstManualCutMilestone,
+    });
+  });
+
   const offTick = events.on('clock:tick', ({ payload: tick }) => {
     const snapshot = state.read();
+
+    // Compatibility path: a Playtest 2 save may already be sitting at 99 kills
+    // with a live Hydra I. Enter Hydra II on the next simulation tick.
+    if (shouldEnterHydraII(snapshot) && !snapshot.hydra.defeated) {
+      enterHydraII(tick.nowMs);
+      return;
+    }
+
     if (!snapshot.hydra.defeated || snapshot.hydra.respawnAtMs == null) return;
     if (tick.nowMs < snapshot.hydra.respawnAtMs) return;
 
-    let encounter = 0n;
-    state.update((draft) => {
-      draft.hydra.logicalHeadCount = draft.hydra.startingHeadCount;
-      draft.hydra.turn = 0n;
-      draft.hydra.pendingRegrowth = [];
-      draft.hydra.defeated = false;
-      draft.hydra.respawnAtMs = null;
-      draft.hydra.encounter += 1n;
-      encounter = draft.hydra.encounter;
+    if (shouldEnterHydraII(snapshot)) {
+      enterHydraII(tick.nowMs);
+      return;
+    }
 
-      draft.modifiers.active = draft.modifiers.active.filter((modifier) => {
-        return modifier.scope !== 'encounter';
-      });
+    let encounter = 0n;
+    let generation = 1;
+    state.update((draft) => {
+      resetEncounterDraft(draft);
+      encounter = draft.hydra.encounter;
+      generation = draft.hydra.generation;
     });
 
     events.emit('hydra:respawned', {
       atMs: tick.nowMs,
-      generation: 1,
+      generation,
       encounter,
       heads: state.read().hydra.logicalHeadCount,
     });
@@ -64,6 +138,7 @@ export function createHydraIProgressionSystem({
   return {
     destroy() {
       offKilled();
+      offCut();
       offTick();
     },
   };
