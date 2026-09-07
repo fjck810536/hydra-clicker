@@ -39,12 +39,13 @@ test('ordinary Hydra kill awards Humanity Evil and respawns after 300ms', () => 
   runtime.destroy();
 });
 
-test('Command Spell I requires 9 ordinary kills and 99 Humanity Evil, then unlocks Auto Slash', () => {
+test('Command Spell I first purchase appears naturally when 99 Humanity Evil is affordable', () => {
   const runtime = createHydraIGameRuntime({ regenDelayMs: 10000 });
 
   const early = runtime.buyCommandSpellI();
   assert.equal(early.accepted, false);
-  assert.equal(early.reason, 'kills-required');
+  assert.equal(early.reason, 'insufficient-humanity-evil');
+  assert.equal(runtime.commandSpellIStatus().killsMet, true);
 
   for (let kill = 1; kill <= 9; kill += 1) {
     killHydra(runtime);
