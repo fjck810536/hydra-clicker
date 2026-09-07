@@ -20,6 +20,23 @@ function normalizeHeadsPerStrike(attack) {
   return value;
 }
 
+function rejectedAtZero(ruleId, turn) {
+  return {
+    accepted: false,
+    ruleId,
+    turnBefore: turn,
+    turnAfter: turn,
+    headsRemoved: 0n,
+    headsSpawned: 0n,
+    materialsProduced: 0n,
+    regrowth: [],
+    cancelPendingRegrowth: false,
+    depleted: true,
+    killed: false,
+    effects: [],
+  };
+}
+
 export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
   if (!Number.isFinite(regenDelayMs) || regenDelayMs < 0) {
     throw new RangeError('regenDelayMs must be a finite number >= 0.');
@@ -51,20 +68,7 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
       }
 
       if (removable === 0n) {
-        return {
-          accepted: false,
-          ruleId: this.id,
-          turnBefore: turn,
-          turnAfter: turn,
-          headsRemoved: 0n,
-          headsSpawned: 0n,
-          materialsProduced: 0n,
-          regrowth: [],
-          cancelPendingRegrowth: false,
-          depleted: true,
-          killed: false,
-          effects: [],
-        };
+        return rejectedAtZero(this.id, turn);
       }
 
       const remaining = hydraState.logicalHeadCount - removable;
@@ -100,6 +104,51 @@ export function createHydraIRule({ regenDelayMs = 1500 } = {}) {
   });
 }
 
+export function createHydraIIRule() {
+  return Object.freeze({
+    id: 'hydra-ii-cut-one-grow-two',
+    generation: 2,
+
+    resolveCut({ hydraState, attack = {}, turn = 0n, nowMs = 0 } = {}) {
+      assertHydraState(hydraState);
+
+      if (typeof turn !== 'bigint' || turn < 0n) {
+        throw new TypeError('turn must be a non-negative BigInt.');
+      }
+      if (!Number.isFinite(nowMs) || nowMs < 0) {
+        throw new RangeError('nowMs must be a finite number >= 0.');
+      }
+
+      const headsPerStrike = normalizeHeadsPerStrike(attack);
+      const removable = minBigInt(headsPerStrike, hydraState.logicalHeadCount);
+      if (removable === 0n) {
+        return rejectedAtZero(this.id, turn);
+      }
+
+      // Hydra II's reveal is structural and immediate: each removed head produces
+      // two new heads in the same resolution. This is not Hydra I delayed regrowth,
+      // so the current hydra.regrowth suppression modifier does not disable it.
+      const spawned = removable * 2n;
+
+      return {
+        accepted: true,
+        ruleId: this.id,
+        turnBefore: turn,
+        turnAfter: turn + 1n,
+        headsRemoved: removable,
+        headsSpawned: spawned,
+        materialsProduced: 0n,
+        regrowth: [],
+        cancelPendingRegrowth: false,
+        depleted: false,
+        killed: false,
+        effects: ['slash-hit', 'hydra-grow-two'],
+      };
+    },
+  });
+}
+
 export const HydraRules = Object.freeze({
   I: createHydraIRule(),
+  II: createHydraIIRule(),
 });
