@@ -1,10 +1,8 @@
-# Hydra Clicker — Block Contracts v0.8
+# Hydra Clicker — Block Contracts v0.9
 
-> 這份文件是積木之間的插頭規格，不是最終 API。函式名稱可以變，但資料責任不要混掉。v0.8 對齊 Playtest 2.3：第一令咒多級攻速、NP burst respawn、66 kills 爽感峰值實驗。
+> 這份文件是積木之間的插頭規格。v0.9 對齊 Playtest 2.4：66-point NP gauge、第一令咒 64 APS MAX、95→99 NP 收尾假說。
 
 ## 1. Attack Request
-
-來源：玩家點擊、Auto Slash、特殊技能、未來 Tree Targeting。
 
 ```js
 {
@@ -16,13 +14,9 @@
 }
 ```
 
-- Attack Request 只描述「想砍」。
-- 不自己移除 head。
-- 不播放 animation。
+Input / Auto 只描述「想砍」；不直接改 headCount、不播動畫。
 
-## 2. Cut Resolution
-
-Hydra Math 接收 Attack Request 後產生：
+## 2. Cut Resolution / Hydra I
 
 ```js
 {
@@ -33,37 +27,33 @@ Hydra Math 接收 Attack Request 後產生：
   depleted: false,
   killed: false,
   cancelPendingRegrowth: false,
-  regrowth: [
-    {
-      executeAt: 1500,
-      amount: 1n,
-      ruleId: 'regen-same-head'
-    }
-  ],
+  regrowth: [],
   effects: ['slash-hit']
 }
 ```
 
-- 離散數量使用 `BigInt`。
-- `effects` 是語義，不是 Babylon object。
-- `depleted` = 當下 heads 為 0。
-- `killed` = active rule 判定 terminal death。
-- 兩者概念仍分離；Playtest 2 的 Hydra I 暫時令 reaching 0 heads 同時成立。
-- Hydra I terminal cut 要 `cancelPendingRegrowth: true`。
+Hydra I current rule：
 
-## 3. Hydra Rule Interface
+```text
+remaining heads > 0 + regrowth enabled
+→ cut
+→ schedule same-head regrowth at now + regrowthDelayMs
 
-```js
-rule.resolveCut({
-  hydraState,
-  attack,
-  turn,
-  nowMs,
-  ruleContext
-})
+remaining heads > 0 + regrowth disabled
+→ cut
+→ no new regrowth
+
+remaining heads = 0
+→ depleted = true
+→ killed = true
+→ cancel all pending regrowth
 ```
 
-目前 `ruleContext`：
+`depleted` 與 `killed` 仍是不同概念；只是 Playtest 2 的 Hydra I 暫時同時成立。
+
+## 3. Rule Context
+
+Combat 將 application / modifier context 合併後交給 Hydra Rule：
 
 ```js
 {
@@ -72,36 +62,16 @@ rule.resolveCut({
 }
 ```
 
-來源責任：
+責任：
 
 ```text
-Data / progression curve
-→ Core composition
-→ regrowthDelayMs
-
-active rule modifiers
-→ Modifier resolver
-→ regrowthEnabled
+Data / progression curve → regrowthDelayMs
+Modifier resolver         → regrowthEnabled
+Combat                    → 傳遞
+Hydra Rule                → 解算
 ```
 
-Combat 只合併 context 後交給 Rule；不計算曲線。Hydra Rule 不知道目前第幾殺，也不知道 disable 來自 NP、英靈、科技或設施。
-
-### Hydra I
-
-```text
-remaining heads > 0 + regrowth enabled
-→ cut
-→ same-head regrowth at now + regrowthDelayMs
-
-remaining heads > 0 + regrowth disabled
-→ cut
-→ no new regrowth
-
-remaining heads = 0
-→ killed
-→ no new regrowth
-→ cancel pending regrowth
-```
+Hydra Rule 不知道目前第幾殺，也不知道 disable 來自 NP、支援、科技或設施。
 
 ## 4. Regrowth Event
 
@@ -111,20 +81,64 @@ remaining heads = 0
   executeAt,
   type: 'hydra-regrow',
   amount: 1n,
-  payload: {
-    branchId: null,
-    ruleId: 'regen-same-head'
-  }
+  payload: { branchId: null, ruleId: 'regen-same-head' }
 }
 ```
 
-Gameplay delay 服從 Game Clock，不散成 `setTimeout()`。
+Gameplay delay 一律服從 Game Clock，不散成 `setTimeout()`。
 
-## 5. NP / Timed Rule Modifier
+## 5. NP Gauge — Playtest 2.4
+
+### Player-facing gauge
+
+```text
+0 / 66
+1 head cut = +1 NP
+66 / 66 = READY
+release = gauge returns to 0
+```
+
+Manual 與 Auto Slash 的 accepted `head:cut` 都使用同一條規則；目前不做來源差別。
+
+### Persistent representation
+
+`state.berserker.np` **仍保存 0..1 normalized ratio**，不是直接把 state schema 改成 0..66。
+
+```text
+player-facing points = round(normalized × 66)
+normalized = points / 66
+```
+
+因此舊存檔自然相容：
+
+```text
+old np = 0.5
+→ Playtest 2.4 projection = 33 / 66
+```
+
+不需要 state schema migration。
+
+### NP status projection
+
+Runtime 對 UI 暴露：
 
 ```js
 {
-  id: 'np-regeneration-window-0',
+  points: 33,
+  maxPoints: 66,
+  ready: false,
+  normalized: 0.5
+}
+```
+
+View 不自行知道 NP 上限。
+
+## 6. NP Timed Rule Modifier
+
+Release 後：
+
+```js
+{
   type: 'rule-modifier',
   target: 'hydra.regrowth',
   effect: 'disable',
@@ -135,138 +149,65 @@ Gameplay delay 服從 Game Clock，不散成 `setTimeout()`。
 }
 ```
 
-NP window：
+目前 duration = 3000ms。
 
 ```text
-existing pending regrowth → 暫停
-new cut → 不建立 regrowth
-Hydra A killed → NP 不消失
-Hydra B / C / ... → 同一窗口繼續收割
-endsAt → modifier expires
+existing pending regrowth → window 內暫停
+new cut                   → 不建立 regrowth
+Hydra A killed            → NP 不消失
+Hydra B / C / ...         → 同一 window 繼續
+endsAt                     → modifier expires
 ```
 
-Playtest 2.1 起，NP active 時 View 以暗紅背景提示；View 不修改 modifier。
+NP active 時 View 只做暗紅背景提示，不影響邏輯時間。
 
-## 6. Auto Slash Contract
+## 7. Auto Slash
 
-Auto Slash 只由 capability + Game Clock 產生 Attack Request。
-
-```js
-{
-  enabled: true,
-  attacksPerSecond: 128,
-  accumulator: 0.8
-}
-```
-
-它不可以：
-
-- 改 headCount。
-- 播 Berserker animation。
-- 決定 Hydra regrowth / respawn。
-- 被 Command Spell system 直接命令出刀。
-
-Capability source：
+Auto Slash 只讀：
 
 ```text
 master.commandSpells.autoSlash
-```
-
-攻速 source：
-
-```text
 berserker.baseAttacksPerSecond
+hydra attackable state
+Game Clock
 ```
 
-高攻速可以在一個 tick 產生 batch strikes；Combat 一旦某 strike terminal kill 就停止該 batch，不把多餘 strikes 算到死去的 Hydra。
+並產生 Attack Request。
 
-## 7. Economy Event
+高攻速可在一個 tick batch 多刀；Combat 一旦 terminal kill 就停止該 batch，不把剩餘 strikes 套到死去的 Hydra。
 
-目前每 kill：
+## 8. Encounter / Respawn
 
-```js
-{
-  type: 'currency:gain',
-  currency: 'humanity-evil',
-  amount: 11n,
-  reason: 'hydra-kill',
-  balance
-}
-```
-
-購買令咒／升級：
-
-```js
-{
-  type: 'currency:spend',
-  currency: 'humanity-evil',
-  amount,
-  reason,
-  balance
-}
-```
-
-數值只來自 Data，不寫死在 Economy system。
-
-## 8. Hydra Encounter / Respawn Contract
-
-普通 encounter：
+普通 true kill：
 
 ```text
-true kill
+kill
 → defeated = true
-→ logicalHeadCount = 0
 → respawnAtMs = kill time + 300ms
-→ Game Clock
-→ new encounter
 ```
 
-NP / regrowth-disabled burst：
+regrowth-disabled burst：
 
 ```text
-true kill while regrowth is disabled
+kill while regrowthEnabled = false
 → respawnAtMs = kill time + 100ms
 ```
 
-Progression 接受 application composition 注入的 `getRespawnDelayMs(snapshot, payload)`；Progression 本身不知道「這是 NP」。目前 Core composition 用 generic rule condition：
+Progression 接受注入的 `getRespawnDelayMs(snapshot, payload)`，本身不判斷「是不是 NP」。
+
+Clock listener order：
 
 ```text
-regrowthEnabled = true  → 300ms
-regrowthEnabled = false → 100ms
+clock tick
+→ Progression：處理 due respawn
+→ Auto Slash：同一 tick 可打新 Hydra
 ```
 
-新 encounter：
+Combat / Hydra Math 不負責 spawn 下一隻。
 
-```js
-{
-  logicalHeadCount: startingHeadCount,
-  turn: 0n,
-  pendingRegrowth: [],
-  defeated: false,
-  respawnAtMs: null,
-  encounter: previousEncounter + 1n
-}
-```
+## 9. Command Spell I — Playtest 2.4 Upgrade Curve
 
-### Clock listener order
-
-Playtest 2.3 有明確吞吐要求：Progression 必須在 Auto Slash 前處理 `clock:tick`。
-
-```text
-100ms tick
-→ Progression：若 respawn due，先生新 Hydra
-→ Auto Slash：同一 tick 可立刻 attack
-```
-
-否則 100ms respawn 會被事件順序實際拖成約 200ms，將上限卡在約 5 Hydra/sec。
-
-Combat / Hydra Math 不負責生下一隻。
-
-## 9. Command Spell I — Capability + Upgrade Curve
-
-Playtest 2.3 不新增第二令咒；**第一令咒本身從 Lv.1 升到 Lv.MAX。**
-
-Data：
+不新增第二令咒；第一令咒本身升級。
 
 ```text
 kills  level    cost   Auto Slash
@@ -276,213 +217,143 @@ kills  level    cost   Auto Slash
 22     Lv.4      44      8 APS
 30     Lv.5      66     16 APS
 40     Lv.6      88     32 APS
-52     Lv.7     110     64 APS
-66     Lv.MAX   132    128 APS
+66     Lv.MAX   132     64 APS
+```
+
+Playtest 2.3 的：
+
+```text
+52 → 64 APS
+66 → 128 APS
+```
+
+已刪除。
+
+現在刻意保留：
+
+```text
+40 → 66 kills = 32 APS plateau
+66 kills       = 64 APS MAX
 ```
 
 Lv.1：
 
 ```text
-spend 99 人類惡
-→ master.commandSpells.autoSlash = true
-→ berserker.baseAttacksPerSecond = 1
+spend 99
+→ autoSlash = true
+→ baseAttacksPerSecond = 1
 → command-spell:unlocked
 ```
 
-Lv.2–Lv.MAX：
+Lv.2–MAX：
 
 ```text
 spend cost
 → progression.milestones += command-spell-1-lvN
-→ berserker.baseAttacksPerSecond = level APS
+→ baseAttacksPerSecond = level APS
 → command-spell:upgraded
 ```
 
-為了舊存檔相容，不新增 State schema field：
+舊存檔：
 
 ```text
 autoSlash = true + no upgrade milestone
-→ 視為 Command Spell I Lv.1
+→ 視為 Lv.1
 ```
 
-這讓 Playtest 2.2 已買過第一令咒的存檔可以直接繼續。
+## 10. Economy Shape
 
-狀態投影至少包含：
-
-```js
-{
-  level,
-  maxLevel,
-  maxed,
-  attacksPerSecond,
-  nextLevel,
-  nextAttacksPerSecond,
-  killsMet,
-  canAfford,
-  available,
-  requiredHydraKills,
-  cost,
-  balance,
-  kills
-}
-```
-
-Command Spell system 只改 capability / stat / milestone / currency；不直接呼叫 Auto Slash。
-
-## 10. Command Spell I Economy Shape
-
-Lv.1 後的總升級成本：
+Lv.1 後總升級成本：
 
 ```text
-22 + 33 + 44 + 66 + 88 + 110 + 132 = 495 人類惡
+22 + 33 + 44 + 66 + 88 + 132 = 385 人類惡
 ```
 
-第 9 → 66 隻新增收入：
+第 9 → 66 隻收入：
 
 ```text
-57 kills × 11 = 627 人類惡
+57 × 11 = 627 人類惡
 ```
 
-因此若玩家大致沿 milestone 購買，到 Lv.MAX 理論上仍留下：
+若沿 milestone 購買，到 MAX 理論剩：
 
 ```text
-627 - 495 = 132 人類惡
+627 - 385 = 242 人類惡
 ```
 
-這是 Playtest 配置，不是永久經濟定案。
+這只是 Playtest tuning。
 
 ## 11. Hydra I Regen Curve
-
-Playtest 2.2 起：
 
 ```text
 0 kills  → 1500ms
 9 kills  → 350ms
+30 kills → 247ms
+50 kills → 174ms
+66 kills → 134ms
 99 kills → 100ms floor
 ```
 
-0→9 急遽加速；9→99 繼續變快，但每隻造成的增幅逐漸下降。
+0→9 快速惡化；9→99 繼續變快，但每隻造成的增幅遞減。
 
-代表值約：
+Curve 只在 Data；Combat 不知道 kill count。
 
-```text
-0   → 1500ms
-1   → 1276ms
-3   → 923ms
-6   → 569ms
-9   → 350ms
-30  → 247ms
-50  → 174ms
-66  → 134ms
-99  → 100ms
-```
+## 12. Current Endgame Hypothesis
 
-Curve 在 `js/data/progression.js`；Combat 不知道第幾殺。
+Playtest 2.4 不再要求 `66 kills >6 Hydra/sec`。
 
-## 12. Playtest 2.3 Peak Throughput Target
-
-設計目標：第 66 隻附近形成爽感峰值，NP 期間至少 **>6 Hydra/sec**。
-
-目前邏輯組合：
+實機目前較有價值的假說是：
 
 ```text
-Command Spell I Lv.MAX = 128 APS
-Game Clock = 100ms fixed step
-Hydra = 9 heads
-NP → regrowth disabled
-NP burst respawn = 100ms
-Progression tick before Auto Slash tick
+66 kills
+→ 64 APS MAX
+→ 普通 Auto 一路推進到約末段
+→ 約 95 左右自然卡住
+→ 玩家主動按一次 NP
+→ 3s burst 足以完成 95 → 99
 ```
 
-因此每 100ms：
+Headless test 只驗證：
 
 ```text
-128 APS × 0.1s = 12.8 strike budget
-→ 足以在該 tick 砍完 9 heads
-→ terminal kill
-→ 下一 tick respawn + immediate Auto Slash
+64 APS + one NP at kill 95
+→ within 3 simulated seconds reaches at least kill 99
 ```
 
-Headless contract test 目前得到：
+不再保留 128 APS / 10 Hydra-per-second 作為正式 contract。
 
-```text
-10 Hydra kills / 1 simulated second
-```
+## 13. Save
 
-這是邏輯上限測試，不保證手機視覺能逐隻清楚演完；View 可以抽象化演出，但不能改 logical kill count。
-
-## 13. Ordinary Upgrade Definition
-
-未來普通升級仍使用通用 data/effect，例如：
-
-```js
-{
-  id: 'attack-speed-01',
-  category: 'berserker',
-  cost: {
-    currency: 'material-a',
-    amount: 10n
-  },
-  effect: {
-    stat: 'attacksPerSecond',
-    operation: 'multiply',
-    value: 1.25
-  },
-  requirements: []
-}
-```
-
-第一令咒的 Playtest curve 是 progression milestone，不代表所有未來 stat upgrade 都必須採 doubling。
-
-## 14. Logical Snapshot vs Render Projection
-
-Core 保存 logical state；View 派生 presentation。
-
-```text
-logical head count
-→ computeVisibleHeadCount
-→ max 99 visible heads
-→ Babylon pool
-```
-
-禁止：
-
-- mesh count 寫回 state。
-- visual cap 截斷真實數量。
-- 巨大 BigInt 先無條件轉 Number。
-- View 決定 attack / regrowth / kill / respawn。
-
-## 15. Save Contract
-
-Save 保存：
+Save 保存 logical state：
 
 ```text
 currencies
 command-spell capability
 berserker base APS
 progression milestones
+normalized NP ratio
 Hydra logical encounter state
 pending regrowth
 active timed modifiers
 statistics
-simulation time
+simulation time / tick
 ```
 
-不保存：
+不保存 Babylon / DOM / animation / visible-head cache。
+
+Offline progress 仍 OFF。
+
+## 14. View / Test Tools
+
+HUD：
 
 ```text
-Babylon scene
-mesh / particle
-DOM
-animation object
-visible-head cache
+NP 0/66 ... READY
+AUTO 16 APS
+COMMAND SPELL I Lv.N
 ```
 
-目前 offline progress 明確為 OFF。
-
-## 16. Playtest Test Tools
-
-TEST panel 目前顯示：
+TEST panel：
 
 ```text
 REGEN xxx ms
@@ -490,76 +361,35 @@ AUTO xxx APS / LOCKED
 RESET SAVE
 ```
 
-- Readout 只讀 runtime/state projection。
-- RESET SAVE 只清 persistence adapter，不直接改 gameplay fields。
-- reset 前暫停 autosave/pagehide persistence，避免舊 snapshot 被寫回。
-- Test Tools 不保存進 state，也不得成為 progression requirement。
+View / Test Tools 只讀 runtime projection，不直接 mutate gameplay state。
 
-## 17. Platform Boundary
-
-Battle shell：
+## 15. 最重要的自動測試
 
 ```text
-portrait / fixed
-no page scroll
-no Safari page zoom / pinch / smart double-tap zoom
-```
-
-未來 Drawer / Shop 可以局部 `overflow:auto`，不要因 battle shell gesture policy 永久封死所有 UI scrolling。
-
-## 18. 最重要的自動測試
-
-### Hydra I
-
-```text
+Hydra I:
 9 → cut → 8 → regen deadline → 9
-1 head + terminal cut → 0 → killed → pending queue cleared
+terminal cut → 0 → killed → pending queue cleared
+
+NP:
+65 accepted head cuts → 65/66, not ready
+66th accepted head cut → 66/66, ready
+old normalized 0.5 save → 33/66
+release → 0/66 + 3s timed modifier
+
+Command Spell I:
+APS = 1,2,4,8,16,32,64
+kill requirements = 9,12,16,22,30,40,66
+64 APS MAX at kill 66
+
+End stretch:
+kill 95 + 64 APS + one NP
+→ reaches at least 99 inside 3s
+
+Save:
+BigInt exact round-trip
+normalized NP round-trip
+milestones / APS round-trip
+no wall-clock offline catchup
 ```
 
-### Regen Curve
-
-```text
-0 kills → 1500ms
-9 kills → 350ms
-99 kills → 100ms floor
-post-9 improvement diminishes per kill
-```
-
-### Command Spell I
-
-```text
-old save: autoSlash=true + no upgrade milestone → Lv.1
-Lv.1→MAX APS: 1,2,4,8,16,32,64,128
-kill 66 post-unlock income 627
-post-unlock upgrade cost 495
-remaining 132
-```
-
-### Peak Burst
-
-```text
-Lv.MAX + NP
-→ burst respawn 100ms
-→ progression before auto on tick
-→ >6 Hydra/sec
-current headless result = 10 Hydra/sec
-```
-
-### Save
-
-```text
-BigInt round-trip
-milestones round-trip
-base APS round-trip
-no offline wall-clock catchup
-```
-
-### View / Platform
-
-```text
-logical huge heads → visible max 99
-NP active → red stage tint
-battle shell → Safari zoom defaults suppressed
-```
-
-只要 Math / Systems / Economy / Progression / View / Platform 能分別自動驗證，就維持「怪遊戲，正常架構」。
+核心原則不變：**怪遊戲，正常架構。**
