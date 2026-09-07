@@ -52,6 +52,32 @@
       <span data-np-timer-technique>MANUAL ×1</span>
     </div>
 
+    <button class="tree-view-toggle" type="button" data-tree-view-toggle data-fixed-control hidden>
+      TREE VIEW
+    </button>
+
+    <section class="tree-view-overlay" data-tree-view-overlay hidden aria-modal="true" role="dialog" aria-label="Hydra structure view">
+      <div class="tree-view-card">
+        <button class="tree-view-close" style="width:44px;height:44px" type="button" data-tree-view-close data-fixed-control aria-label="Close Tree View">×</button>
+        <span class="tree-view-kicker">STRUCTURE VIEW · OBSERVATION ONLY</span>
+        <strong>THE NUMBER ESCAPED THE MONSTER</strong>
+        <p>畫面最多只投影 99 顆頭。從這裡開始，怪物的外觀不再等於它真正的數量。</p>
+        <dl class="tree-view-stats">
+          <div><dt>LOGICAL HEADS</dt><dd data-tree-view-logical>100</dd></div>
+          <div><dt>VISIBLE PROXY</dt><dd data-tree-view-visible>99 / 99</dd></div>
+          <div><dt>BEYOND IMAGE</dt><dd data-tree-view-overflow>+1</dd></div>
+          <div><dt>CURRENT CAP</dt><dd data-tree-view-cap>729</dd></div>
+        </dl>
+        <div class="tree-view-diagram" aria-hidden="true">
+          <span>ROOT</span>
+          <span>└─ 9¹ · HYDRA I</span>
+          <span>&nbsp;&nbsp;└─ 9² · HYDRA II</span>
+          <span>&nbsp;&nbsp;&nbsp;&nbsp;└─ 9³ · HYDRA III · 729</span>
+        </div>
+        <small>NODE TARGETING · NOT YET AVAILABLE</small>
+      </div>
+    </section>
+
     <section class="generation-transition" data-generation-transition hidden aria-live="polite">
       <span class="generation-transition-kicker">NEXT GENERATION</span>
       <strong data-generation-transition-title>HYDRA II</strong>
@@ -81,11 +107,17 @@
         <button class="test-preset-button" type="button" data-test-command-spell-ii data-fixed-control>
           COMMAND SPELL II · ×3 NP
         </button>
+        <button class="test-preset-button" type="button" data-test-command-spell-iii data-fixed-control>
+          CS III TEST · 1 → 2 → MAX
+        </button>
         <button class="test-preset-button" type="button" data-test-hydra-98 data-fixed-control>
           START HYDRA #98
         </button>
         <button class="test-preset-button" type="button" data-test-hydra-ii-cap data-fixed-control>
           HYDRA II · 81 HEADS
+        </button>
+        <button class="test-preset-button" type="button" data-test-hydra-iii-99 data-fixed-control>
+          HYDRA III · 99 HEADS
         </button>
         <button class="test-preset-button" type="button" data-test-np-ready data-fixed-control>
           NP READY
