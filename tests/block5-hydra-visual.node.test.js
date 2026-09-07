@@ -34,17 +34,24 @@ test('visual projection rejects Number/floating logical head counts', () => {
   assert.throws(() => computeVisibleHeadCount(-1n), /BigInt/);
 });
 
-test('Hydra I nine-head silhouette spreads farther outward as height increases', () => {
+test('first nine head slots fill the fan interior instead of tracing a V outline', () => {
   const poses = Array.from({ length: 9 }, (_, index) => getHeadSlotPose(index));
 
-  const lowerSpread = Math.max(Math.abs(poses[1].x), Math.abs(poses[2].x));
-  const middleSpread = Math.max(Math.abs(poses[5].x), Math.abs(poses[6].x));
-  const upperSpread = Math.max(Math.abs(poses[7].x), Math.abs(poses[8].x));
+  const interior = poses.filter((pose) => Math.abs(pose.x) < 0.55);
+  const outer = poses.filter((pose) => Math.abs(pose.x) > 0.8);
+  const low = poses.filter((pose) => pose.y < 1.45);
+  const high = poses.filter((pose) => pose.y > 1.9);
 
-  assert.ok(middleSpread > lowerSpread);
-  assert.ok(upperSpread > middleSpread);
-  assert.ok(poses[7].y > poses[5].y);
-  assert.ok(poses[8].y > poses[6].y);
+  // A filled sector needs both central/interior heads and outer-edge heads,
+  // distributed across multiple radii rather than only two rising diagonals.
+  assert.ok(interior.length >= 4, `expected >=4 interior heads, got ${interior.length}`);
+  assert.ok(outer.length >= 2, `expected >=2 outer heads, got ${outer.length}`);
+  assert.ok(low.length >= 2, `expected >=2 inner-radius heads, got ${low.length}`);
+  assert.ok(high.length >= 2, `expected >=2 outer-radius heads, got ${high.length}`);
+
+  assert.ok(poses.some((pose) => Math.abs(pose.rotationZ) < 0.05));
+  assert.ok(poses.some((pose) => pose.rotationZ > 0.4));
+  assert.ok(poses.some((pose) => pose.rotationZ < -0.4));
 });
 
 test('head slot poses are deterministic and finite across the entire visible pool', () => {
