@@ -1,14 +1,22 @@
 export const INITIAL_HYDRA_HEAD_POOL_SIZE = 9;
 export const MAX_VISIBLE_HEADS = 99;
 
-// Visual-only polar fan. Slots use a deterministic low-discrepancy sequence so
-// every prefix (9 heads, 20 heads, 99 heads...) fills the *area* of the fan
-// instead of tracing only its two V-shaped edges.
-const FAN_HALF_ANGLE_RADIANS = 0.78;
-const FAN_MIN_RADIUS = 0.72;
-const FAN_MAX_RADIUS = 2.15;
-const FAN_ORIGIN_Y = 0.38;
-const FAN_DEPTH = 0.22;
+// Visual-only canopy projection.
+//
+// The player should read a tall fan from the portrait camera, but the world-space
+// geometry is deliberately *not* a symmetric planar sector. We generate leaf/end
+// points inside an asymmetric screen-oriented envelope, then connect every point
+// back toward the common Hydra root. The left side opens aggressively, the right
+// side stays constrained, and depth folding keeps the crown from reading as a
+// flat diagram.
+const CANOPY_ROOT_Y = 0.38;
+const CANOPY_MIN_Y = 0.92;
+const CANOPY_MAX_Y = 6.10;
+const CANOPY_MIN_LEFT_WIDTH = 0.42;
+const CANOPY_MAX_LEFT_WIDTH = 4.15;
+const CANOPY_MIN_RIGHT_WIDTH = 0.28;
+const CANOPY_MAX_RIGHT_WIDTH = 0.92;
+const CANOPY_DEPTH = 0.72;
 
 function radicalInverse(index, base) {
   let value = index;
@@ -24,27 +32,66 @@ function radicalInverse(index, base) {
   return result;
 }
 
-function createFilledFanPose(index) {
-  // Halton bases 2 / 3 distribute angular and radial coordinates independently.
-  // Radius is area-corrected with sqrt so points do not bunch up at the root.
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function createBiasedCanopyPose(index) {
+  // Halton bases 2 / 3 / 5 give every prefix (9, 20, 50, 99...) broad coverage
+  // without obvious rows. This is intentionally fractal-ish / recursive-looking
+  // rather than a literal mathematical fractal.
   const sequenceIndex = index + 1;
-  const angularSample = radicalInverse(sequenceIndex, 2);
-  const radialSample = radicalInverse(sequenceIndex, 3);
+  const lateralSample = radicalInverse(sequenceIndex, 2);
+  const heightSample = radicalInverse(sequenceIndex, 3);
   const depthSample = radicalInverse(sequenceIndex, 5);
 
-  const angle = -FAN_HALF_ANGLE_RADIANS
-    + angularSample * FAN_HALF_ANGLE_RADIANS * 2;
-  const radiusSquared = FAN_MIN_RADIUS ** 2
-    + radialSample * (FAN_MAX_RADIUS ** 2 - FAN_MIN_RADIUS ** 2);
-  const radius = Math.sqrt(radiusSquared);
+  // A sub-linear exponent puts useful density into the upper crown while still
+  // preserving low heads close to the existing Hydra root position.
+  const heightT = heightSample ** 0.72;
+  const y = lerp(CANOPY_MIN_Y, CANOPY_MAX_Y, heightT);
+
+  // Screen-space silhouette first: the left envelope grows much faster than the
+  // right envelope. This keeps the crown away from the phone's right edge while
+  // allowing the upper-left mass to grow behind the HUD.
+  const leftWidth = lerp(
+    CANOPY_MIN_LEFT_WIDTH,
+    CANOPY_MAX_LEFT_WIDTH,
+    heightT ** 0.82,
+  );
+  const rightWidth = lerp(
+    CANOPY_MIN_RIGHT_WIDTH,
+    CANOPY_MAX_RIGHT_WIDTH,
+    heightT ** 0.95,
+  );
+
+  let x = -leftWidth + lateralSample * (leftWidth + rightWidth);
+
+  // Re-center the visible crown slightly toward the Hydra at higher levels so we
+  // still get a handful of right-side heads without allowing the canopy to spill
+  // heavily past the right screen edge.
+  x += 0.34 * (heightT ** 0.75);
+
+  // Tiny deterministic drift prevents the low-discrepancy samples from reading as
+  // a sterile scatter plot. It also gives neighboring necks slightly different
+  // silhouettes when the visible pool becomes dense.
+  x += (depthSample - 0.5) * 0.14 * (0.35 + heightT);
+
+  // Fold the crown in depth. The portrait camera still sees a fan-like silhouette,
+  // but from another angle this is a shallow 3D canopy rather than a planar fan.
+  const z = (depthSample - 0.5) * CANOPY_DEPTH
+    + Math.max(0, x) * 0.16
+    - Math.max(0, -x) * 0.03;
+
+  const deltaY = y - CANOPY_ROOT_Y;
+  const neckLength = Math.hypot(x, deltaY);
+  const rotationZ = -Math.atan2(x, deltaY);
 
   return Object.freeze({
-    x: Math.sin(angle) * radius,
-    y: FAN_ORIGIN_Y + Math.cos(angle) * radius,
-    z: (depthSample - 0.5) * FAN_DEPTH,
-    // Local +Y points away from the common root, so each neck reads as one
-    // radial spoke rather than a vertical stalk placed somewhere in a triangle.
-    rotationZ: -angle,
+    x,
+    y,
+    z,
+    rotationZ,
+    neckLength,
   });
 }
 
@@ -73,7 +120,7 @@ export function getHeadSlotPose(index) {
     throw new RangeError(`head slot index must be from 0 to ${MAX_VISIBLE_HEADS - 1}.`);
   }
 
-  return createFilledFanPose(index);
+  return createBiasedCanopyPose(index);
 }
 
 function requireBabylon(babylon) {
@@ -96,17 +143,20 @@ function createHeadSlot({ babylon, scene, parent, index, neckMaterial, headMater
   root.parent = parent;
 
   const pose = getHeadSlotPose(index);
-  root.position.set(pose.x, pose.y, pose.z);
+  root.position.set(0, CANOPY_ROOT_Y, pose.z);
   root.rotation.z = pose.rotationZ;
 
+  // The neck now genuinely reaches from the common root toward its leaf/head
+  // position. Long upper heads therefore read as rays/branches instead of short
+  // vertical stalks floating around the fan area.
   const neck = babylon.MeshBuilder.CreateCylinder(`hydra-neck-${index}`, {
-    height: 0.82,
-    diameterTop: 0.16,
-    diameterBottom: 0.24,
+    height: pose.neckLength,
+    diameterTop: 0.13,
+    diameterBottom: 0.22,
     tessellation: 5,
   }, scene);
   neck.parent = root;
-  neck.position.y = -0.33;
+  neck.position.y = pose.neckLength * 0.5;
   neck.material = neckMaterial;
   neck.isPickable = false;
 
@@ -116,7 +166,7 @@ function createHeadSlot({ babylon, scene, parent, index, neckMaterial, headMater
   }, scene);
   head.parent = root;
   head.scaling.set(1.32, 0.78, 0.92);
-  head.position.set(-0.04, 0.16, 0);
+  head.position.set(-0.04, pose.neckLength + 0.16, 0);
   head.rotation.z = -0.10;
   head.material = headMaterial;
   head.isPickable = false;
@@ -127,7 +177,7 @@ function createHeadSlot({ babylon, scene, parent, index, neckMaterial, headMater
     depth: 0.18,
   }, scene);
   snout.parent = root;
-  snout.position.set(-0.20, 0.12, 0);
+  snout.position.set(-0.20, pose.neckLength + 0.12, 0);
   snout.rotation.z = -0.08;
   snout.material = headMaterial;
   snout.isPickable = false;
