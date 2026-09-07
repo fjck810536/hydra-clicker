@@ -58,11 +58,44 @@ test('a true Hydra II kill awards 33 Humanity Evil instead of the Hydra I 11', (
   runtime.destroy();
 });
 
-test('Command Spell I Data uses confirmed power-of-nine APS and prices while N2 reveal gates remain unchanged', () => {
+test('Command Spell I Data uses the revised Hydra I / II economy and leaves 729 APS price pending', () => {
   const levels = HYDRA_I_PROGRESSION.commandSpellI.levels;
   assert.deepEqual(levels.map((level) => level.attacksPerSecond), [1, 3, 9, 27, 81, 243, 729]);
-  assert.deepEqual(levels.map((level) => level.cost), [99n, 198n, 396n, 891n, 2673n, 8019n, 24057n]);
-  assert.deepEqual(levels.map((level) => level.requiredHydraKills), [9n, 12n, 16n, 22n, 30n, 40n, 66n]);
+  assert.deepEqual(levels.map((level) => level.cost), [99n, 33n, 66n, 99n, 1782n, 2178n, null]);
+  assert.deepEqual(levels.map((level) => level.requiredHydraKills), [null, null, null, null, null, null, null]);
+  assert.deepEqual(levels.map((level) => level.purchasePending === true), [false, false, false, false, false, false, true]);
+  assert.equal(levels.at(-1).intendedGeneration, 3);
+});
+
+test('Command Spell I formal purchases are affordability-driven through 243 APS and stop before unpriced 729 APS', () => {
+  const initialState = createInitialState();
+  initialState.statistics.totalHydrasKilled = 0n;
+  initialState.master.humanityEvil = 4257n;
+  const runtime = createHydraIGameRuntime({ initialState });
+
+  for (let targetLevel = 1; targetLevel <= 6; targetLevel += 1) {
+    const before = runtime.commandSpellIStatus();
+    assert.equal(before.nextLevel, targetLevel);
+    assert.equal(before.killsMet, true);
+    assert.equal(before.available, true);
+
+    const purchase = runtime.buyCommandSpellI();
+    assert.equal(purchase.accepted, true);
+    assert.equal(purchase.level, targetLevel);
+  }
+
+  const pending = runtime.commandSpellIStatus();
+  assert.equal(pending.level, 6);
+  assert.equal(pending.attacksPerSecond, 243);
+  assert.equal(pending.nextLevel, 7);
+  assert.equal(pending.nextAttacksPerSecond, 729);
+  assert.equal(pending.pricePending, true);
+  assert.equal(pending.cost, null);
+  assert.equal(pending.available, false);
+  assert.equal(runtime.buyCommandSpellI().reason, 'price-pending');
+  assert.equal(runtime.snapshot().master.humanityEvil, 0n);
+
+  runtime.destroy();
 });
 
 test('Command Spell II Data locks the confirmed nine-beat cost, reveal and NP curves', () => {
