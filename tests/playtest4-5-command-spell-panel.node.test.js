@@ -30,6 +30,8 @@ function spellII(overrides = {}) {
     maxed: false,
     extensionPending: false,
     pricePending: false,
+    chapterReached: false,
+    eligibilityMet: false,
     available: false,
     cost: 297n,
     npManualStrikeCount: 1,
@@ -117,10 +119,31 @@ test('243 APS formal state exposes 729 as PRICE TBD while TEST-owned 729 can rea
   assert.match(max.meta, /729 APS/);
 });
 
-test('Command Spell II follows dormant / affordable / owned / pending-extension slot grammar', () => {
+test('Command Spell II makes its one-time reveal condition visible, then uses affordability states', () => {
   assert.equal(projectCommandSpellIISlot(spellII()).state, 'dormant');
 
-  const first = projectCommandSpellIISlot(spellII({ available: true }));
+  const beforeCut = projectCommandSpellIISlot(spellII({ chapterReached: true }));
+  assert.deepEqual(beforeCut, {
+    state: 'preview',
+    level: '—',
+    meta: 'CUT TO REVEAL',
+    clickable: false,
+  });
+
+  const revealedPoor = projectCommandSpellIISlot(spellII({
+    chapterReached: true,
+    eligibilityMet: true,
+  }));
+  assert.equal(revealedPoor.state, 'owned-dim');
+  assert.equal(revealedPoor.level, 'NEW');
+  assert.equal(revealedPoor.meta, '297 人類惡');
+  assert.equal(revealedPoor.clickable, true);
+
+  const first = projectCommandSpellIISlot(spellII({
+    chapterReached: true,
+    eligibilityMet: true,
+    available: true,
+  }));
   assert.equal(first.state, 'available');
   assert.equal(first.level, 'NEW');
   assert.equal(first.clickable, true);
@@ -128,6 +151,8 @@ test('Command Spell II follows dormant / affordable / owned / pending-extension 
   const poor = projectCommandSpellIISlot(spellII({
     unlocked: true,
     level: 1,
+    chapterReached: true,
+    eligibilityMet: true,
     npManualStrikeCount: 3,
     npMaxPoints: 132,
     cost: 198n,
@@ -139,6 +164,8 @@ test('Command Spell II follows dormant / affordable / owned / pending-extension 
   const pricePending = projectCommandSpellIISlot(spellII({
     unlocked: true,
     level: 3,
+    chapterReached: true,
+    eligibilityMet: true,
     npManualStrikeCount: 3,
     npMaxPoints: 198,
     npDurationMs: 9000,
@@ -152,6 +179,8 @@ test('Command Spell II follows dormant / affordable / owned / pending-extension 
   const extension = projectCommandSpellIISlot(spellII({
     unlocked: true,
     level: 9,
+    chapterReached: true,
+    eligibilityMet: true,
     maxed: false,
     extensionPending: true,
     pricePending: true,
@@ -166,11 +195,16 @@ test('Command Spell II follows dormant / affordable / owned / pending-extension 
   assert.match(extension.meta, /EXTENSION TBD/);
 });
 
-test('fixed markup reserves exactly three Command Spell slots', async () => {
+test('fixed bottom action bar reserves NP, Humanity Evil and exactly three Command Spell slots', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const slots = [...html.matchAll(/data-command-spell-slot="([123])"/g)].map((match) => match[1]);
   assert.deepEqual(slots, ['1', '2', '3']);
 
+  assert.match(html, /data-bottom-hud/);
+  assert.match(html, /class="np-button np-card"[^>]*data-np-button/);
+  assert.match(html, /data-np-button-label/);
+  assert.match(html, /class="resource-panel"/);
+  assert.match(html, /data-hud="humanity-evil"/);
   assert.match(html, /data-command-spell-slot="3"[^>]*data-state="dormant"[^>]*disabled/);
   assert.match(html, /data-command-spell-modal-current/);
   assert.match(html, /data-command-spell-modal-next/);
@@ -180,7 +214,7 @@ test('fixed markup reserves exactly three Command Spell slots', async () => {
   assert.match(html, /class="command-spell-modal-close"[^>]*style="width:44px;height:44px"/);
 });
 
-test('Command Spell II modal uses its own quote, exposes the next technique tuple, and can surface long-term extension', async () => {
+test('Command Spell II modal documents the simplified post-reveal purchase rule', async () => {
   const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
 
   assert.match(panelSource, /「快點……再快點……！」/);
@@ -189,6 +223,7 @@ test('Command Spell II modal uses its own quote, exposes the next technique tupl
   assert.match(panelSource, /status\.nextNpMaxPoints/);
   assert.match(panelSource, /status\.nextNpDurationMs/);
   assert.match(panelSource, /LONG-TERM TIME AXIS · TBD/);
+  assert.match(panelSource, /不再要求額外蛇二擊殺/);
 });
 
 test('Command Spell modal closes after a successful purchase and backdrop taps close only outside the card', async () => {
