@@ -15,6 +15,7 @@ function createHydraIIIState({
   np = 0,
   autoSlash = false,
   attacksPerSecond = 1,
+  humanityEvil = 0n,
 } = {}) {
   const state = createInitialState();
   state.hydra.generation = 3;
@@ -26,6 +27,7 @@ function createHydraIIIState({
   state.berserker.np = np;
   state.master.commandSpells.autoSlash = autoSlash;
   state.berserker.baseAttacksPerSecond = attacksPerSecond;
+  state.master.humanityEvil = humanityEvil;
   return state;
 }
 
@@ -113,7 +115,7 @@ test('Tree View continues to project 729 logical heads through a 99-head visible
   assert.equal(projection.maxHeads, 729n);
 });
 
-test('Command Spell III data keeps formal prices pending while locking 1/9 -> 1/3 -> full Auto-in-NP', () => {
+test('Command Spell III keeps the finite 1/9 -> 1/3 -> full bridge and prices only the exact 9U3 first step', () => {
   const definition = HYDRA_I_PROGRESSION.commandSpellIII;
   assert.equal(definition.unlockGeneration, 3);
   assert.equal(definition.firstEligibilityMilestone, 'hydra-iii-first-np-release');
@@ -121,11 +123,11 @@ test('Command Spell III data keeps formal prices pending while locking 1/9 -> 1/
     definition.levels.map((level) => [level.autoNpNumerator, level.autoNpDenominator]),
     [[1, 9], [1, 3], [1, 1]],
   );
-  assert.deepEqual(definition.levels.map((level) => level.cost), [null, null, null]);
-  assert.deepEqual(definition.levels.map((level) => level.purchasePending), [true, true, true]);
+  assert.deepEqual(definition.levels.map((level) => level.cost), [891n, null, null]);
+  assert.deepEqual(definition.levels.map((level) => level.purchasePending === true), [false, true, true]);
 });
 
-test('first NP release while fighting Hydra III reveals Command Spell III without inventing a price', () => {
+test('first NP release while fighting Hydra III reveals a priced but possibly unaffordable Command Spell III', () => {
   const initialState = createHydraIIIState({ np: 1 });
   const runtime = createHydraIGameRuntime({ initialState });
   const eligibleEvents = [];
@@ -140,13 +142,47 @@ test('first NP release while fighting Hydra III reveals Command Spell III withou
   status = runtime.commandSpellIIIStatus();
   assert.equal(status.eligible, true);
   assert.equal(status.unlocked, false);
-  assert.equal(status.pricePending, true);
+  assert.equal(status.pricePending, false);
   assert.equal(status.available, false);
-  assert.equal(status.cost, null);
-  assert.equal(runtime.buyCommandSpellIII().reason, 'price-pending');
+  assert.equal(status.cost, 891n);
+  assert.equal(runtime.buyCommandSpellIII().reason, 'insufficient-humanity-evil');
   assert.equal(eligibleEvents.length, 1);
+  assert.equal(eligibleEvents[0].cost, 891n);
+  assert.equal(eligibleEvents[0].pricePending, false);
 
   offEligible();
+  runtime.destroy();
+});
+
+test('9U3 buys Command Spell III Lv.1, then Lv.2 returns to price-pending range state', () => {
+  const initialState = createHydraIIIState({ np: 1, humanityEvil: 891n, autoSlash: true, attacksPerSecond: 9 });
+  const runtime = createHydraIGameRuntime({ initialState });
+  const availableEvents = [];
+  const offAvailable = runtime.events.on('command-spell:available', ({ payload }) => {
+    if (payload.id === 'command-spell-3') availableEvents.push(payload);
+  });
+
+  assert.equal(runtime.releaseNp().accepted, true);
+  let status = runtime.commandSpellIIIStatus();
+  assert.equal(status.available, true);
+  assert.equal(status.cost, 891n);
+  assert.equal(availableEvents.length, 1);
+
+  const purchase = runtime.buyCommandSpellIII();
+  assert.equal(purchase.accepted, true);
+  assert.equal(purchase.level, 1);
+  assert.equal(runtime.snapshot().master.humanityEvil, 0n);
+
+  status = runtime.commandSpellIIIStatus();
+  assert.equal(status.level, 1);
+  assert.equal(status.autoNpFraction, 1 / 9);
+  assert.equal(status.nextLevel, 2);
+  assert.equal(status.pricePending, true);
+  assert.equal(status.cost, null);
+  assert.equal(status.available, false);
+  assert.equal(runtime.buyCommandSpellIII().reason, 'price-pending');
+
+  offAvailable();
   runtime.destroy();
 });
 
@@ -254,26 +290,32 @@ test('Command Spell III TEST progression changes no Humanity Evil, kill count, o
   runtime.destroy();
 });
 
-test('Command Spell III fixed slot is revealed by eligibility but remains PRICE TBD until economy is confirmed', () => {
-  const projection = projectCommandSpellIIISlot({
+test('Command Spell III fixed slot distinguishes revealed-poor from actually affordable', () => {
+  const common = {
     eligible: true,
     unlocked: false,
     level: 0,
     maxed: false,
-    pricePending: true,
-    available: false,
-    cost: null,
+    pricePending: false,
+    cost: 891n,
     autoNpNumerator: 0,
     autoNpDenominator: 1,
     autoNpAps: 0,
     nextAutoNpNumerator: 1,
     nextAutoNpDenominator: 9,
     nextAutoNpAps: 1,
-  });
+  };
 
-  assert.equal(projection.level, 'NEW');
-  assert.equal(projection.meta, 'PRICE TBD');
-  assert.equal(projection.clickable, true);
+  const poor = projectCommandSpellIIISlot({ ...common, available: false });
+  assert.equal(poor.state, 'owned-dim');
+  assert.equal(poor.level, 'NEW');
+  assert.equal(poor.meta, '891 人類惡');
+  assert.equal(poor.clickable, true);
+
+  const ready = projectCommandSpellIIISlot({ ...common, available: true });
+  assert.equal(ready.state, 'available');
+  assert.equal(ready.level, 'NEW');
+  assert.equal(ready.meta, '891 人類惡');
 });
 
 test('Hydra III player shell exposes Tree View plus session-only CS III and 99-head test paths', async () => {
