@@ -12,7 +12,12 @@ for(const button of document.querySelectorAll('[data-size]')) button.onclick=()=
 document.querySelector('#run').onclick=async()=>{
  const reports=[];
  const assert=(value,name)=>{if(!value)throw Error(name);reports.push('PASS '+name);};
- const settle=()=>new Promise(resolve=>setTimeout(resolve,400));
+ const settle=async()=>{
+  const drawer=frame.contentDocument.querySelector('#treeDrawer');
+  drawer.getBoundingClientRect(); // Flush style before awaiting the actual transition.
+  await Promise.all(drawer.getAnimations().map(animation=>animation.finished.catch(()=>{})));
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ };
  const d=frame.contentDocument,w=frame.contentWindow;
  const q=selector=>d.querySelector(selector);
  const rect=selector=>q(selector).getBoundingClientRect();
