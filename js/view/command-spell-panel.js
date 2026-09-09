@@ -75,10 +75,11 @@ export function projectCommandSpellIISlot(status) {
   }
 
   if (!status.unlocked) {
-    if (!status.chapterReached) {
+    const chapterReached = status.chapterReached ?? status.eligibilityMet ?? status.available ?? false;
+    if (!chapterReached) {
       return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
     }
-    if (!status.eligibilityMet) {
+    if (status.eligibilityMet === false) {
       return Object.freeze({ state: 'preview', level: '—', meta: 'CUT TO REVEAL', clickable: false });
     }
     return Object.freeze({
@@ -125,10 +126,11 @@ export function projectCommandSpellIIISlot(status) {
   }
 
   if (!status.unlocked) {
-    if (!status.chapterReached) {
+    const chapterReached = status.chapterReached ?? status.eligible ?? status.available ?? false;
+    if (!chapterReached) {
       return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
     }
-    if (!status.eligible) {
+    if (status.eligible === false) {
       return Object.freeze({ state: 'preview', level: '—', meta: 'NP TO REVEAL', clickable: false });
     }
     return Object.freeze({
