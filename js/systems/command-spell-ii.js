@@ -40,11 +40,10 @@ function assertDefinition(definition) {
       throw new TypeError('Command Spell II levels must be contiguous positive integers.');
     }
 
-    if (level.requiredGenerationKills == null) {
-      if (level.purchasePending !== true) {
-        throw new TypeError('Command Spell II levels without a kill gate must be marked purchasePending.');
-      }
-    } else {
+    // Generation-kill gates are optional explicit data. A null gate means the
+    // level is governed by the already-established first eligibility milestone,
+    // sequential ownership, price status, and current Humanity Evil only.
+    if (level.requiredGenerationKills != null) {
       if (typeof level.requiredGenerationKills !== 'bigint' || level.requiredGenerationKills < 0n) {
         throw new TypeError('Command Spell II requiredGenerationKills must be null or a non-negative BigInt.');
       }
