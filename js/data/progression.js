@@ -126,10 +126,11 @@ const COMMAND_SPELL_I_LEVELS = Object.freeze([
 ]);
 
 // Only the Hydra-II teaching trio has a single-value price in the current
-// long-term proposal. Later CS II beats keep their already-tested effect shapes
-// for save/TEST compatibility, but formal purchasing is price-pending until the
-// cross-generation ranges are resolved. 81 seconds is no longer treated as the
-// conceptual end of Command Spell II's long-term time axis.
+// long-term proposal. Once the first Hydra-II reversal cut has revealed CS II,
+// priced follow-up levels use sequential ownership + current Humanity Evil only;
+// they do not retain old generation-kill gates. Later beats keep their tested
+// effect shapes for save/TEST compatibility, but formal purchasing is pending
+// until the cross-generation price ranges are resolved.
 const COMMAND_SPELL_II_LEVELS = Object.freeze([
   Object.freeze({
     level: 1,
@@ -145,7 +146,7 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 2,
     branch: 'efficiency',
     rewardLabel: 'NP EFFICIENCY I',
-    requiredGenerationKills: 9n,
+    requiredGenerationKills: null,
     cost: humanityCost(2, 6n),
     npManualStrikeCount: 3,
     npMaxPoints: 66,
@@ -155,7 +156,7 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 3,
     branch: 'time',
     rewardLabel: 'TIME STOP 9 s',
-    requiredGenerationKills: 18n,
+    requiredGenerationKills: null,
     cost: humanityCost(2, 27n),
     npManualStrikeCount: 3,
     npMaxPoints: 198,
