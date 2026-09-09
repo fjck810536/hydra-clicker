@@ -56,11 +56,21 @@ export function createTreeView({ root } = {}) {
   }
 
   let latest = null;
+  let openState = false;
+
+  function applyOpenState(open) {
+    openState = open === true && latest?.unlocked === true;
+    overlay.dataset.open = openState ? 'true' : 'false';
+    overlay.setAttribute('aria-hidden', openState ? 'false' : 'true');
+    toggle.setAttribute('aria-expanded', openState ? 'true' : 'false');
+    root.classList.toggle('tree-open', openState);
+  }
 
   function render(snapshot, options = {}) {
     latest = projectTreeView(snapshot, options);
     toggle.hidden = !latest.unlocked;
-    if (!latest.unlocked) overlay.hidden = true;
+    overlay.hidden = !latest.unlocked;
+    if (!latest.unlocked) applyOpenState(false);
 
     logical.textContent = latest.logicalHeads.toString();
     visible.textContent = `${latest.visibleHeads.toString()} / ${latest.visibleHeadCap.toString()}`;
@@ -75,11 +85,12 @@ export function createTreeView({ root } = {}) {
   function open() {
     if (!latest?.unlocked) return false;
     overlay.hidden = false;
+    applyOpenState(true);
     return true;
   }
 
   function close() {
-    overlay.hidden = true;
+    applyOpenState(false);
   }
 
   return Object.freeze({
@@ -89,5 +100,6 @@ export function createTreeView({ root } = {}) {
     render,
     open,
     close,
+    isOpen: () => openState,
   });
 }
