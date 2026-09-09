@@ -28,6 +28,8 @@ function spellII(overrides = {}) {
     unlocked: false,
     level: 0,
     maxed: false,
+    extensionPending: false,
+    pricePending: false,
     available: false,
     cost: 297n,
     npManualStrikeCount: 1,
@@ -115,7 +117,7 @@ test('243 APS formal state exposes 729 as PRICE TBD while TEST-owned 729 can rea
   assert.match(max.meta, /729 APS/);
 });
 
-test('Command Spell II follows the same dormant / first-affordable / owned / MAX slot grammar', () => {
+test('Command Spell II follows dormant / affordable / owned / pending-extension slot grammar', () => {
   assert.equal(projectCommandSpellIISlot(spellII()).state, 'dormant');
 
   const first = projectCommandSpellIISlot(spellII({ available: true }));
@@ -134,21 +136,37 @@ test('Command Spell II follows the same dormant / first-affordable / owned / MAX
   assert.equal(poor.clickable, true);
   assert.match(poor.meta, /NP 132/);
 
-  const max = projectCommandSpellIISlot(spellII({
+  const pricePending = projectCommandSpellIISlot(spellII({
+    unlocked: true,
+    level: 3,
+    npManualStrikeCount: 3,
+    npMaxPoints: 198,
+    npDurationMs: 9000,
+    cost: null,
+    pricePending: true,
+  }));
+  assert.equal(pricePending.state, 'owned-dim');
+  assert.equal(pricePending.level, 'Lv.3');
+  assert.match(pricePending.meta, /PRICE TBD/);
+
+  const extension = projectCommandSpellIISlot(spellII({
     unlocked: true,
     level: 9,
-    maxed: true,
+    maxed: false,
+    extensionPending: true,
+    pricePending: true,
     npManualStrikeCount: 9,
     npMaxPoints: 1188,
     npDurationMs: 81000,
+    cost: null,
   }));
-  assert.equal(max.state, 'max');
-  assert.equal(max.level, 'MAX');
-  assert.match(max.meta, /×9/);
-  assert.match(max.meta, /81s/);
+  assert.equal(extension.state, 'owned-dim');
+  assert.equal(extension.level, 'Lv.9');
+  assert.match(extension.meta, /81s/);
+  assert.match(extension.meta, /EXTENSION TBD/);
 });
 
-test('Playtest 4.5 markup reserves exactly three slots and keeps Command Spell III dormant', async () => {
+test('fixed markup reserves exactly three Command Spell slots', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const slots = [...html.matchAll(/data-command-spell-slot="([123])"/g)].map((match) => match[1]);
   assert.deepEqual(slots, ['1', '2', '3']);
@@ -162,7 +180,7 @@ test('Playtest 4.5 markup reserves exactly three slots and keeps Command Spell I
   assert.match(html, /class="command-spell-modal-close"[^>]*style="width:44px;height:44px"/);
 });
 
-test('Command Spell II modal uses its own quote and exposes the full next NP technique tuple', async () => {
+test('Command Spell II modal uses its own quote, exposes the next technique tuple, and can surface long-term extension', async () => {
   const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
 
   assert.match(panelSource, /「快點……再快點……！」/);
@@ -170,6 +188,7 @@ test('Command Spell II modal uses its own quote and exposes the full next NP tec
   assert.match(panelSource, /status\.nextNpManualStrikeCount/);
   assert.match(panelSource, /status\.nextNpMaxPoints/);
   assert.match(panelSource, /status\.nextNpDurationMs/);
+  assert.match(panelSource, /LONG-TERM TIME AXIS · TBD/);
 });
 
 test('Command Spell modal closes after a successful purchase and backdrop taps close only outside the card', async () => {
@@ -192,8 +211,10 @@ test('Command Spell panel is a View projection and Application owns purchases', 
 
   assert.match(appSource, /commandSpellPanel\.open\(1\)/);
   assert.match(appSource, /commandSpellPanel\.open\(2\)/);
+  assert.match(appSource, /commandSpellPanel\.open\(3\)/);
   assert.match(appSource, /commandSpellPanel\.currentOpenSpellId\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellI\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellII\(\)/);
+  assert.match(appSource, /runtime\.buyCommandSpellIII\(\)/);
   assert.doesNotMatch(appSource, /state\.update/);
 });
