@@ -6,6 +6,11 @@ export const HYDRA_I_REGEN_CURVE = Object.freeze({
   minAtKills: 99,
 });
 
+export const HUMANITY_EVIL_ECONOMY = Object.freeze({
+  basePerKill: 11n,
+  generationMultiplier: 3n,
+});
+
 export function getHydraIRegenDelayMs(
   totalHydrasKilled,
   curve = HYDRA_I_REGEN_CURVE,
@@ -60,14 +65,17 @@ export function getHydraIRegenDelayMs(
 
 export function getHumanityEvilRewardForGeneration(
   generation,
-  {
-    basePerKill = 11n,
-    generationMultiplier = 3n,
-  } = {},
+  economy = HUMANITY_EVIL_ECONOMY,
 ) {
   if (!Number.isInteger(generation) || generation < 1) {
     throw new RangeError('generation must be a positive integer.');
   }
+
+  const {
+    basePerKill = 11n,
+    generationMultiplier = 3n,
+  } = economy ?? {};
+
   if (typeof basePerKill !== 'bigint' || basePerKill < 0n) {
     throw new TypeError('basePerKill must be a non-negative BigInt.');
   }
@@ -78,20 +86,35 @@ export function getHumanityEvilRewardForGeneration(
   return basePerKill * (generationMultiplier ** BigInt(generation - 1));
 }
 
+export function getHumanityEvilCostForGenerationUnits(
+  generation,
+  units,
+  economy = HUMANITY_EVIL_ECONOMY,
+) {
+  if (typeof units !== 'bigint' || units < 0n) {
+    throw new TypeError('units must be a non-negative BigInt.');
+  }
+  return getHumanityEvilRewardForGeneration(generation, economy) * units;
+}
+
+const humanityCost = (generation, units) => (
+  getHumanityEvilCostForGenerationUnits(generation, units, HUMANITY_EVIL_ECONOMY)
+);
+
 const HYDRA_II_FIRST_MANUAL_CUT_MILESTONE = 'hydra-ii-first-manual-cut';
 const HYDRA_III_FIRST_NP_RELEASE_MILESTONE = 'hydra-iii-first-np-release';
 
-// Command Spell I now follows the player-facing affordability-driven pacing.
-// Levels 1–6 have no independent kill gate: sequential prerequisites + the
-// shared Humanity Evil balance naturally produce the intended chapter timing.
-// Lv.7 / 729 APS belongs to Hydra III, but its real price is intentionally TBD.
+// Command Spell I uses debut-generation Humanity Evil units (U_n) from the
+// long-term economy proposal. Hydra I is the onboarding exception; Hydra II
+// begins the mature 36U / 54U pair. The 729 APS price remains a range, so it is
+// intentionally still pending rather than silently choosing one endpoint.
 const COMMAND_SPELL_I_LEVELS = Object.freeze([
-  Object.freeze({ level: 1, requiredHydraKills: null, cost: 99n, attacksPerSecond: 1 }),
-  Object.freeze({ level: 2, requiredHydraKills: null, cost: 33n, attacksPerSecond: 3 }),
-  Object.freeze({ level: 3, requiredHydraKills: null, cost: 66n, attacksPerSecond: 9 }),
-  Object.freeze({ level: 4, requiredHydraKills: null, cost: 99n, attacksPerSecond: 27 }),
-  Object.freeze({ level: 5, requiredHydraKills: null, cost: 1782n, attacksPerSecond: 81 }),
-  Object.freeze({ level: 6, requiredHydraKills: null, cost: 2178n, attacksPerSecond: 243 }),
+  Object.freeze({ level: 1, requiredHydraKills: null, cost: humanityCost(1, 9n), attacksPerSecond: 1 }),
+  Object.freeze({ level: 2, requiredHydraKills: null, cost: humanityCost(1, 3n), attacksPerSecond: 3 }),
+  Object.freeze({ level: 3, requiredHydraKills: null, cost: humanityCost(1, 6n), attacksPerSecond: 9 }),
+  Object.freeze({ level: 4, requiredHydraKills: null, cost: humanityCost(1, 9n), attacksPerSecond: 27 }),
+  Object.freeze({ level: 5, requiredHydraKills: null, cost: humanityCost(2, 36n), attacksPerSecond: 81 }),
+  Object.freeze({ level: 6, requiredHydraKills: null, cost: humanityCost(2, 54n), attacksPerSecond: 243 }),
   Object.freeze({
     level: 7,
     requiredHydraKills: null,
@@ -102,13 +125,18 @@ const COMMAND_SPELL_I_LEVELS = Object.freeze([
   }),
 ]);
 
+// Only the Hydra-II teaching trio has a single-value price in the current
+// long-term proposal. Later CS II beats keep their already-tested effect shapes
+// for save/TEST compatibility, but formal purchasing is price-pending until the
+// cross-generation ranges are resolved. 81 seconds is no longer treated as the
+// conceptual end of Command Spell II's long-term time axis.
 const COMMAND_SPELL_II_LEVELS = Object.freeze([
   Object.freeze({
     level: 1,
     branch: 'strike',
     rewardLabel: 'NP MANUAL ×3',
     requiredGenerationKills: 0n,
-    cost: 297n,
+    cost: humanityCost(2, 9n),
     npManualStrikeCount: 3,
     npMaxPoints: 132,
     npDurationMs: 3000,
@@ -118,7 +146,7 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     branch: 'efficiency',
     rewardLabel: 'NP EFFICIENCY I',
     requiredGenerationKills: 9n,
-    cost: 198n,
+    cost: humanityCost(2, 6n),
     npManualStrikeCount: 3,
     npMaxPoints: 66,
     npDurationMs: 3000,
@@ -128,7 +156,7 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     branch: 'time',
     rewardLabel: 'TIME STOP 9 s',
     requiredGenerationKills: 18n,
-    cost: 396n,
+    cost: humanityCost(2, 27n),
     npManualStrikeCount: 3,
     npMaxPoints: 198,
     npDurationMs: 9000,
@@ -137,8 +165,10 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 4,
     branch: 'strike',
     rewardLabel: 'NP MANUAL ×6',
-    requiredGenerationKills: 27n,
-    cost: 396n,
+    requiredGenerationKills: null,
+    intendedGeneration: 3,
+    cost: null,
+    purchasePending: true,
     npManualStrikeCount: 6,
     npMaxPoints: 396,
     npDurationMs: 9000,
@@ -147,8 +177,10 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 5,
     branch: 'efficiency',
     rewardLabel: 'NP EFFICIENCY II',
-    requiredGenerationKills: 39n,
-    cost: 330n,
+    requiredGenerationKills: null,
+    intendedGeneration: 3,
+    cost: null,
+    purchasePending: true,
     npManualStrikeCount: 6,
     npMaxPoints: 198,
     npDurationMs: 9000,
@@ -157,8 +189,10 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 6,
     branch: 'time',
     rewardLabel: 'TIME STOP 27 s',
-    requiredGenerationKills: 54n,
-    cost: 495n,
+    requiredGenerationKills: null,
+    intendedGeneration: 3,
+    cost: null,
+    purchasePending: true,
     npManualStrikeCount: 6,
     npMaxPoints: 594,
     npDurationMs: 27000,
@@ -167,8 +201,10 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 7,
     branch: 'strike',
     rewardLabel: 'NP MANUAL ×9',
-    requiredGenerationKills: 66n,
-    cost: 594n,
+    requiredGenerationKills: null,
+    intendedGeneration: 4,
+    cost: null,
+    purchasePending: true,
     npManualStrikeCount: 9,
     npMaxPoints: 792,
     npDurationMs: 27000,
@@ -177,8 +213,10 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
     level: 8,
     branch: 'efficiency',
     rewardLabel: 'NP EFFICIENCY III',
-    requiredGenerationKills: 81n,
-    cost: 495n,
+    requiredGenerationKills: null,
+    intendedGeneration: 4,
+    cost: null,
+    purchasePending: true,
     npManualStrikeCount: 9,
     npMaxPoints: 396,
     npDurationMs: 27000,
@@ -186,27 +224,27 @@ const COMMAND_SPELL_II_LEVELS = Object.freeze([
   Object.freeze({
     level: 9,
     branch: 'time',
-    rewardLabel: 'TIME STOP 81 s · MAX',
-    requiredGenerationKills: 99n,
-    cost: 693n,
+    rewardLabel: 'TIME STOP 81 s',
+    requiredGenerationKills: null,
+    intendedGeneration: 4,
+    cost: null,
+    purchasePending: true,
     npManualStrikeCount: 9,
     npMaxPoints: 1188,
     npDurationMs: 81000,
   }),
 ]);
 
-// Command Spell III's mechanic is ready for playtest, but its Humanity Evil
-// prices are explicitly still open in the player-facing proposal. Keeping
-// cost:null makes formal purchases impossible while TEST can exercise the
-// confirmed 1/9 -> 1/3 -> full Auto-in-NP ladder.
+// Command Spell III is intentionally finite. The first bridge purchase has a
+// single-value 9U3 debut price. Lv.2/MAX remain ranges in player-facing design,
+// so only those later purchases stay price-pending.
 const COMMAND_SPELL_III_LEVELS = Object.freeze([
   Object.freeze({
     level: 1,
     rewardLabel: 'AUTO IN NP · 1/9',
     autoNpNumerator: 1,
     autoNpDenominator: 9,
-    cost: null,
-    purchasePending: true,
+    cost: humanityCost(3, 9n),
   }),
   Object.freeze({
     level: 2,
@@ -249,11 +287,8 @@ export const HYDRA_GENERATIONS = Object.freeze({
 
 export const HYDRA_I_PROGRESSION = Object.freeze({
   // Legacy alias retained for Hydra I-only callers/tests.
-  humanityEvilPerKill: 11n,
-  humanityEvil: Object.freeze({
-    basePerKill: 11n,
-    generationMultiplier: 3n,
-  }),
+  humanityEvilPerKill: HUMANITY_EVIL_ECONOMY.basePerKill,
+  humanityEvil: HUMANITY_EVIL_ECONOMY,
   respawnDelayMs: 300,
   burstRespawnDelayMs: 100,
   regenCurve: HYDRA_I_REGEN_CURVE,
@@ -266,12 +301,10 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
   commandSpellI: Object.freeze({
     id: 'command-spell-1',
     displayName: 'Command Spell I',
-    // Legacy first-purchase aliases remain because 99 Humanity Evil naturally
-    // occurs at Hydra I kill 9 under the 11-per-kill economy.
     requiredHydraKills: 9n,
     cost: Object.freeze({
       currency: 'humanity-evil',
-      amount: 99n,
+      amount: humanityCost(1, 9n),
     }),
     unlocks: Object.freeze(['combat.autoSlash']),
     levels: COMMAND_SPELL_I_LEVELS,
@@ -281,6 +314,7 @@ export const HYDRA_I_PROGRESSION = Object.freeze({
     displayName: 'Command Spell II',
     unlockGeneration: 2,
     firstEligibilityMilestone: HYDRA_II_FIRST_MANUAL_CUT_MILESTONE,
+    futureExtensionPending: true,
     base: Object.freeze({
       npManualStrikeCount: 1,
       npMaxPoints: 66,
