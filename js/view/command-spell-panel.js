@@ -95,6 +95,17 @@ export function projectCommandSpellIISlot(status) {
     });
   }
 
+  if (status.pricePending) {
+    return Object.freeze({
+      state: 'owned-dim',
+      level: `Lv.${status.level}`,
+      meta: status.extensionPending
+        ? `×${status.npManualStrikeCount} · ${formatSeconds(status.npDurationMs)} · EXTENSION TBD`
+        : `NP ${status.npMaxPoints} · PRICE TBD`,
+      clickable: true,
+    });
+  }
+
   return Object.freeze({
     state: status.available ? 'affordable' : 'owned-dim',
     level: `Lv.${status.level}`,
@@ -115,7 +126,7 @@ export function projectCommandSpellIIISlot(status) {
       return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
     }
     return Object.freeze({
-      state: status.pricePending ? 'owned-dim' : 'available',
+      state: status.available ? 'available' : 'owned-dim',
       level: 'NEW',
       meta: status.pricePending ? 'PRICE TBD' : `${formatInteger(status.cost)} 人類惡`,
       clickable: true,
@@ -200,13 +211,27 @@ function modalModel(number, status) {
       maxPoints: status.npMaxPoints,
       durationMs: status.npDurationMs,
     });
-    const next = status.maxed
+    const next = status.extensionPending
+      ? 'LONG-TERM TIME AXIS · TBD'
+      : status.maxed
+        ? 'MAX'
+        : formatNpTechnique({
+            strikeCount: status.nextNpManualStrikeCount,
+            maxPoints: status.nextNpMaxPoints,
+            durationMs: status.nextNpDurationMs,
+          });
+    const cost = status.maxed
+      ? '—'
+      : status.pricePending
+        ? 'PRICE TBD'
+        : `${formatInteger(status.cost)} 人類惡`;
+    const action = status.maxed
       ? 'MAX'
-      : formatNpTechnique({
-        strikeCount: status.nextNpManualStrikeCount,
-        maxPoints: status.nextNpMaxPoints,
-        durationMs: status.nextNpDurationMs,
-      });
+      : status.pricePending
+        ? 'PRICE TBD'
+        : status.unlocked
+          ? 'LV UP'
+          : 'PURCHASE';
 
     return {
       title: '「快點……再快點……！」',
@@ -214,9 +239,9 @@ function modalModel(number, status) {
       level: status.unlocked ? `Lv.${status.level}` : 'Lv.0',
       current,
       next,
-      cost: status.maxed ? '—' : `${formatInteger(status.cost)} 人類惡`,
-      description: '只強化寶具／時停技法：連斬、NP效率與時停時間。',
-      action: status.maxed ? 'MAX' : status.unlocked ? 'LV UP' : 'PURCHASE',
+      cost,
+      description: '手動連斬會在 ×9 封頂；長期成長主軸轉向 NP 時停尺度與效率。',
+      action,
       canPurchase: status.available,
     };
   }
@@ -240,7 +265,7 @@ function modalModel(number, status) {
     current,
     next,
     cost,
-    description: '把令咒 I 的 Auto Slash 帶進寶具／時停。自動斬不繼承令咒 II 的手動連斬。',
+    description: '把令咒 I 的 Auto Slash 帶進寶具／時停。此 bridge 最終會在 FULL 封頂。',
     action: status.maxed ? 'MAX' : status.pricePending ? 'PRICE TBD' : status.unlocked ? 'LV UP' : 'PURCHASE',
     canPurchase: status.available,
   };
