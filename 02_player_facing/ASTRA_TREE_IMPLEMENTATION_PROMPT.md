@@ -89,17 +89,67 @@ Reference path:
 
 # Tree View 第一版視覺目標
 
-先做一個簡潔、可理解、可擴充的 2D rooted tree / branching structure。
+先做一個簡潔、可理解、可擴充的 2D rooted branching structure。
 
 不要先做 3D。
 
 優先使用 SVG / DOM；除非現有架構明顯更適合 Canvas，否則不要為第一版新增大型圖形依賴。
 
-Tree 的概念：
+## 重要：視覺上要有「碎形般的遞迴分岔感」
+
+Tree View 的外觀應該更接近：
+
+> 一個不斷遞迴分岔、局部形態與整體相似、越往外圍越密集的 branching organism
+
+而不是：
+
+> 公司組織圖、家譜、一般 taxonomy diagram、整齊左右排列的 node graph
+
+也就是說，畫面應該有明顯的 **fractal-like visual grammar / recursive branching feel**：
+
+- 一個 root / trunk 向外分成較大的 branches；
+- 大 branch 再分成較小、視覺上相似的 sub-branches；
+- 越接近外圍，分岔可以越密、越細；
+- outer clusters 應讓人感覺「裡面還藏著更多相似分岔」，即使那些分岔沒有真的 render；
+- 整體看起來像一個會增殖的有機／數學結構，而不是資訊管理圖表。
+
+可以使用曲線、角度變化、有限層數的 recursive-looking branch geometry、cluster silhouette 等方式製造這種感覺。
+
+### 但「fractal-like」只代表視覺語法，不代表完整計算或完整展開碎形
+
+這是硬性效能要求：
+
+> **不要把每個 logical head 都建立成一個 DOM / SVG node。**
+
+> **不要因為要呈現碎形感，就 literal recursive-expand 整棵 logical Hydra。**
+
+Hydra 的 logical complexity 可以快速增加，但 rendered visual complexity 應保持大致穩定。
+
+理想關係是：
+
+```text
+logical complexity ↑↑↑↑↑
+rendered complexity ≈ constant
+```
+
+換句話說：
+
+- 可以讓 120–180 個 visual nodes / branch primitives 看起來像一個巨大的碎形生命體；
+- 不需要，也不應該真的 render 729、6,561、59,049 或更多 logical heads；
+- 超過 visual budget 的部分應被壓縮成 subtree / cluster；
+- cluster 的輪廓與分岔方式可以暗示其內部還有更多 self-similar structure；
+- 「像碎形」是 perceptual illusion / visual grammar，不是 full recursive simulation。
+
+如果要在「碎形感」與「效能／可讀性」之間取捨，優先保留效能、壓縮表示與互動清楚度。
+
+---
+
+# Tree 的結構概念
 
 - root / trunk = Hydra 的結構根部
 - internal nodes = branch / generation structure
 - outer leaves = heads 的結構表示
+- cluster / subtree proxy = 被壓縮的大量 logical descendants
 - 大量 logical heads 不得真的建立等量 DOM / SVG nodes
 - 必須支援 compressed / clustered representation
 
@@ -133,6 +183,18 @@ Hydra long-term scale：
 
 Tree View 不得用畫面節點數量反推真實 head count。
 
+## 壓縮表示要求
+
+Tree renderer 應該把 logical structure 映射成有限的 visual representation。
+
+建議第一版：
+
+- visible rendered nodes / branch primitives 約控制在 **120–180** 以內；
+- 可以依 viewport 與效能稍微調整，但不要隨 logical head count 線性增加；
+- 當 logical structure 超出 budget 時，優先合併成 cluster / subtree proxy；
+- cluster 可以顯示例如 `×12`、`×173`、`×4,782` 等摘要數量；
+- cluster 仍應保留 fractal-like branching silhouette，而不是變成單純表格或方框清單。
+
 ---
 
 # 第一版必要功能
@@ -142,15 +204,15 @@ Tree View 不得用畫面節點數量反推真實 head count。
 1. Tree Scene 正確滑入 / 收起。
 2. Scene 2 完整覆蓋 Scene 1，而不是左右並排。
 3. Bottom Bar 全程保持可見、可點。
-4. Tree renderer 真正顯示一個 rooted branching structure，不再是 placeholder。
-5. Tree 可在手機 portrait 畫面正常閱讀。
-6. Tree 可 pan / zoom，或至少提供等效的安全瀏覽方式。
-7. 點擊 node / cluster 時有清楚的 selected / inspect feedback。
-8. Tree 超過可視節點上限時採 cluster / subtree aggregation，不暴力建立 729 / 6561 / 59049 個節點。
-9. Scene 2 的非 UI 控制區仍可維持主要 click / attack 行為，不可因 SVG / overlay 把整個 attack surface 吃掉。
-10. Bottom Bar 的寶具、資源、令咒按鈕不得因 Tree pointer events 失效。
-
-建議第一版 visible rendered nodes 控制在約 120–180 以內；可自行微調，只要效能與可讀性更好。
+4. Tree renderer 真正顯示一個具有 fractal-like recursive branching feel 的 rooted branching structure，不再是 placeholder。
+5. 視覺上不要像公司組織圖／家譜；要像遞迴增殖的有機／數學結構。
+6. Tree 可在手機 portrait 畫面正常閱讀。
+7. Tree 可 pan / zoom，或至少提供等效的安全瀏覽方式。
+8. 點擊 node / cluster 時有清楚的 selected / inspect feedback。
+9. Tree 超過可視節點上限時採 cluster / subtree aggregation，不暴力建立 729 / 6,561 / 59,049 個節點。
+10. Scene 2 的非 UI 控制區仍可維持主要 click / attack 行為，不可因 SVG / overlay 把整個 attack surface 吃掉。
+11. Bottom Bar 的寶具、資源、令咒按鈕不得因 Tree pointer events 失效。
+12. Tree 的 logical scale 增大時，render complexity 不應近似線性跟著 logical heads 增長。
 
 ---
 
@@ -162,12 +224,18 @@ Tree View 不得用畫面節點數量反推真實 head count。
 - branch-targeted cutting
 - Kirby–Paris 完整結構規則
 - 大型 3D tree
+- full recursive fractal simulation
+- 一頭對應一個 visual node
 - 一次加入大量新遊戲機制
 - 為了 Tree 重寫整個戰鬥架構
 
 第一版的目標是：
 
-> 讓我可以打開公開網址，在 iPhone portrait 上切換 Scene 1 / Scene 2，看到一個真正可互動、可擴充的 Hydra Tree View，並且原本底部操作仍可用。
+> 讓我可以打開公開網址，在 iPhone portrait 上切換 Scene 1 / Scene 2，看到一個真正可互動、可擴充、視覺上具有碎形遞迴分岔感的 Hydra Tree View，並且原本底部操作仍可用。
+
+同時必須保持：
+
+> **看起來像很大的碎形結構，但實際 render 的 visual complexity 是受控、壓縮、有限的。**
 
 ---
 
@@ -220,6 +288,7 @@ shellApi.emitTreeEvent(name, detail)
 - iOS Safari portrait 方向不 overflow / 不產生意外 page zoom
 - console 沒有未處理 error
 - resource / script path 在部署後沒有 404
+- Hydra III / IV demo logical scale 增大時，visual node / primitive 數量仍維持在受控範圍，而不是跟著 logical heads 暴增
 
 建議至少測這些 viewport：
 
@@ -260,6 +329,7 @@ npm test
 - **Commit SHA:** 最終 commit
 - **Changed files:** 主要修改檔案
 - **What works:** 已完成的 Tree 行為
+- **Rendering strategy:** 如何做到 fractal-like 外觀但維持 compressed / bounded render complexity
 - **Tests run:** 自動測試與手動 viewport / browser 驗證
 - **Known issues:** 如果仍有真的無法在本次解決的問題，列出；沒有就寫 `None`
 
