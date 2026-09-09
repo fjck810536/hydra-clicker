@@ -92,6 +92,7 @@ export function createCommandSpellIIISystem({ state, events, definition } = {}) 
     const effect = currentEffect(definition, level);
     const next = definition.levels[level] ?? null;
     const maxed = next == null;
+    const chapterReached = snapshot.hydra.generation >= definition.unlockGeneration;
     const eligibilityMet = level > 0
       || snapshot.progression.milestones.includes(definition.firstEligibilityMilestone);
     const pricePending = !maxed && (next.purchasePending === true || next.cost == null);
@@ -100,6 +101,7 @@ export function createCommandSpellIIISystem({ state, events, definition } = {}) 
     return Object.freeze({
       id: definition.id,
       generation: definition.unlockGeneration,
+      chapterReached,
       eligible: eligibilityMet,
       unlocked: level > 0,
       level,
