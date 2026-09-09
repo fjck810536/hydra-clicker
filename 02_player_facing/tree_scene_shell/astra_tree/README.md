@@ -62,3 +62,30 @@ shellApi.emitTreeEvent('node-selected', {
 ## 現階段 Tree 本體可以先是假資料
 
 第一輪只需要把視覺與互動放進這個 mount point。之後再接真 Hydra logical-head state。
+
+## Bounded SVG prototype (implemented)
+
+`geometry.js` owns a deterministic **presentation-only synthetic projection**, not Hydra rules.
+The demo selector uses the proposed `9^n` scale and exact BigInt totals. This is not a
+snapshot of the live game's topology, and attack/NP/spell feedback in this shell is a
+UI demo. No game state or save is read or written.
+
+- Fixed-depth ternary curved scaffold: 40 branch paths.
+- 27 terminal cluster proxies, each with a three-prong silhouette path, one circle,
+  and one summary label; one root circle.
+- 122 SVG graphical elements / 176 individual curve, circle and text primitives.
+  The count is identical for III, IV, V, VI and XVIII; zoom never expands topology.
+- Exact quotient/remainder partition: cluster totals always sum to logical total.
+- Background taps bubble to shell attacks. Inspect, drag and pinch consume input.
+- Pan, anchored pinch/wheel zoom (70–400%), keyboard arrows, +/− and Home;
+  visible zoom buttons and 全景 recover from any pan position.
+- Selection emits `node-selected` with string `logicalHeads` and `synthetic: true`.
+- `rendered` emits bounded primitive count; mount returns `destroy()` for cleanup.
+
+No graphics dependencies, animation loop, timers or per-logical-head allocation.
+Runtime cost is bounded by the visual budget (BigInt/text cost grows with digit count).
+
+Run `npm test` from the repository root. Open `../responsive-test.html` for reproducible
+390×844, 430×932 and 1280×900 browser layout/input regression checks. That harness uses
+CSS iframe viewports and synthetic event checks, not iOS hardware emulation. Real
+browser taps/drag/wheel should also be exercised on the prototype itself.

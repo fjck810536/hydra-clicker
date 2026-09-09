@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>Tree responsive verification</title>
+<style>body{margin:16px;background:#222;color:#eee;font:14px system-ui}button{padding:10px;margin:4px}iframe{display:block;border:1px solid #777}pre{white-space:pre-wrap}label{display:block;margin:8px}</style>
+<button data-size="390,844">390 × 844</button><button data-size="430,932">430 × 932</button><button data-size="1280,900">1280 × 900</button><button id="run">Run regression checks</button>
+<label>Exact CSS viewport in iframe. This checks responsive layout, not real Safari hardware.</label><pre id="results">Ready</pre>
+<iframe title="Hydra prototype viewport" width="390" height="844" src="./index.html"></iframe>
+<script>
+const frame=document.querySelector('iframe'),results=document.querySelector('#results');
+const errors=[];
+frame.addEventListener('load',()=>{frame.contentWindow.addEventListener('error',e=>errors.push(e.message));frame.contentWindow.addEventListener('unhandledrejection',e=>errors.push(String(e.reason)));});
+for(const button of document.querySelectorAll('[data-size]')) button.onclick=()=>{[frame.width,frame.height]=button.dataset.size.split(',');results.textContent=`Manual viewport ${frame.width} × ${frame.height}`;};
+document.querySelector('#run').onclick=async()=>{
+ const reports=[];
+ const assert=(value,name)=>{if(!value)throw Error(name);reports.push('PASS '+name);};
+ const settle=()=>new Promise(resolve=>setTimeout(resolve,400));
+ const d=frame.contentDocument,w=frame.contentWindow;
+ const q=selector=>d.querySelector(selector);
+ const rect=selector=>q(selector).getBoundingClientRect();
+ try {
+ for(const [width,height] of [[390,844],[430,932],[1280,900]]) {
+  frame.width=width;frame.height=height;await settle();
+  q('#closeTree').click();await settle();
+  assert(!q('#sceneOne').inert,`${width}: battle active when closed`);
+  const before=Number(q('#sceneOneClicks').textContent);
+  q('#sceneOne').dispatchEvent(new w.PointerEvent('pointerup',{bubbles:true,button:0}));
+  assert(Number(q('#sceneOneClicks').textContent)===before+1,`${width}: battle tap input`);
+  q('#openTree').click();await settle();
+  const battle=rect('.battle-stage'),drawer=rect('#treeDrawer'),bottom=rect('#bottomBar');
+  assert(Math.abs(drawer.x-battle.x)<1&&Math.abs(drawer.width-battle.width)<1,`${width}: complete overlay`);
+  assert(drawer.bottom<=bottom.top+1,`${width}: bottom bar outside Tree`);
+  assert(d.documentElement.scrollWidth===width&&d.documentElement.scrollHeight===height,`${width}: no page overflow`);
+  assert(q('#sceneOne').inert&&!q('#treeDrawer').inert,`${width}: focus isolated`);
+  for(const selector of ['.np-card','.resource-panel',...Array.from({length:3},(_,i)=>`.command-slots button:nth-child(${i+1})`)]) {
+   const b=q(selector),r=b.getBoundingClientRect();
+   assert(b.contains(d.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),`${width}: ${selector} hit test`);
+   b.click();assert(q('#demoFeedback').textContent.startsWith('DEMO ·'),`${width}: bottom feedback`);
+  }
+  let count;
+  for(const generation of ['3','4','5','6','18']) {
+   q('select').value=generation;q('select').dispatchEvent(new w.Event('change',{bubbles:true}));
+   const primitives=q('#treeHost').dataset.primitives;
+   const actual=q('.tree-world').querySelectorAll('path,circle,text').length;
+   count??=actual;
+   assert(primitives==='176'&&actual===count&&actual<=180,`${width}: scale ${generation}, ${actual} SVG elements / 176 primitives`);
+   assert(q('#treeHost').dataset.logicalHeads===String(9n**BigInt(generation)),`${width}: exact logical count ${generation}`);
+  }
+  q('select').value='4';q('select').dispatchEvent(new w.Event('change'));
+  const node=q('[data-node="root.1.1.1"]');
+  node.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert(node.getAttribute('aria-pressed')==='true'&&q('.tree-inspect').textContent.includes('243'),`${width}: inspect feedback`);
+  q('[data-action="in"]').click();assert(q('.tree-zoom').textContent==='130%',`${width}: zoom`);
+  q('[data-action="fit"]').click();assert(q('.tree-zoom').textContent==='100%',`${width}: fit recovery`);
+  const b=Number(q('#sceneTwoClicks').textContent);
+  q('svg').dispatchEvent(new w.PointerEvent('pointerup',{bubbles:true,button:0}));
+  assert(Number(q('#sceneTwoClicks').textContent)===b+1,`${width}: Tree background attack input`);
+  for(let i=0;i<12;i++){q('#closeTree').click();q('#openTree').click();}
+  q('#closeTree').click();await settle();
+  assert(rect('#treeDrawer').left>=width-1&&!q('#sceneOne').inert,`${width}: rapid toggle final state`);
+ }
+ assert(errors.length===0,'no captured runtime errors');
+ results.textContent=reports.join('\n')+'\nALL PASSED';
+ }catch(error){results.textContent=reports.join('\n')+'\nFAIL '+error.message;}
+ frame.width=390;frame.height=844;
+};
+</script></html>

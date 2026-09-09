@@ -16,6 +16,10 @@
     app.classList.toggle('tree-open', open);
     drawer.setAttribute('aria-hidden', String(!open));
     openButton.setAttribute('aria-expanded', String(open));
+    drawer.inert = !open;
+    sceneOne.inert = open;
+    openButton.inert = open;
+    (open ? closeButton : openButton).focus({preventScroll:true});
     window.dispatchEvent(new CustomEvent('hydra:tree-shell-toggle', { detail: { open } }));
   }
 
@@ -41,10 +45,10 @@
     setTreeOpen(false);
   });
 
-  sceneOne.addEventListener('pointerup', incrementSceneOne);
+  sceneOne.addEventListener('pointerup', event => {if(event.button === 0) incrementSceneOne();});
   treeScene.addEventListener('pointerup', (event) => {
     if (event.target.closest('button, a, input, select, textarea')) return;
-    incrementSceneTwo();
+    if(event.button === 0) incrementSceneTwo();
   });
 
   sceneOne.addEventListener('keydown', (event) => {
@@ -57,6 +61,19 @@
   document.getElementById('bottomBar').addEventListener('pointerup', (event) => {
     event.stopPropagation();
   });
+
+  const feedback = document.getElementById('demoFeedback');
+  document.querySelector('.np-card').addEventListener('click', () => {
+    feedback.textContent = 'DEMO · 寶具解放！ ナインライブズ';
+    window.dispatchEvent(new CustomEvent('hydra:demo-action', {detail:{action:'np'}}));
+  });
+  document.querySelector('.resource-panel').addEventListener('click', () => {
+    feedback.textContent = 'DEMO · 人類惡 792 · 購買與升級尚未接入正式經濟';
+  });
+  document.querySelectorAll('.command-slots button').forEach(button => button.addEventListener('click', () => {
+    feedback.textContent = `DEMO · 令咒 ${button.textContent} 已選取（操作回饋）`;
+    window.dispatchEvent(new CustomEvent('hydra:demo-action', {detail:{action:'command',slot:button.textContent}}));
+  }));
 
   const shellApi = {
     setTreeOpen,

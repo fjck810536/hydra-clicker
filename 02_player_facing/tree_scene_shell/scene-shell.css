@@ -148,3 +148,22 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .tree-drawer { transition-duration: 1ms; }
 }
+
+/* Preserve the original shell geometry; safe areas belong to the shell. */
+:root { --safe-bottom: env(safe-area-inset-bottom, 0px); }
+.app-shell {height:100vh;height:100dvh;}
+.battle-stage {bottom:calc(var(--bottom-h) + var(--safe-bottom));}
+.bottom-bar {height:calc(var(--bottom-h) + var(--safe-bottom));padding-bottom:calc(10px + var(--safe-bottom));touch-action:manipulation;}
+.tree-scene {background:radial-gradient(ellipse at 50% 40%,#1a3029,#10191b 70%);}
+.scene-one .scene-copy p {max-width:280px;font-size:12px;line-height:1.6;}
+.tree-scene-header {right:15px;top:25px;}
+.tree-scene-header strong {font-size:12px;}
+.tree-scene-header span {font-size:9px;}
+.scene-two-counter {bottom:58px;right:18px;font-size:11px;}
+.demo-feedback {position:absolute;bottom:calc(var(--bottom-h) + var(--safe-bottom));left:0;right:0;z-index:101;padding:5px 12px;background:#0a1215e8;color:#b1c5ba;font-size:10px;min-height:24px;pointer-events:none;}
+.resource-panel {text-align:left;cursor:pointer;}
+.command-slots {gap:3px;}.command-slots button {min-height:44px;padding:0;cursor:pointer;}
+.command-slots .ghost {opacity:.55;}
+button:focus-visible,select:focus-visible {outline:2px solid #e6d99b;outline-offset:2px;}
+@media (max-width:620px) {.bottom-bar {padding-bottom:calc(7px + var(--safe-bottom));}.command-panel {padding:5px;}.command-slots button {font-size:12px;}}
+@media (max-height:650px) {.hydra-tree {top:110px;height:calc(100% - 260px);}.tree-inspect {bottom:96px;min-height:42px;padding:6px;}.tree-hint {font-size:9px;}}

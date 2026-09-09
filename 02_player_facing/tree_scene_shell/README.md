@@ -70,3 +70,17 @@ window.mountHydraTree = function mountHydraTree(container, shellApi) {
 - `scene-shell.js` — Tree 開關、兩個 Scene 的 demo click 行為、Astra mount API
 - `astra_tree/tree.js` — Astra 可直接替換的 Tree View
 - `astra_tree/README.md` — Astra 模組契約
+
+## Interactive Tree prototype
+
+The Astra slot now renders a bounded, recursive-looking SVG organism. Open `index.html`,
+then TREE ◀. Use the synthetic Hydra III–XVIII selector, drag/pinch or zoom controls,
+and tap terminal clusters to inspect their exact compressed totals.
+
+This remains an independent interaction prototype: A/B counters are demo attack
+input feedback; NP, resource and all three spell buttons show demo action feedback.
+It does not implement purchases or modify the main game's core, progress or save.
+The existing Scene 1 / right-sliding Scene 2 / fixed bottom bar layout is preserved.
+
+`responsive-test.html` provides the three requested CSS viewports and a browser
+regression runner. See `astra_tree/README.md` for rendering budget and input contracts.

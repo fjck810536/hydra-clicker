@@ -2,8 +2,10 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Hydra Tree Scene Shell</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Hydra · Tree View Prototype</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./astra_tree/tree.css" />
   <link rel="stylesheet" href="./scene-shell.css" />
 </head>
 <body>
@@ -13,8 +15,8 @@
         <div class="scene-copy">
           <div class="eyebrow">SCENE 1 · MAIN BATTLE</div>
           <h1>HYDRA</h1>
-          <p>玩家主要 click 行為區</p>
-          <div class="counter">A clicks <strong id="sceneOneClicks">0</strong></div>
+          <p>互動原型 · 輕點攻擊（不寫入遊戲存檔）</p>
+          <div class="counter">攻擊 A <strong id="sceneOneClicks">0</strong></div>
         </div>
         <div class="hydra-placeholder" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span>
@@ -26,7 +28,7 @@
         <span>TREE</span><span class="arrow">◀</span>
       </button>
 
-      <aside class="tree-drawer" id="treeDrawer" aria-hidden="true">
+      <aside class="tree-drawer" id="treeDrawer" aria-hidden="true" inert>
         <button class="tree-tab tree-tab-close" id="closeTree" type="button" aria-label="收起 Tree Scene">
           <span class="arrow">▶</span><span>TREE</span>
         </button>
@@ -36,12 +38,13 @@
             <span>SCENE 2</span>
             <strong>TREE VIEW</strong>
           </div>
-          <div class="tree-host" id="treeHost" aria-label="Astra tree module mount point"></div>
-          <div class="scene-two-counter">B clicks <strong id="sceneTwoClicks">0</strong></div>
+          <div class="tree-host" id="treeHost" aria-label="Hydra Tree"></div>
+          <div class="scene-two-counter">攻擊 B <strong id="sceneTwoClicks">0</strong></div>
         </div>
       </aside>
     </section>
 
+    <div class="demo-feedback" id="demoFeedback" role="status">DEMO · 底部操作可隨時使用</div>
     <footer class="bottom-bar" id="bottomBar">
       <button class="np-card" type="button">
         <span class="np-kicker">寶具解放</span>
@@ -49,11 +52,11 @@
         <small>射殺す百頭</small>
       </button>
 
-      <section class="resource-panel" aria-label="Humanity Evil">
+      <button type="button" class="resource-panel" aria-label="人類惡 / 購買資訊">
         <span>人類惡</span>
         <strong>792</strong>
-        <small>購買資訊固定於此</small>
-      </section>
+        <small>查看購買資訊</small>
+      </button>
 
       <section class="command-panel" aria-label="Command Spells">
         <span class="command-title">令咒</span>
@@ -66,6 +69,7 @@
     </footer>
   </main>
 
+  <script src="./astra_tree/geometry.js"></script>
   <script src="./astra_tree/tree.js"></script>
   <script src="./scene-shell.js"></script>
 </body>
