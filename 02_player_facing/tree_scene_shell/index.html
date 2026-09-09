@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Hydra Tree Scene Shell</title>
+  <link rel="stylesheet" href="./scene-shell.css" />
+</head>
+<body>
+  <main class="app-shell" id="appShell">
+    <section class="battle-stage" aria-label="battle stage">
+      <div class="scene scene-one" id="sceneOne" role="button" tabindex="0" aria-label="Scene 1 battle click area">
+        <div class="scene-copy">
+          <div class="eyebrow">SCENE 1 · MAIN BATTLE</div>
+          <h1>HYDRA</h1>
+          <p>玩家主要 click 行為區</p>
+          <div class="counter">A clicks <strong id="sceneOneClicks">0</strong></div>
+        </div>
+        <div class="hydra-placeholder" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+          <div class="hydra-core">9</div>
+        </div>
+      </div>
+
+      <button class="tree-tab tree-tab-open" id="openTree" type="button" aria-controls="treeDrawer" aria-expanded="false">
+        <span>TREE</span><span class="arrow">◀</span>
+      </button>
+
+      <aside class="tree-drawer" id="treeDrawer" aria-hidden="true">
+        <button class="tree-tab tree-tab-close" id="closeTree" type="button" aria-label="收起 Tree Scene">
+          <span class="arrow">▶</span><span>TREE</span>
+        </button>
+
+        <div class="tree-scene" id="treeScene">
+          <div class="tree-scene-header">
+            <span>SCENE 2</span>
+            <strong>TREE VIEW</strong>
+          </div>
+          <div class="tree-host" id="treeHost" aria-label="Astra tree module mount point"></div>
+          <div class="scene-two-counter">B clicks <strong id="sceneTwoClicks">0</strong></div>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="bottom-bar" id="bottomBar">
+      <button class="np-card" type="button">
+        <span class="np-kicker">寶具解放</span>
+        <strong>ナインライブズ</strong>
+        <small>射殺す百頭</small>
+      </button>
+
+      <section class="resource-panel" aria-label="Humanity Evil">
+        <span>人類惡</span>
+        <strong>792</strong>
+        <small>購買資訊固定於此</small>
+      </section>
+
+      <section class="command-panel" aria-label="Command Spells">
+        <span class="command-title">令咒</span>
+        <div class="command-slots">
+          <button type="button">I</button>
+          <button type="button">II</button>
+          <button type="button" class="ghost">III</button>
+        </div>
+      </section>
+    </footer>
+  </main>
+
+  <script src="./astra_tree/tree.js"></script>
+  <script src="./scene-shell.js"></script>
+</body>
+</html>
