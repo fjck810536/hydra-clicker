@@ -1,41 +1,37 @@
-# Hydra Clicker — Game Design v0.14
+# Hydra Clicker — Game Design v0.15
 
-> Playtest 5：依 `02_player_facing/HYDRA_III_COMMAND_III_PROPOSAL.md` 把 Hydra III 從 shell 提升成可玩世代。Hydra III 沿用 `CUT 1 → GROW +2`，但 logical cap 擴成 729；第一次超過 99 顆、到達 100 logical heads 時解鎖觀測型 Tree View。Command Spell III 的機制先落地為「把令咒 I 的 Auto Slash 帶進 NP」，倍率依序 1/9 → 1/3 → FULL；正式 Humanity Evil 價格仍維持 TBD，只透過 TEST 驗證。
+> Playtest 5.1：對齊 `02_player_facing/LONG_TERM_COMMAND_SPELL_ECONOMY.md`。Humanity Evil 經濟改以「當代一隻 Hydra 的收入」作為相對單位 `U_n`；只把 proposal 中已有單值的價格正式落地，仍是範圍的後續升級一律保持 `PRICE TBD`。Command Spell II 的 81 秒不再視為長期 MAX；Command Spell III 第一階 1/9 Auto-in-NP 現在有正式 9U3 價格。
 
 ## 1. 核心一句話
 
-玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；Hydra II 把普通攻擊翻面成 **CUT 1 → GROW 2**，迫使玩家利用 NP 的 head-growth suppression 與 Command Spell II 手動連斬。Hydra III 不再換一條新算式，而是把同一條規則擴到 **729 logical heads**，讓「畫面上的怪物」第一次無法直接代表真正數量，並用 Tree View 開始把玩家從動作遊戲帶向結構觀測。
+玩家一開始以為自己在操縱狂戰士討伐會復原的九頭蛇；Hydra II 把普通攻擊翻面成 **CUT 1 → GROW 2**，迫使玩家利用 NP 的 head-growth suppression 與手動爆發。Hydra III 把同一規則擴到 729 logical heads，讓畫面第一次無法直接代表真正數量，並以 Tree View 開始從「砍怪」過渡到「觀測結構」。
 
-世代規模目前定義為：
+長期三條令咒軸分工：
 
 ```text
-Hydra I   starting 9 · max 9   = 9¹
-Hydra II  starting 9 · max 81  = 9²
-Hydra III starting 9 · max 729 = 9³
+Command Spell I   = 普通時間 throughput / APS，長期無限軸
+Command Spell II  = NP 手動技法 + 停止時間尺度；手動連斬有限、時間軸長期延伸
+Command Spell III = 把 I 的 Auto 帶進 NP 的有限 bridge；0 → 1/9 → 1/3 → FULL 後封頂
 ```
 
-Hydra I / II 以 **99 kills** 作為下一代門檻；99 是「要殺幾隻」，不是 head cap。Hydra III 的下一世代條件仍未決。
+## 2. Hydra generations
 
-目標：
-
-1. 不懂數學也能爽玩的 clicker。
-2. Active tapping 與 idle automation 都有存在理由。
-3. 規則反轉本身要先好玩，再逐步揭露數學。
-4. 世代擴張與 View mesh cap 分離。
-5. 玩家先感覺「數字逃出畫面」，再去理解背後結構。
-6. Hydra I 快速建立 automation fantasy；Hydra II 開始資源選擇；Hydra III 開始 representation / structure 問題。
-
-## 2. Hydra I — Seal Candidate
-
-核心規則：
+目前：
 
 ```text
-starting heads = 9
-max heads = 9
-accepted cut = -1 head
+Hydra I   start 9 · max 9   = 9¹ · 99 kills to next
+Hydra II  start 9 · max 81  = 9² · 99 kills to next
+Hydra III start 9 · max 729 = 9³ · next generation not defined yet
+```
+
+99 是「一代要殺幾隻 Hydra」，不是 head cap。
+
+### Hydra I
+
+```text
+accepted cut = -1
 non-terminal cut → same head regrows after delay
 head count reaches 0 → true kill
-99 Hydra I kills → Hydra II
 ```
 
 Regen curve：
@@ -43,574 +39,355 @@ Regen curve：
 ```text
 0 kills  → 1500ms
 9 kills  → 350ms
-30 kills → 247ms
-50 kills → 174ms
-66 kills → 134ms
+30 kills → ~247ms
+50 kills → ~174ms
+66 kills → ~134ms
 99 kills → 100ms floor
 ```
 
-實機節奏仍以 `docs/PLAYTEST_2.md` 為基準。
+### Hydra II
 
-## 3. NP — dynamic gauge / time-stop window
-
-基礎狀態：
+普通狀態：
 
 ```text
-NP MAX = 66
-1 accepted head cut outside NP = +1 NP
-66 / 66 = READY
-release = 0
-window = 3000ms
+CUT 1
+→ GROW +2 immediately
+→ net +1
+→ clamp to 81
 ```
 
-Command Spell II 會改變未來 NP 的 `maxPoints`、`durationMs` 與 NP-only manual strike count；NP System 本身仍負責 charge / release / active window lifecycle。
+Examples：
 
-NP 對 Hydra rule 的效果由 timed modifier 表達：
+```text
+9 → 10
+80 → 81
+81 → 81
+```
+
+第一次 Hydra II 登場時，已購 Auto 暫停；玩家必須手動砍第一刀看到反轉，才完成 `hydra-ii-first-manual-cut` milestone。這個 milestone 同時是 Command Spell II 第一階的 gameplay eligibility。
+
+### Hydra III
+
+沿用結構增生規則，但 cap 擴張：
+
+```text
+CUT 1 → GROW +2
+max = 729
+```
+
+因此第一隻 Hydra III 自然可從 9 長到 100+。當 logical heads 第一次到達 100：
+
+```text
+logical = 100
+visible proxy = 99
+→ Tree View unlock
+```
+
+Tree View v0 只做觀測，不提供 node targeting。
+
+## 3. NP — head-growth suppression / time-stop window
+
+基礎：
+
+```text
+NP max = 66
+outside NP: accepted head cut = +1 NP
+66/66 = READY
+release → gauge resets
+base duration = 3s
+```
+
+NP 建立 timed rule modifier：
 
 ```text
 hydra.headGrowth = disabled
 scope = timed
 ```
 
-可跨 encounter / generation transition，直到 `endsAt`。
-
-規則效果：
-
-```text
-Hydra I + NP
-→ delayed same-head regrowth is not scheduled
-
-Hydra II / III + NP
-→ immediate structural GROW is suppressed
-→ each resolved cut becomes net -1
-```
-
-玩家端「時停」行為：
-
-```text
-NP active
-→ head growth disabled
-→ Manual Cut 仍可使用
-→ Command Spell II STRIKE 決定每次 manual tap 解析幾刀
-→ active window 內的 cuts 不充下一條 NP
-→ active window 內再次寶解會被拒絕
-→ Auto Slash 預設暫停
-→ 若已擁有 Command Spell III，Auto 可按 III 的比例進入 NP
-
-NP ends
-→ emit time-resume semantic cue
-→ Auto Slash 回到令咒 I 的完整 APS
-→ NP charge 重新開始
-→ Hydra 正常生長規則恢復
-```
-
-Command Spell III 只改 Auto execution policy / effective APS；它**不修改** NP head-growth modifier，也不把令咒 II 的手動 ×3 / ×6 / ×9 套到 Auto 上。
-
-NP 期間砍掉的頭不是延後債務；window 結束時不會補回。NP window 是「花掉已蓄能量的特殊技法狀態」，不是在同一個時停內養出下一發寶具的循環。
-
-### 可見倒數
-
-NP active 時顯示 compact timer，例如：
-
-```text
-TIME STOP
-3.0 s
-MANUAL ×1
-```
-
-升級後可顯示 `MANUAL ×3 / ×6 / ×9`。倒數由 GameClock / modifier deadline 投影，不由 CSS 控制 lifecycle。
-
-寶解 presentation：
-
-```text
-寶具解放
-ナインライブズ
-射殺す百頭
-```
-
-NP 結束：
-
-```text
-TIME RESUMES
-時は動き出す
-```
-
-所有動畫只負責 presentation。
-
-## 4. Command Spell I — affordability-driven cross-generation progression
-
-APS 身分保持 powers-of-three ladder：
-
-```text
-1 → 3 → 9 → 27 → 81 → 243 → 729 APS
-```
-
-目前正式價格與章節分工：
-
-| Chapter role | APS after purchase | Humanity Evil cost |
-|---|---:|---:|
-| Hydra I | 1 | 99 |
-| Hydra I | 3 | 33 |
-| Hydra I | 9 | 66 |
-| Hydra I | 27 | 99 |
-| Hydra II | 81 | 1782 |
-| Hydra II | 243 | 2178 |
-| Hydra III | 729 | **TBD** |
-
-### Availability rule
-
-Lv.1～Lv.6 **沒有額外 kill gate**。
-
-```text
-前一級已購買
-AND Humanity Evil >= 當前價格
-→ 可購買 / 玩家端 sigil 應亮起
-```
-
-自然遊戲下：
-
-```text
-kill 9  → 累積 99 → 買 1 APS
-kill 12 → 再累積 33 → 買 3 APS
-kill 18 → 再累積 66 → 買 9 APS
-kill 27 → 再累積 99 → 買 27 APS
-```
-
-Hydra I 全買至 27 APS：
-
-```text
-99 + 33 + 66 + 99 = 297 人類惡
-```
-
-Hydra I 99 kills 總收入：
-
-```text
-99 × 11 = 1089
-```
-
-因此正常全買後進 Hydra II 約帶：
-
-```text
-1089 - 297 = 792 人類惡
-```
-
-Hydra II：
-
-```text
-792 + (30 × 33) = 1782
-→ 純令咒一流約 Hydra II #30 可買 81 APS
-
-再 66 × 33 = 2178
-→ 純令咒一流約 Hydra II #96 可買 243 APS
-```
-
-任何 Command Spell II 消費都會把 81 / 243 往後推，形成 Hydra II build choice。
-
-### 729 APS boundary
-
-729 APS 仍是有效等級、TEST 與既有已擁有狀態也必須能表示；但正式 Humanity Evil 價格尚未決定。
-
-```text
-正常玩家到 243 APS
-→ 下一級顯示 729 APS / PRICE TBD
-→ 正式 purchase rejected
-```
-
-不得使用舊 `24057`，也不得從 1782 / 2178 機械外推新價格。
-
-令咒 I capability 與已購升級跨 Hydra generation 保留。NP 時停對 Auto 的預設暫停可由 Command Spell III bridge 部分解除，但不移除或重寫令咒 I 本身。
-
-## 5. Command Spell II — formal NP progression
-
-玩家端文字身份：
-
-> **「快點……再快點……！」**
-
-`射殺す百頭` 留給 Noble Phantasm presentation，不作為第二令咒名稱。
-
-基礎：
-
-```text
-1 cut / tap · 3 s · 66 NP
-```
-
-正式 canonical 9-beat：
-
-| Lv | Beat | Eligibility / reveal | Cost | NP requirement | NP manual | Duration |
-|---:|---|---|---:|---:|---:|---:|
-| 1 | STRIKE | Hydra II first manual reversal cut · **0 kills** | 297 | 132 | ×3 | 3 s |
-| 2 | EFFICIENCY I | Hydra II 9 kills | 198 | 66 | ×3 | 3 s |
-| 3 | TIME | Hydra II 18 kills | 396 | 198 | ×3 | 9 s |
-| 4 | STRIKE | Hydra II 27 kills | 396 | 396 | ×6 | 9 s |
-| 5 | EFFICIENCY II | Hydra II 39 kills | 330 | 198 | ×6 | 9 s |
-| 6 | TIME | Hydra II 54 kills | 495 | 594 | ×6 | 27 s |
-| 7 | STRIKE | Hydra II 66 kills | 594 | 792 | ×9 | 27 s |
-| 8 | EFFICIENCY III | Hydra II 81 kills | 495 | 396 | ×9 | 27 s |
-| 9 | TIME · MAX | Hydra II 99 kills | 693 | 1188 | ×9 | 81 s |
-
-### First-level anti-softlock invariant
-
-第一級**不得要求先殺死任何 Hydra II**。
-
-```text
-Hydra II encounter 1 · 9 heads
-→ Auto 暫停，玩家手動第一刀
-→ 9 → 10 / CUT 1 → GROW +2
-→ first-reversal milestone 成立
-→ 同一隻 Hydra II 仍活著
-→ 若 Humanity Evil >= 297，令咒 II 立即亮起可買
-```
-
-正常 Hydra I 路徑買完 27 APS 後預期約帶 792 人類惡進 Hydra II，因此 297 的首級價格應可安全負擔；未來若 Hydra I 新增其他花費，必須重新檢查這個 anti-softlock 保證。
-
-後續 reveal cadence：
-
-```text
-9 / 18 / 27 / 39 / 54 / 66 / 81 / 99 Hydra II kills
-```
-
-Canonical NP requirement rhythm：
-
-```text
-66 → 132 → 66 → 198 → 396 → 198 → 594 → 792 → 396 → 1188
-```
-
-Multistrike 只作用於 NP / time stop 中的**手動輸入**：
-
-```text
-ordinary manual → 1 tap = 1 cut
-NP manual       → 1 tap = 3 / 6 / 9 separate cut resolutions
-NP auto         → 不繼承此倍率
-```
-
-每刀都產生自己的 semantic cut；中途 true kill 時 batch 在 killing strike 停止。
-
-TIME upgrade 只影響**下一次**寶解。已經 active 的 NP modifier 有 release 當下固定的 `endsAt`，不會買升級後在半途中突然延長。
-
-NP max 改變時保留**實際已充點數**，而不是保留百分比：
-
-```text
-33 / 66
-buy STRIKE I
-→ 33 / 132
-```
-
-升級 modal 的 `NEXT` 揭露完整結果：
-
-```text
-CURRENT  ×3 · NP 66  · 3s
-NEXT     ×3 · NP 198 · 9s
-```
-
-目前 runtime 依 canonical 9-beat 線性購買。三 branch 自由購買仍等玩家端定義 order-independent NP requirement composition。
-
-## 6. Humanity Evil — true-kill economy
-
-Humanity Evil 只由 true Hydra kill 取得，不由 head cut / spawn / cap farming 取得。
-
-```text
-Humanity Evil / kill = 11 × 3^(generation - 1)
-```
-
 因此：
 
 ```text
-Hydra I   11
-Hydra II  33
-Hydra III 99
-Hydra IV 297
+Hydra I   → 新的 delayed regrowth 不排入
+Hydra II  → GROW +2 變 GROW 0
+Hydra III → GROW +2 變 GROW 0
 ```
 
-NP 是 encounter 內切頭循環資源；Humanity Evil 是跨 encounter / 跨世代長期資源。
+NP active 時：
 
-## 7. Hydra II — 99-kill generation
+- accepted cuts 不充下一條 NP；
+- nested release 被拒絕；
+- Manual Cut 保持可用；
+- base Auto Slash 暫停；
+- Command Spell III 可按比例把 Auto 帶回 NP；
+- NP 結束不補回 window 中已砍掉的頭。
 
-### 登場
+TIME upgrade 只影響**未來**的寶解；已 active 的 modifier 保留 release 當下固定 `endsAt`。
+
+## 4. Humanity Evil — normalized long-term economy
+
+Humanity Evil 只由 **true Hydra kill** 取得。
+
+正式收入 law：
 
 ```text
-99 Hydra I kills
-→ HYDRA II encounter 1
-→ starting heads = 9
+U_n = generation n 每殺一隻 Hydra 的 Humanity Evil
+U_n = 11 × 3^(n - 1)
 ```
 
-第一次登場保留 first-cut reveal：Auto Slash 暫停，等玩家手動第一刀。該第一刀同時是 Command Spell II Lv.1 的 gameplay eligibility milestone。
-
-### 正常規則
+所以：
 
 ```text
-CUT 1
-→ GROW 2 immediately
-→ net +1
+U1 = 11
+U2 = 33
+U3 = 99
+U4 = 297
+...
 ```
 
-Hydra II 邏輯上限：
+每代 99 kills，gross income = `99 U_n`。
+
+### 為什麼用 U_n
+
+設計價格先用「這項升級等於當代幾隻 Hydra」思考，再換算 raw Humanity Evil。程式提供：
 
 ```text
-max heads = 81 = 9²
+getHumanityEvilCostForGenerationUnits(generation, units)
 ```
 
-接近上限：
+例如：
 
 ```text
-80 → cut 1 / grow 2 → 81
-81 → cut 1 / grow 1 → 81
+36 U2 = 36 × 33 = 1188 HE
+54 U2 = 54 × 33 = 1782 HE
+9 U3  = 9 × 99  = 891 HE
 ```
 
-### NP kill window
+### Catch-up 是刻意的
+
+舊升級的 raw price **不隨新世代重新放大**。
+
+因此一個原本值 54U4 的固定價格，到下一代自然約只值 18U5，再下一代約 6U6。這是內建 catch-up：玩家晚買舊內容會變便宜，而不是每一代重新把舊價格乘三。
+
+### Mature pacing
+
+Hydra I 是 cheap onboarding exception。成熟世代的 major-axis 參考節奏：
 
 ```text
-head growth disabled
-Auto Slash 預設 paused
-NP charge paused
-↓
-manual CUT / multistrike
-→ GROW 0
-→ net -1 per resolved strike
+第一個重要 ×3 step ≈ 36 U
+第二個同軸 ×3 step ≈ 54 U
 ```
 
-最後一頭：
+不代表每一條令咒都在同一代塞兩個 major purchases；三條軸要共享同一個 `99 U_n` 預算，形成 build choice。
+
+## 5. Command Spell I — infinite throughput axis
+
+能力：普通時間 Auto Slash。
+
+APS ladder：
 
 ```text
-1 → 0
-→ Hydra II true kill
-→ +33 人類惡
+1 → 3 → 9 → 27 → 81 → 243 → 729 → ...
 ```
 
-下一隻 Hydra II 重新從 9 頭開始；同一 NP window 若仍有效，可以跨 encounter 繼續禁止生長，但不能在該 window 中重新蓄滿或再次 release NP。
+目前正式價格：
 
-### 世代完成
+| Level role | APS | Relative cost | Raw HE |
+|---|---:|---:|---:|
+| Hydra I onboarding | 1 | 9 U1 | 99 |
+| Hydra I onboarding | 3 | 3 U1 | 33 |
+| Hydra I onboarding | 9 | 6 U1 | 66 |
+| Hydra I onboarding | 27 | 9 U1 | 99 |
+| Hydra II mature I | 81 | 36 U2 | 1188 |
+| Hydra II mature II | 243 | 54 U2 | 1782 |
+| Hydra III next | 729 | **36–54 U3 range** | **PRICE TBD** |
+
+Lv.1–6 沒有額外 kill gate：
 
 ```text
-Hydra II encounter 1 ... 99
-↓
-kill encounter 99
-↓
-HYDRA III
+previous level owned
+AND Humanity Evil >= current fixed price
+→ purchasable
 ```
 
-## 8. Hydra III — playable scale / representation chapter
+729 的 proposal 仍是 range，因此 normal purchase 必須拒絕 `price-pending`；TEST / already-owned 729 狀態仍合法。
 
-Hydra III 的正常砍擊**刻意不升成 GROW +3**。它沿用 Hydra II 的結構規則：
+Command Spell I 是長期無限軸；未來 2187、6561... 不應因目前資料只列到 729 就被概念上視為終點。
+
+## 6. Command Spell II — finite manual technique + long-term time axis
+
+玩家端：
+
+> **「快點……再快點……！」**
+
+Base：
 
 ```text
-starting heads = 9
-max heads = 729 = 9³
-
-normal:
-CUT 1
-→ GROW 2 immediately
-→ net +1
+manual ×1 · NP66 · 3s
 ```
 
-接近上限：
+### Hydra II teaching trio — currently formal
+
+| Lv | Beat | Eligibility | Relative cost | HE | Result |
+|---:|---|---|---:|---:|---|
+| 1 | STRIKE | first reversal cut · 0 Hydra II kills | 9 U2 | 297 | manual ×3 · NP132 · 3s |
+| 2 | EFF I | 9 Hydra II kills | 6 U2 | 198 | manual ×3 · NP66 · 3s |
+| 3 | TIME | 18 Hydra II kills | 27 U2 | 891 | manual ×3 · NP198 · 9s |
+
+Lv.1 的 anti-softlock invariant 不變：第一刀 `9→10` 後，同一隻蛇仍活著時就可以取得資格。
+
+### Later effects retained, prices pending
+
+舊 Playtest 已驗證的 effect shapes 仍可由 TEST / old save 表示：
 
 ```text
-728 → cut 1 / grow 2 → 729
-729 → cut 1 / grow 1 → 729
+manual ×6 / ×9
+27s / 81s
+higher NP requirements / efficiency beats
 ```
 
-NP / head-growth suppression：
+但 long-term proposal 把這些移到 Hydra III / IV 之後，且目前只給 range。因此 normal purchasing 在 Lv.3 後停於：
 
 ```text
-CUT 1
-→ GROW 0
-→ net -1
-1 → 0 = true kill
-→ +99 人類惡
+PRICE TBD
 ```
 
-Hydra III true kill 後，在目前尚未定義 Hydra IV transition 的情況下，下一 encounter 仍是 Hydra III、重新從 9 頭開始。
+不得沿用舊版 `396 / 330 / 495 / 594 / 495 / 693` 當正式價格。
 
-### 第一次 100 頭：數字逃出怪物
+### Manual branch is finite
 
-View 的既有 hard cap 保持：
+手動連斬：
+
+```text
+1 → 3 → 6 → 9 cuts/tap
+```
+
+到 ×9 封頂，不往 ×27 / ×81 無限延伸。
+
+### Time branch is long-term
+
+81 秒**不是** Command Spell II 的概念 MAX。長期 time axis 可以跨世代繼續，例如 proposal 中的：
+
+```text
+9s → 27s → 81s → 243s → ...
+```
+
+實際未來階數、價格與 NP sawtooth 仍需逐代確認；目前 System 用 `futureExtensionPending` 表示「已列資料結束，但設計軸未結束」。
+
+## 7. Command Spell III — finite Auto-in-NP bridge
+
+玩家端：
+
+> **「這裡怎麼沒有 SKIP???」**
+
+第一次在 Hydra III 寶解後建立 gameplay eligibility：
+
+```text
+hydra-iii-first-np-release
+```
+
+效果軸固定：
+
+```text
+Base → NP Auto OFF
+Lv1  → 1/9 of Command Spell I APS
+Lv2  → 1/3 of Command Spell I APS
+MAX  → FULL Command Spell I APS
+```
+
+Auto cuts 永遠是普通 auto strikes，**不乘 Command Spell II 的 manual ×3/×6/×9**。
+
+目前價格：
+
+| Level | Relative cost | Raw HE | Status |
+|---|---:|---:|---|
+| 1/9 | 9 U3 | 891 | formal |
+| 1/3 | 9–18 U3 | — | PRICE TBD |
+| FULL | 18–36 U3 | — | PRICE TBD |
+
+Lv1 被揭露後，若 balance <891，slot 可查看但保持 dim；balance >=891 時才亮成可購買。Lv2/MAX 因仍是 range，formal purchase 會回 `price-pending`。
+
+Command Spell III 是有限 bridge；FULL 後真正 MAX，不再新增更高倍率。
+
+## 8. Command Spell UI contract
+
+固定三槽：
+
+```text
+令咒
+[ I ] [ II ] [ III ]
+```
+
+狀態語義：
+
+```text
+dormant      未揭露 / 未到第一個入口
+available    NEW 且目前可買
+affordable   已擁有，下一階目前可買
+owned-dim    已揭露或已擁有，但目前買不起 / price pending
+max          真正有限軸終點
+```
+
+`PRICE TBD` 必須是不可購買狀態，不能拿 range 的任一端點偷當正式價。
+
+CS II end-of-current-data 若 `futureExtensionPending`：
+
+```text
+CURRENT = current technique
+NEXT = LONG-TERM TIME AXIS · TBD
+```
+
+不能顯示假 MAX。
+
+## 9. Tree View / representation break
+
+Head View contract：
 
 ```text
 logical 0–99 → same visible count
 logical 100+ → visible 99
 ```
 
-因此 Hydra III 第一個重要 representation milestone 是：
+第一次 `logical=100` 時：
 
 ```text
-99 logical heads
-→ ordinary cut
-→ 100 logical heads
-→ visual Hydra 仍只有 99-head proxy
-→ progression.treeViewUnlocked = true
-→ emit tree-view:unlocked
+Tree View unlock
+LOGICAL HEADS 100
+VISIBLE PROXY 99/99
+BEYOND IMAGE +1
+CURRENT CAP 729
 ```
 
-這不是新的 Hydra Math；它只是第一次讓玩家明確看到：
+Tree View v0 不決定 combat、target 或 Hydra math。
 
-> **LOGICAL HEAD COUNT ≠ VISIBLE HEAD COUNT**
+## 10. Persistence / compatibility
 
-### Tree View v0 — observation only
+Save schema 維持 **1**。
 
-目前 Tree View 只讀 snapshot，顯示：
+- CS I / II / III level ownership 仍使用 existing `progression.milestones`。
+- old/test-owned later CS II milestones 不回收；其 effect 繼續投影。
+- 只是 normal economy 不再用已淘汰的舊精確價格往後買。
+- old/test-owned 729 APS 仍合法。
+- `U_n` 是 Data 計價工具，不是新的 persistent currency。
 
-```text
-LOGICAL HEADS
-VISIBLE PROXY / 99
-BEYOND IMAGE
-CURRENT CAP / 729
-9¹ → 9² → 9³ 的簡化結構提示
-```
+## 11. Current playtest questions
 
-它**不提供 node targeting，不決定 damage，不修改 Hydra state**。真正結構樹與 targeting 留到後續。
+這一輪要驗證的是 pacing，不是底層正確性：
 
-## 9. Command Spell III — Auto-in-NP bridge prototype
+1. 81 APS 改成 **1188 HE = 36U2** 後，Hydra II 是否太早／太晚出現第一個成熟 throughput major beat？
+2. 243 APS 改成 **1782 HE = 54U2** 後，和 CS II 的 297 / 198 / 891 是否形成真正的分配壓力？
+3. CS II 在 Lv.3 後顯示 `PRICE TBD`，是否比讓玩家在 Hydra II 一口氣買完整九階更符合「跨世代養成」？
+4. Hydra III 第一次寶解後，CS III 1/9 以 **891 HE = 9U3** 開價是否足夠像一個低門檻 bridge？
+5. 玩家是否能理解 81 秒只是當前已實作效果，不是整條第二令咒的終點？
 
-玩家端文字身份：
+## 12. Still intentionally unresolved
 
-> **「這裡怎麼沒有 SKIP???」**
-
-機制身份：
-
-> **讓既有 Command Spell I Auto Slash 穿進 NP / time stop。**
-
-在沒有 Command Spell III 時：
-
-```text
-NP active
-→ Auto = 0
-```
-
-Playtest 5 固定倍率梯：
-
-| Lv | Auto inside NP | 正式價格 |
-|---:|---:|---:|
-| 1 | current CS I APS × 1/9 | **TBD** |
-| 2 | current CS I APS × 1/3 | **TBD** |
-| MAX | current CS I APS × 1 | **TBD** |
-
-例如令咒 I = 9 APS：
-
-```text
-Lv.1 → 1 APS inside NP
-Lv.2 → 3 APS inside NP
-MAX  → 9 APS inside NP
-```
-
-令咒 I = 243 APS：
-
-```text
-Lv.1 → 27 APS
-Lv.2 → 81 APS
-MAX  → 243 APS
-```
-
-這些 Auto attacks 是普通 automatic strikes；**不繼承 Command Spell II manual ×3 / ×6 / ×9**。
-
-### First eligibility
-
-正式 gameplay eligibility trigger：
-
-```text
-第一次在 Hydra III 戰鬥中 release NP
-→ milestone hydra-iii-first-np-release
-→ Command Spell III slot 被 reveal
-```
-
-它不要求：
-
-- 先殺一隻 Hydra III；
-- Command Spell II MAX；
-- 特定 Command Spell I APS。
-
-這保留「先看到 Hydra III 的問題 → 再看到新工具入口」的節奏，也避免第一隻蛇三被新系統本身鎖死。
-
-### Price boundary
-
-`02_player_facing` 中的 99 / 297 / 891 目前仍只是 candidate，不視為 confirmed。工程端因此：
-
-```text
-CS III levels 存在
-Auto-in-NP fraction 可測
-formal cost = null
-purchasePending = true
-normal purchase rejected as price-pending
-TEST can set Lv.1 / Lv.2 / MAX
-```
-
-在價格被玩家端正式確認前，不自行把 candidate 寫死成 economy。
-
-## 10. Chapter / modal presentation
-
-章節 palette：
-
-- Gen I 中性黑灰。
-- Gen II 輕微病態黃綠。
-- Gen III 冷紫；不再標記為 shell。
-- NP 紅屏優先於世代 palette。
-
-`hydra:generation-changed` 切幕仍是 CSS-only presentation，不暫停 GameClock。
-
-三槽令咒 detail modal：
-
-- 成功 PURCHASE / LV UP 後自動關閉。
-- `×` 至少 44×44 px。
-- 點 card 外 backdrop 關閉。
-- 查看資訊不花費 Humanity Evil。
-- CS III 在正式價格仍 TBD 時可 reveal / 查看，但 purchase action disabled。
-
-Tree View 也遵守同一手機退出語法：44×44 close + backdrop close。
-
-## 11. Playtest 5 要回答的問題
-
-1. Hydra III 仍使用 `CUT 1 → GROW +2` 是否會讓玩家感到「規則沒變，但規模突然失控」，而不是內容重複。
-2. **99 → 100** 時 Tree View 出現，是否真的讀成「數字逃出怪物」的認知轉場。
-3. 初版 Tree View 只顯示 logical / visible / overflow / cap，是否已足夠，還是太像 debug panel。
-4. 第一次 Hydra III 寶解後露出第三令咒，節奏是否自然。
-5. 在同一個令咒 I APS 下，NP Auto 的 **0 → 1/9 → 1/3 → FULL** 是否能明顯感到三段差異。
-6. Auto-in-NP 不吃令咒 II manual multistrike，是否容易從體感理解。
-7. 第三令咒的 candidate 價格要不要採 99 / 297 / 891，或需要由實機效率重新定價。
-
-## 12. Logical Heads / Tree future
-
-目前 Tree View 已從「候選」變成最小觀測工具，但真正 Analyzer / compressed tree 尚未落地。
-
-後續可能逐步加入：
-
-```text
-HEADS
-CUTS / SEC
-SPAWN / SEC
-NET GROWTH
-MAX HEADS
-branch / subtree representation
-compressed tree
-node targeting
-```
-
-順序原則：先讓玩家因 100+ logical heads 需要 representation，再讓工具逐步變成玩法。
-
-## 13. 目前刻意未決
-
-已確認、不再是待填：
-
-- Command Spell II Lv.1 reveal = Hydra II 第一刀 reversal milestone。
-- Hydra III normal rule = `CUT 1 → GROW +2`。
-- Hydra III logical cap = 729。
-- Tree View first reveal = logical 100。
-- Command Spell III first eligibility = Hydra III first NP release。
-- Command Spell III mechanic ladder = Auto in NP 1/9 → 1/3 → FULL。
-
-仍未決：
-
-- N3：Hydra II 81 以下的增生 presentation delay。
-- N4：Hydra II 81-cap replacement timing。
-- N5：NP countdown display precision（暫留 0.1s）。
-- Hydra II 81-cap 最終 hit / replacement 演出。
-- Command Spell II 三 branch 自由購買時的 NP requirement composition rule。
-- multistrike logical resolution 已正確，但 Hydra 頭數逐刀可見 presentation queue 尚可再 polish。
-- Command Spell I 729 APS 正式 Humanity Evil 價格。
-- **Command Spell III 三級正式 Humanity Evil 價格。**
-- Tree View 何時從 observation 升級為真正 node targeting。
-- Hydra III 後續 encounter / Hydra IV transition 條件。
-- Hydra III 的 729 如何逐步轉成真正 recursive/compressed tree structure。
-- Analyzer 出場節點。
+- CS I 729 的 range 內正式單值。
+- CS II Hydra III+ 各 branch 的正式單值價格、reveal cadence 與後續 NP requirement composition。
+- CS III Lv2 / MAX 在各 range 內的正式單值。
+- Hydra III 之後 generation 規則。
+- Tree node targeting / Analyzer gameplay。
+- Hydra II cap replacement 最終演出。
 - Prestige / Offline Progress。
-- 真正 Kirby–Paris 規則在哪一代完整出現。
+- 真正 Kirby–Paris Hydra 完整規則的登場世代。
 
-原則：**Hydra I 建 automation，Hydra II 教規則反轉，Hydra III 讓數字脫離畫面。**
+原則：**用 `U_n` 維持跨世代可讀的購買壓力；用 raw price 不重算來自然產生 catch-up；range 沒定案就真的保持 TBD。**
