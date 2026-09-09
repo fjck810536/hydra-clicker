@@ -39,15 +39,29 @@ function assertDefinition(definition) {
     if (!Number.isInteger(level.level) || level.level !== previousLevel + 1) {
       throw new TypeError('Command Spell II levels must be contiguous positive integers.');
     }
-    if (typeof level.requiredGenerationKills !== 'bigint' || level.requiredGenerationKills < 0n) {
-      throw new TypeError('Command Spell II requiredGenerationKills must be a non-negative BigInt.');
+
+    if (level.requiredGenerationKills == null) {
+      if (level.purchasePending !== true) {
+        throw new TypeError('Command Spell II levels without a kill gate must be marked purchasePending.');
+      }
+    } else {
+      if (typeof level.requiredGenerationKills !== 'bigint' || level.requiredGenerationKills < 0n) {
+        throw new TypeError('Command Spell II requiredGenerationKills must be null or a non-negative BigInt.');
+      }
+      if (level.requiredGenerationKills <= previousKills) {
+        throw new RangeError('Command Spell II defined kill requirements must strictly increase.');
+      }
+      previousKills = level.requiredGenerationKills;
     }
-    if (level.requiredGenerationKills <= previousKills) {
-      throw new RangeError('Command Spell II kill requirements must strictly increase.');
+
+    if (level.cost == null) {
+      if (level.purchasePending !== true) {
+        throw new TypeError('A Command Spell II level without a price must be marked purchasePending.');
+      }
+    } else if (typeof level.cost !== 'bigint' || level.cost < 0n) {
+      throw new TypeError('Command Spell II level cost must be a non-negative BigInt or null.');
     }
-    if (typeof level.cost !== 'bigint' || level.cost < 0n) {
-      throw new TypeError('Command Spell II level cost must be a non-negative BigInt.');
-    }
+
     if (!['strike', 'efficiency', 'time'].includes(level.branch)) {
       throw new TypeError('Command Spell II branch must be strike, efficiency, or time.');
     }
@@ -67,7 +81,6 @@ function assertDefinition(definition) {
     }
 
     previousLevel = level.level;
-    previousKills = level.requiredGenerationKills;
     previousStrikeCount = level.npManualStrikeCount;
     previousDuration = level.npDurationMs;
   }
@@ -136,16 +149,24 @@ export function createCommandSpellIISystem({
     const level = getCurrentLevel(snapshot, definition);
     const effects = currentEffects(definition, level);
     const next = definition.levels[level] ?? null;
-    const maxed = next == null;
+    const extensionPending = next == null && definition.futureExtensionPending === true;
+    const maxed = next == null && !extensionPending;
     const generationKills = completedGenerationKills(snapshot, definition, generations);
     const eligibilityMet = maxed
+      || extensionPending
       || level > 0
       || (
         snapshot.hydra.generation >= definition.unlockGeneration
         && snapshot.progression.milestones.includes(definition.firstEligibilityMilestone)
       );
-    const killsMet = maxed || generationKills >= next.requiredGenerationKills;
-    const canAfford = maxed || snapshot.master.humanityEvil >= next.cost;
+    const pricePending = extensionPending
+      || (!maxed && (next?.purchasePending === true || next?.cost == null));
+    const killsMet = maxed
+      || extensionPending
+      || next?.requiredGenerationKills == null
+      || generationKills >= next.requiredGenerationKills;
+    const canAfford = maxed
+      || (!pricePending && snapshot.master.humanityEvil >= next.cost);
 
     return Object.freeze({
       id: definition.id,
@@ -153,6 +174,7 @@ export function createCommandSpellIISystem({
       level,
       maxLevel: definition.levels.length,
       maxed,
+      extensionPending,
       generation: definition.unlockGeneration,
       generationKills,
       eligibilityMet,
@@ -165,13 +187,13 @@ export function createCommandSpellIISystem({
       nextNpManualStrikeCount: next?.npManualStrikeCount ?? effects.npManualStrikeCount,
       nextNpMaxPoints: next?.npMaxPoints ?? effects.npMaxPoints,
       nextNpDurationMs: next?.npDurationMs ?? effects.npDurationMs,
-      requiredGenerationKills: next?.requiredGenerationKills
-        ?? definition.levels.at(-1).requiredGenerationKills,
-      cost: next?.cost ?? 0n,
+      requiredGenerationKills: next?.requiredGenerationKills ?? null,
+      cost: next?.cost ?? null,
       balance: snapshot.master.humanityEvil,
       killsMet,
       canAfford,
-      available: !maxed && eligibilityMet && killsMet && canAfford,
+      pricePending,
+      available: !maxed && !pricePending && eligibilityMet && killsMet && canAfford,
     });
   }
 
@@ -212,6 +234,7 @@ export function createCommandSpellIISystem({
     if (!before.eligibilityMet) {
       return { accepted: false, reason: 'eligibility-required', status: before };
     }
+    if (before.pricePending) return { accepted: false, reason: 'price-pending', status: before };
     if (!before.killsMet) return { accepted: false, reason: 'kills-required', status: before };
     if (!before.canAfford) {
       return { accepted: false, reason: 'insufficient-humanity-evil', status: before };
