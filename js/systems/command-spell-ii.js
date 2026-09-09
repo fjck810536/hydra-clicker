@@ -40,9 +40,6 @@ function assertDefinition(definition) {
       throw new TypeError('Command Spell II levels must be contiguous positive integers.');
     }
 
-    // Generation-kill gates are optional explicit data. A null gate means the
-    // level is governed by the already-established first eligibility milestone,
-    // sequential ownership, price status, and current Humanity Evil only.
     if (level.requiredGenerationKills != null) {
       if (typeof level.requiredGenerationKills !== 'bigint' || level.requiredGenerationKills < 0n) {
         throw new TypeError('Command Spell II requiredGenerationKills must be null or a non-negative BigInt.');
@@ -150,12 +147,13 @@ export function createCommandSpellIISystem({
     const next = definition.levels[level] ?? null;
     const extensionPending = next == null && definition.futureExtensionPending === true;
     const maxed = next == null && !extensionPending;
+    const chapterReached = snapshot.hydra.generation >= definition.unlockGeneration;
     const generationKills = completedGenerationKills(snapshot, definition, generations);
     const eligibilityMet = maxed
       || extensionPending
       || level > 0
       || (
-        snapshot.hydra.generation >= definition.unlockGeneration
+        chapterReached
         && snapshot.progression.milestones.includes(definition.firstEligibilityMilestone)
       );
     const pricePending = extensionPending
@@ -175,6 +173,7 @@ export function createCommandSpellIISystem({
       maxed,
       extensionPending,
       generation: definition.unlockGeneration,
+      chapterReached,
       generationKills,
       eligibilityMet,
       npManualStrikeCount: effects.npManualStrikeCount,
@@ -250,9 +249,6 @@ export function createCommandSpellIISystem({
         draft.progression.milestones.push(id);
       }
 
-      // State stores NP normalized for save compatibility. Changing the gauge
-      // requirement must preserve actual charged points rather than granting a
-      // free proportional refill when the maximum changes.
       const retainedPoints = Math.min(absoluteNpPoints, next.npMaxPoints);
       draft.berserker.np = retainedPoints / next.npMaxPoints;
     });
