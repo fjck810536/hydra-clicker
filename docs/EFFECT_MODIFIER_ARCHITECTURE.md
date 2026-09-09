@@ -1,44 +1,101 @@
-# Hydra Clicker — Effect / Modifier Architecture v0.8
+# Hydra Clicker — Effect / Modifier Architecture v0.9
 
-> Playtest 5：NP 對 Hydra 的效果仍然只有 generic `hydra.headGrowth` timed rule modifier。Command Spell III 不新增 modifier / Effect Type；它只提供「NP 期間 Auto Slash 可運作到什麼比例」的 System status，由 Core 注入 Auto Slash 的 `isEnabled` / `getAttacksPerSecond` policy。Hydra Rule、NP modifier 與 Auto Slash System 都不需要知道第三令咒專名。
+> v0.9：對齊 long-term Command Spell economy。`U_n`、fixed price、`pricePending` 都是 **Data / Economy concerns**，不是新的 Effect Type。NP 對 Hydra 仍只有 generic `hydra.headGrowth` timed rule modifier；Command Spell III 仍只提供 Auto-in-NP policy projection。CS III Lv1 現在有 891 HE 正式價格，但這不改 effect architecture。
 
 ## 1. 目標
 
-共同資料流：
+未來可能加入：
+
+- 英靈支援／應援團被動 Buff；
+- 迦勒底科技；
+- 建設／設施；
+- 研究樹；
+- 禮裝式被動能力；
+- Analyzer / Tree Tool 升級。
+
+共同方向：
 
 ```text
 CONTENT SOURCE
 Support / Facility / Research / Command Spell / Temporary Buff
                 ↓
-          EFFECT DEFINITIONS / STATUS
+          EFFECT DEFINITIONS
                 ↓
-      Modifier / Capability / Policy composition
+        MODIFIER / CAPABILITY / POLICY
                 ↓
- ┌─────────┬─────────┬───────────┬──────────────┐
- ↓         ↓         ↓           ↓
-Combat     NP      Auto Slash   Analyzer / Hydra Rules
+ ┌──────────┬──────────┬───────────┬──────────┐
+ ↓          ↓          ↓           ↓
+Combat     NP       Farming     Analyzer / Rules
 ```
 
-Source 回答「從哪裡來」；Effect / Status 回答「改變什麼」。Source 名稱不得進 Math / Rule algorithm。
+Source 回答「從哪來」；Effect 回答「改變什麼」。Source 專名不能滲進核心算法。
 
-## 2. Effect Type A — Stat Modifier
+## 2. Economy is not an Effect Type
 
-用途：修改連續值 / multiplier，例如 attack speed、material multiplier。
+Long-term design notation：
+
+```text
+U_n = 11 × 3^(n-1)
+```
+
+和：
+
+```js
+getHumanityEvilCostForGenerationUnits(generation, units)
+```
+
+只負責把 relative price 轉成 raw Humanity Evil。
+
+它們不應被建成：
+
+```text
+stat modifier
+rule modifier
+capability
+policy
+conversion
+```
+
+Likewise：
+
+```text
+cost
+pricePending
+canAfford
+available
+extensionPending
+```
+
+是 Content Data / System Status，不是 runtime Effect。
+
+原因：價格決定「能不能取得能力」，而 Effect 決定「取得之後能力如何作用」。兩者必須分開。
+
+## 3. Effect Type A — Stat Modifier
+
+用途：修改連續數值／倍率。
+
+長期例：
 
 ```js
 {
+  id: 'effect-attack-speed-01',
   type: 'stat-modifier',
   target: 'combat.attacksPerSecond',
   operation: 'multiply',
-  value: 1.25
+  value: 1.25,
+  stackingGroup: 'attack-speed'
 }
 ```
 
-通用 aggregator 尚未正式落地。
+目前尚未建立通用 stat-modifier aggregator。
 
-## 3. Effect Type B — Rule Modifier
+Command Spell I 現在直接投影 owned APS 到 logical state；未來若來源變多，再抽成 aggregator。
 
-目前正式落地的是 NP 的 Hydra head-growth suppression：
+## 4. Effect Type B — Rule Modifier
+
+用途：合法改變 Hydra Rule 的參數或開關。
+
+Current NP：
 
 ```js
 {
@@ -61,20 +118,32 @@ Resolver：
 }
 ```
 
-`hydra.headGrowth` = 是否允許 Hydra 因自己的規則生成新頭。因此：
+語義：是否允許 Hydra 因**自身規則**生成新頭。
+
+因此：
 
 ```text
-Hydra I delayed same-head regrowth → suppressed
-Hydra II GROW +2                 → suppressed
-Hydra III GROW +2                → suppressed
-Cut itself                       → unaffected
+Hydra I delayed same-head regrowth → affected
+Hydra II immediate GROW+2         → affected
+Hydra III immediate GROW+2        → affected
+Cut itself                         → unaffected
 ```
 
-Hydra Rules 不知道 source 是 NP。
+Hydra Rule 不知道 source 是 NP。
 
-Legacy save 的 `target:'hydra.regrowth'` 仍映射為同一 compatibility alias，直到原本 `endsAt`。
+### Legacy alias
 
-## 4. Effect Type C — Capability
+舊 save：
+
+```text
+target: hydra.regrowth
+```
+
+仍由 resolver 視為 `hydra.headGrowth` compatibility alias，直到原 modifier `endsAt`。
+
+## 5. Effect Type C — Capability
+
+用途：解鎖以前不能做的事情。
 
 目前：
 
@@ -83,116 +152,190 @@ Command Spell I
 → combat.autoSlash capability
 ```
 
-NP 不移除 capability。它只影響 execution policy。
+NP 時停不移除 capability；只改 execution policy。
 
-因此這兩句不同：
+Command Spell III 也不重新授予 Auto capability。沒有 Command Spell I 的 Auto，就沒有東西可帶進 NP。
 
-```text
-玩家沒有 Auto Slash capability
-vs.
-玩家有 Auto Slash，但目前政策不允許它執行
-```
+## 6. Effect Type D — Policy
 
-Command Spell III 修改的是後者，不是重新解鎖一個第二份 Auto capability。
+用途：改變自動系統「何時／如何執行」。
 
-## 5. Effect Type D — Policy
+目前尚未建立 persistent/general Policy Effect aggregator；使用最小 Core composition。
 
-長期用途：決定某個自動能力何時／如何執行，例如 targeting、priority、time-window eligibility。
-
-目前仍**沒有** general persistent Policy Effect aggregator。Playtest 5 延續最小 Core composition。
-
-### NP / CS III Auto policy
-
-Inputs：
+### NP base policy
 
 ```text
-NP active status
-Command Spell I autoSlash capability + base APS
-Command Spell III autoNpFraction
-Hydra attackability / intro guards
+NP active
+→ Auto Slash execution paused
 ```
 
-Core projection：
+### Command Spell III bridge
+
+CS III System status：
+
+```text
+0
+1/9
+1/3
+1
+```
+
+Core composition：
 
 ```text
 NP inactive
-→ Auto enabled by normal requirements
-→ effective APS = base CS I APS
+→ Auto allowed at Command Spell I base APS
 
-NP active + CS III fraction 0
+NP active + fraction0
 → Auto disabled
 
-NP active + CS III fraction 1/9
-→ Auto enabled at base APS × 1/9
-
-NP active + CS III fraction 1/3
-→ Auto enabled at base APS × 1/3
-
-NP active + CS III fraction 1
-→ Auto enabled at full base APS
+NP active + fraction>0
+→ Auto enabled
+→ effective APS = base APS × fraction
 ```
 
-Auto Slash System only receives generic injected callbacks：
+這是 runtime injected policy，不寫入 `state.modifiers.active`。
+
+重要：
+
+```text
+Command Spell III → Auto execution policy
+Command Spell II  → manual NP technique / NP config
+```
+
+兩者互不相乘：CS III auto request 不繼承 CS II manual `strikeCount=3/6/9`。
+
+## 7. Effect Type E — Conversion
+
+用途：事件／資源轉另一種資源。
+
+尚未正式落地通用 conversion aggregator。
+
+Humanity Evil true-kill reward 目前是 Economy System consume `hydra:killed` 的專責流程；在需要多來源 conversion 時才升級成通用架構。
+
+## 8. NP modifier lifecycle
+
+`scope: timed`：
+
+```text
+active iff startsAt <= simulationTime < endsAt
+encounter transition does not remove it
+save/restore keeps modifier + simulation timeline
+expiry by GameClock
+```
+
+Semantic events：
+
+```text
+np:released
+np:ended
+```
+
+View cards only project these events；animation completion never controls modifier expiry。
+
+### Single-window invariant
+
+```text
+NP inactive
+→ accepted cut may charge
+→ full gauge may create one timed modifier
+
+NP active
+→ accepted cut still affects Hydra
+→ contributes zero NP charge
+→ release() rejected: np-already-active
+→ no second NP modifier appended
+
+expiry
+→ np:ended
+→ ordinary charging resumes
+```
+
+This prevents long-duration CS II time upgrades from self-sustaining permanent time stop。
+
+## 9. Command Spell II is config/effect projection, not Hydra modifier ownership
+
+CS II changes player technique：
+
+```text
+manual strikeCount
+NP maxPoints
+future NP duration
+```
+
+It does **not**：
+
+```text
+append hydra.headGrowth modifiers
+modify existing modifier endsAt mid-window
+mutate Hydra directly
+control Auto-in-NP
+```
+
+Price state (`297 / 198 / 891`, later `PRICE TBD`) remains Economy/Data concern and does not alter these boundaries。
+
+`futureExtensionPending` likewise only says current content rows do not represent the conceptual end of the time axis；it is not an Effect。
+
+## 10. Command Spell III price versus effect
+
+Current formal first purchase：
+
+```text
+9 U3 = 891 Humanity Evil
+→ acquire Auto-in-NP 1/9 policy
+```
+
+Later：
+
+```text
+1/3 price range → pricePending
+FULL price range → pricePending
+```
+
+The difference between 891 and TBD changes **acquisition availability only**。
+
+Once an effect is owned/test-injected：
+
+```text
+1/9 behaves as 1/9
+1/3 behaves as 1/3
+FULL behaves as 1
+```
+
+regardless of how it was acquired。
+
+## 11. Future Modifier Aggregator
+
+Long-term conceptual API：
 
 ```js
-isEnabled(snapshot)
-getAttacksPerSecond(snapshot)
+modifierAggregator.build({
+  supports,
+  facilities,
+  research,
+  upgrades,
+  commandSpells,
+  temporaryBuffs
+})
 ```
 
-禁止：
-
-```js
-if (commandSpellIII) ... // inside AutoSlash System
-if (np) ...              // inside AutoSlash System
-```
-
-Command Spell III System likewise不得呼叫 `autoSlash.start()/stop()`；它只投影 fraction / effective APS status。
-
-### Why CS III is not a new modifier
-
-CS III currently has no need to enter `state.modifiers.active`：
-
-- it is permanent progression, stored as milestones；
-- it does not modify Hydra Rule；
-- it does not alter NP `endsAt`；
-- it is consumed only when Core composes Auto execution policy。
-
-Adding a new Effect Type here would be premature abstraction。
-
-## 6. Effect Type E — Conversion
-
-用途：資源轉換，例如 heads → materials。尚未正式落地。
-
-## 7. Modifier Aggregator
-
-Current minimal path：
+Current minimum：
 
 ```text
 state.modifiers.active
-↓
+        ↓
 getActiveModifiers()
-↓
+        ↓
 resolveRuleContext()
-↓
+        ↓
 Hydra Rule
 ```
 
-This path remains about rule modifiers. CS III Auto policy does not contaminate it。
+Do not build general aggregation infrastructure until two or more real sources need the same composition problem。
 
-Future generalized path may separately compose：
+## 12. Stacking order — future guidance
 
-```text
-capability resolver
-policy resolver
-stat resolver
-conversion resolver
-```
-
-但現在不為一個已可由 injected callbacks 表達的需求預建完整框架。
-
-## 8. Stacking
-
-Future numeric stacking recommendation：
+For multiple stat sources：
 
 ```text
 BASE
@@ -201,197 +344,75 @@ ADD
 ↓
 MULTIPLY
 ↓
-MIN / MAX clamp
+MIN / MAX clamps
 ↓
 OVERRIDE
 ```
 
-Current `hydra.headGrowth / disable` has no complex stacking rule。
+Current `hydra.headGrowth / disable` has no complex stacking requirement。
 
-NP has source lifecycle invariant：normal gameplay does not append a second active NP modifier while one is active。這是 NP resource/lifecycle rule，不是 generic modifier stacking semantics。
+NP source lifecycle is stronger than generic stacking：normal gameplay forbids a second simultaneous active NP window。
 
-## 9. Temporary modifier lifecycle
+## 13. Conditions
 
-NP modifier：
+If future effect applies only to generations / encounters / tree states, condition evaluation should be centralized rather than scattered source-specific `if` statements。
 
-```text
-active when startsAt <= simulationTime < endsAt
-encounter change does not remove it
-generation change does not remove it
-Save/Restore preserves modifier + simulation timeline
-GameClock expiry removes it
-final expiry emits np:ended
-```
-
-View animation never decides lifecycle。
-
-### Single NP window
+Current examples stay at composition boundaries：
 
 ```text
-NP inactive
-→ accepted cut can charge
-→ READY can release one timed modifier
-
-NP active
-→ cut affects Hydra normally under suppression
-→ cut gives 0 NP charge
-→ release rejected: np-already-active
-
-NP expires
-→ charge / normal Hydra law resume
+Hydra II intro guard → Core Auto policy
+NP active → Core Auto policy
+CS III fraction → Core Auto policy
 ```
 
-This prevents CS II 81-second TIME windows from self-sustaining indefinitely。
-
-## 10. Command Spell III progression/status boundary
-
-CS III uses existing milestone storage：
+## 14. Forbidden coupling
 
 ```text
-hydra-iii-first-np-release
-command-spell-3-lv1
-command-spell-3-lv2
-command-spell-3-lv3
+NP System → AutoSlash.stop()
+Auto Slash System → if (commandSpellIII)
+Hydra Rule → if (source === 'np')
+CS III System → mutate AutoSlash accumulator
+CS II System → append Hydra modifier directly
+View → choose effect expiry
+pricePending → modifier
+U_n → stat modifier
+Humanity Evil price → Hydra Rule
+range price → choose endpoint in Effect layer
 ```
 
-Its System consumes semantic `np:released` only to establish first eligibility while fighting Hydra III。
+## 15. Current implementation status
 
-It projects：
-
-```text
-base fraction 0
-Lv1  1/9
-Lv2  1/3
-Lv3  1
-```
-
-Formal costs remain `null / pricePending` until player-facing economy confirms them。TEST can write these progression milestones in a non-persistent session。
-
-This is not a Hydra modifier and not an NP duration modifier。
-
-## 11. Command Spell II vs III separation
-
-CS II：
-
-```text
-manual-only NP technique
-→ manual strikeCount ×3 / ×6 / ×9
-→ NP max / duration changes
-```
-
-CS III：
-
-```text
-Auto execution inside NP
-→ fraction of CS I base APS
-```
-
-They must not multiply each other automatically：
-
-```text
-CS I = 9 APS
-CS II manual = ×3
-CS III Lv1 = 1/9
-
-NP manual tap → 3 separate cuts
-NP Auto       → 1 ordinary auto cut/sec
-NOT 3 auto cuts/sec
-```
-
-This separation is a contract, not merely current tuning。
-
-## 12. Tree View / Analyzer boundary
-
-Tree View v0 is presentation/projection only and introduces **no Effect Type**。
-
-```text
-logical state
-→ Tree View projection
-→ observation
-```
-
-Forbidden：
-
-```text
-Tree View mesh/layout → rule modifier
-Tree View open state → Hydra targeting
-Tree View → direct Combat mutation
-```
-
-Future node-targeting may produce a `policy` or structured attack target, but must be designed when that gameplay exists rather than inferred from the current observation UI。
-
-## 13. Support / Facility / Research
-
-Future content should emit standard effects/status rather than direct mutations。
-
-Forbidden pattern：
-
-```js
-if (hasSupportX) {
-  hydra.logicalHeadCount -= 3n;
-  np += 10;
-}
-```
-
-Preferred path：
-
-```text
-content definition
-→ standard effect/status
-→ relevant resolver/System
-```
-
-## 14. Current implemented boundaries
+已落地：
 
 ```text
 Capability
-→ CS I → Auto Slash
+→ CS I unlocks Auto Slash
 
-Rule modifier
-→ NP → hydra.headGrowth disabled
-→ applies to Hydra I/II/III growth
+Rule Modifier
+→ NP disables hydra.headGrowth
 
-NP timed lifecycle
-→ GameClock-owned
-→ cross-encounter/generation
-→ no active self-charge
-→ no nested release
+Timed lifecycle
+→ NP GameClock window + np:ended
 
-Application policy composition
-→ base NP pauses Auto
-→ CS III fraction may permit Auto inside NP at reduced/full APS
-→ AutoSlash remains generic
+Injected policy
+→ NP pauses Auto
+→ CS III can restore 1/9 / 1/3 / FULL Auto APS inside NP
 
-CS II manual technique
-→ separate from CS III Auto policy
+Technique projection
+→ CS II controls manual multistrike / NP gauge / future release duration
 
-Tree View
-→ observation only, no modifier/effect
-
-Legacy alias
-→ hydra.regrowth disable == hydra.headGrowth disable
+Economy separation
+→ U_n helpers and PRICE TBD never become gameplay modifiers
 ```
 
-Still not implemented：
+尚未落地：
 
 ```text
 general stat-modifier aggregator
-persistent/general policy aggregator
-conversion aggregator
+general persistent policy aggregator
+general conversion aggregator
 full capability aggregator
-support/facility source collector
-Tree node targeting policy
+support / facility source collector
 ```
 
-## 15. Final invariant
-
-Do not solve a content request by making lower layers learn its name：
-
-```text
-Hydra Rule must not know Command Spell III
-Auto Slash must not know NP / Command Spell III
-NP modifier must not know Auto Slash
-Tree View must not know Combat mutation APIs
-```
-
-**新的內容可以改變投影；不要讓它改壞積木邊界。**
+原則：**價格決定你何時拿到能力；Effect architecture 決定能力拿到後怎麼作用。不要把兩件事揉成一個 mega system。**
