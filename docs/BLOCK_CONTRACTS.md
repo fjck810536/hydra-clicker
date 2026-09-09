@@ -1,6 +1,6 @@
-# Hydra Clicker — Block Contracts v0.23
+# Hydra Clicker — Block Contracts v0.24
 
-> v0.23：對齊 `02_player_facing/LONG_TERM_COMMAND_SPELL_ECONOMY.md`。新增 `U_n` 純 Data 計價 helper；Command Spell II / III status contract 正式支援 `pricePending`，CS II 另增加 `extensionPending`。只有已有單值的 long-term price 可以 formal purchase；range 不得被 System 自行選端點。State schema 維持1。
+> v0.24：對齊 `02_player_facing/tree_scene_shell/` 並封住令咒購買 gate 回歸。Command Spell II 的 `hydra-ii-first-manual-cut` 是一次性揭露 milestone；目前已定價 Lv.2 / Lv.3 的 `requiredGenerationKills=null`，購買只看前級與當前 Humanity Evil。Command Spell III status 增加 derived `chapterReached`，讓進蛇三但尚未寶解時投影 `NP TO REVEAL`。Tree View 改為右側 Scene 2 drawer，覆蓋戰鬥 Scene 1 但不得覆蓋固定底部操作列，且 Scene 背景不是 dismiss backdrop。State schema 維持1。
 
 ## 1. Attack Request
 
@@ -232,7 +232,7 @@ NP active + CSIII fraction 0      → disabled
 NP active + CSIII fraction >0     → enabled at base APS × fraction
 ```
 
-Auto Slash System itself does not know NP / Command Spell III names。
+Auto Slash System itself does not know NP / Command Spell III names。HUD must consume the projected effective state; it cannot hard-code all Hydra III Auto as paused。
 
 ## 9. Command Spell I
 
@@ -271,7 +271,7 @@ Status contract：
 }
 ```
 
-Pending rule：
+Current formal Lv1–6 have `requiredHydraKills=null`。Pending rule：
 
 ```text
 cost=null + purchasePending=true
@@ -303,9 +303,26 @@ Formal currently purchasable rows：
 
 | Lv | Eligibility | Cost | Result |
 |---:|---|---:|---|
-| 1 | hydra-ii-first-manual-cut + 0 kills | 297 = 9U2 | ×3 · NP132 · 3s |
-| 2 | 9 Hydra II kills | 198 = 6U2 | ×3 · NP66 · 3s |
-| 3 | 18 Hydra II kills | 891 = 27U2 | ×3 · NP198 · 9s |
+| 1 | `hydra-ii-first-manual-cut` · 0 Hydra II kills required | 297 = 9U2 | ×3 · NP132 · 3s |
+| 2 | previous level + affordability | 198 = 6U2 | ×3 · NP66 · 3s |
+| 3 | previous level + affordability | 891 = 27U2 | ×3 · NP198 · 9s |
+
+Current Data：
+
+```text
+Lv1.requiredGenerationKills = 0n
+Lv2.requiredGenerationKills = null
+Lv3.requiredGenerationKills = null
+```
+
+Contract meaning：
+
+```text
+0n   = explicit zero-kill requirement
+null = no per-level generation-kill gate
+```
+
+Once first-reversal eligibility is established, System must **not** synthesize a kill gate from old cadence, `intendedGeneration`, level number, encounter number, or lifetime kills。A player with zero Hydra-II kills and enough HE can buy Lv1 → Lv2 → Lv3 sequentially。
 
 Later rows are compatibility effect data only until exact long-term values exist：
 
@@ -328,6 +345,7 @@ Status contract：
   maxed,
   extensionPending,
   generation,
+  chapterReached,
   generationKills,
   eligibilityMet,
   killsMet,
@@ -353,9 +371,9 @@ Purchase rejection priority：
 
 ```text
 real max → max-level
-missing gameplay eligibility → eligibility-required
+missing one-time gameplay reveal → eligibility-required
 unresolved price/range → price-pending
-known kill gate unmet → kills-required
+explicit known kill gate unmet → kills-required
 known price unaffordable → insufficient-humanity-evil
 ```
 
@@ -382,10 +400,17 @@ newNormalized = newPoints/newMax
 
 ## 11. Command Spell III
 
-Eligibility milestone：
+Chapter / eligibility：
 
 ```text
-hydra-iii-first-np-release
+enter Hydra III
+→ chapterReached=true
+→ eligible=false
+→ UI preview = NP TO REVEAL
+
+first NP release while generation=3
+→ write hydra-iii-first-np-release
+→ eligible=true
 ```
 
 Effect ladder：
@@ -411,6 +436,7 @@ Status contract：
 {
   id,
   generation,
+  chapterReached,
   eligible,
   unlocked,
   level,
@@ -443,7 +469,7 @@ if exact-priced next step + affordable
 → emit command-spell:available
 ```
 
-Formal purchase Lv1 spends 891 and writes `command-spell-3-lv1`。Lv2 currently rejects `price-pending`。
+Formal purchase Lv1 spends 891 and writes `command-spell-3-lv1`。Once revealed, Lv1 has no extra kill/APS/CSII gate。Lv2 currently rejects `price-pending` only because no single formal price exists yet。
 
 Auto-in-NP APS：
 
@@ -482,7 +508,7 @@ test:preset-applied
 
 View consumes semantic events; events do not replace source-of-truth State。
 
-## 13. Tree View contract
+## 13. Tree View / Scene shell contract
 
 Unlock threshold：
 
@@ -504,18 +530,39 @@ Projection：
 
 Visible cap：99n。
 
+Presentation shell：
+
+```text
+closed → Scene2 translated to right, right-center TREE ◀ tab visible
+open   → Scene2 translated to x=0, fully covers Scene1 above bottom bar
+close  → explicit left-center ▶ TREE control
+```
+
+Global bottom action bar remains above Scene1/Scene2 and contains：
+
+```text
+NP release card
+Humanity Evil + kill progress
+Command Spell I / II / III
+```
+
 Forbidden：
 
 ```text
 Tree View → choose cut target
 Tree View → mutate Hydra
 Tree View → infer logical count from mesh pool
+Tree Scene → cover global bottom action bar
+Tree Scene background tap → dismiss drawer
 ```
+
+The last rule preserves Scene2 background for future pan / click / branch inspection。
 
 ## 14. Command Spell panel states
 
 ```text
 dormant
+preview
 available
 owned-dim
 affordable
@@ -524,12 +571,16 @@ max
 
 Semantics：
 
+- `dormant` = chapter/system not reached；
+- `preview` = chapter reached but one-time reveal interaction missing；
+- CS II preview = `CUT TO REVEAL`；
+- CS III preview = `NP TO REVEAL`；
 - eligibility but insufficient funds → visible/clickable detail, dim；
 - `pricePending` → visible if already revealed/owned, purchase disabled；
 - CS II `extensionPending` → show long-term extension TBD, not MAX；
 - actual finite CS III FULL can show MAX。
 
-View does not spend currency。
+View does not spend currency or invent gates。
 
 ## 15. Persistence
 
@@ -553,7 +604,10 @@ Derived / not persisted：
 U_n
 pricePending
 extensionPending
+chapterReached
+preview state
 affordability
+Tree Scene open/closed
 visible heads
 NP remainingMs
 ```
@@ -581,13 +635,16 @@ TEST may grant otherwise unpriced owned effects for mechanics validation, but mu
 ## 17. Forbidden shortcuts
 
 ```text
+one-time reveal milestone → silently reuse as every-level purchase gate
+null requiredGenerationKills → infer an old kill threshold
 range price → silently choose low/high endpoint
 pricePending null → treat as 0
 old price → multiply by current generation
 U_n → save as currency
 81s current CSII tail → mark true MAX
 CSIII Auto → inherit manual ×9
-View → buy / mutate state
+View → buy / mutate state / invent eligibility
+Tree drawer → steal fixed bottom controls
 Hydra Rule → know Command Spell names
 ```
 
