@@ -1,6 +1,6 @@
-# Hydra Clicker — Game Design v0.15
+# Hydra Clicker — Game Design v0.16
 
-> Playtest 5.1：對齊 `02_player_facing/LONG_TERM_COMMAND_SPELL_ECONOMY.md`。Humanity Evil 經濟改以「當代一隻 Hydra 的收入」作為相對單位 `U_n`；只把 proposal 中已有單值的價格正式落地，仍是範圍的後續升級一律保持 `PRICE TBD`。Command Spell II 的 81 秒不再視為長期 MAX；Command Spell III 第一階 1/9 Auto-in-NP 現在有正式 9U3 價格。
+> Playtest 5.2：對齊 `02_player_facing/tree_scene_shell/`，Tree View 改為從右側滑入、完整覆蓋 Scene 1 戰鬥區但不覆蓋底部固定操作列的 Scene 2。並修正 Command Spell II 在長期經濟改版後殘留的舊 kill gates：第一刀只負責一次性揭露，之後已定價的 Lv.2 / Lv.3 僅依序檢查前級與當前 Humanity Evil。Command Spell III 仍依既定設計由 Hydra III 第一次 NP release 揭露；進蛇三但尚未寶解時 UI 必須明示 `NP TO REVEAL`，不能看起來像莫名其妙沒有購買權。
 
 ## 1. 核心一句話
 
@@ -64,7 +64,7 @@ Examples：
 81 → 81
 ```
 
-第一次 Hydra II 登場時，已購 Auto 暫停；玩家必須手動砍第一刀看到反轉，才完成 `hydra-ii-first-manual-cut` milestone。這個 milestone 同時是 Command Spell II 第一階的 gameplay eligibility。
+第一次 Hydra II 登場時，已購 Auto 暫停；玩家必須手動砍第一刀看到反轉，才完成 `hydra-ii-first-manual-cut` milestone。這個 milestone 是 Command Spell II 的**一次性揭露條件**，不是每一級都要重新檢查的 progression gate。
 
 ### Hydra III
 
@@ -229,11 +229,23 @@ manual ×1 · NP66 · 3s
 
 | Lv | Beat | Eligibility | Relative cost | HE | Result |
 |---:|---|---|---:|---:|---|
-| 1 | STRIKE | first reversal cut · 0 Hydra II kills | 9 U2 | 297 | manual ×3 · NP132 · 3s |
-| 2 | EFF I | 9 Hydra II kills | 6 U2 | 198 | manual ×3 · NP66 · 3s |
-| 3 | TIME | 18 Hydra II kills | 27 U2 | 891 | manual ×3 · NP198 · 9s |
+| 1 | STRIKE | Hydra II first reversal cut | 9 U2 | 297 | manual ×3 · NP132 · 3s |
+| 2 | EFF I | previous level + current HE only | 6 U2 | 198 | manual ×3 · NP66 · 3s |
+| 3 | TIME | previous level + current HE only | 27 U2 | 891 | manual ×3 · NP198 · 9s |
 
-Lv.1 的 anti-softlock invariant 不變：第一刀 `9→10` 後，同一隻蛇仍活著時就可以取得資格。
+第一刀 `9→10` 的 anti-softlock invariant 不變：同一隻蛇仍活著時就完成一次性揭露。**完成揭露後，Lv.2 / Lv.3 不要求 9 / 18 Hydra II kills。**舊 kill-gate 數字是上一版 progression 遺留，已從正式 Data 移除。
+
+所以目前已定價的購買條件可以壓成：
+
+```text
+CS II Lv.1:
+Hydra II first reversal milestone
+AND Humanity Evil >= 297
+
+CS II Lv.2 / Lv.3:
+previous level owned
+AND Humanity Evil >= current fixed price
+```
 
 ### Later effects retained, prices pending
 
@@ -279,11 +291,18 @@ PRICE TBD
 
 > **「這裡怎麼沒有 SKIP???」**
 
-第一次在 Hydra III 寶解後建立 gameplay eligibility：
+進入 Hydra III 本身只代表 `chapterReached`。第一次在 Hydra III 寶解後才建立 gameplay eligibility：
 
 ```text
-hydra-iii-first-np-release
+enter Hydra III
+→ slot preview: NP TO REVEAL
+
+first NP release while generation === 3
+→ hydra-iii-first-np-release
+→ CS III revealed
 ```
+
+這是一個**一次性揭露條件**，不是額外購買價格之外的重複 gate。揭露後 Lv.1 僅再看固定價格 891 HE。
 
 效果軸固定：
 
@@ -310,7 +329,7 @@ Command Spell III 是有限 bridge；FULL 後真正 MAX，不再新增更高倍�
 
 ## 8. Command Spell UI contract
 
-固定三槽：
+底部固定操作列中的令咒區維持三槽：
 
 ```text
 令咒
@@ -320,11 +339,19 @@ Command Spell III 是有限 bridge；FULL 後真正 MAX，不再新增更高倍�
 狀態語義：
 
 ```text
-dormant      未揭露 / 未到第一個入口
+dormant      尚未進入該系統的章節
+preview      已到章節，但一次性揭露行為尚未完成
 available    NEW 且目前可買
 affordable   已擁有，下一階目前可買
 owned-dim    已揭露或已擁有，但目前買不起 / price pending
 max          真正有限軸終點
+```
+
+目前 preview 文案：
+
+```text
+CS II  → CUT TO REVEAL
+CS III → NP TO REVEAL
 ```
 
 `PRICE TBD` 必須是不可購買狀態，不能拿 range 的任一端點偷當正式價。
@@ -338,7 +365,7 @@ NEXT = LONG-TERM TIME AXIS · TBD
 
 不能顯示假 MAX。
 
-## 9. Tree View / representation break
+## 9. Tree View / Scene 2 representation break
 
 Head View contract：
 
@@ -357,7 +384,25 @@ BEYOND IMAGE +1
 CURRENT CAP 729
 ```
 
-Tree View v0 不決定 combat、target 或 Hydra math。
+依 `02_player_facing/tree_scene_shell/`，Tree View 的玩家端空間關係固定為：
+
+```text
+Scene 1 = main Babylon battle area
+Scene 2 = Tree Drawer
+  → from right
+  → when open, fully covers Scene 1
+  → does not narrow Scene 1
+  → does not cover fixed bottom action bar
+
+Global fixed bottom action bar
+  → NP release card
+  → Humanity Evil / kill progress
+  → Command Spell I / II / III slots
+```
+
+Closed Tree Scene 使用右側中央 `TREE ◀`；opened Scene 使用左側中央 `▶ TREE` 收回。Tree Scene 內部需要保留未來 pan / click / branch inspection 的觸控空間，因此**點 Scene 2 空白處不能當 backdrop dismiss**。
+
+Tree View v0 仍不決定 combat、target 或 Hydra math。
 
 ## 10. Persistence / compatibility
 
@@ -368,16 +413,17 @@ Save schema 維持 **1**。
 - 只是 normal economy 不再用已淘汰的舊精確價格往後買。
 - old/test-owned 729 APS 仍合法。
 - `U_n` 是 Data 計價工具，不是新的 persistent currency。
+- `chapterReached` / `preview` 是 derived UI/status，不新增 persistent field。
+- Tree Scene open/closed 是 presentation state，不進 Save。
 
 ## 11. Current playtest questions
 
-這一輪要驗證的是 pacing，不是底層正確性：
-
-1. 81 APS 改成 **1188 HE = 36U2** 後，Hydra II 是否太早／太晚出現第一個成熟 throughput major beat？
-2. 243 APS 改成 **1782 HE = 54U2** 後，和 CS II 的 297 / 198 / 891 是否形成真正的分配壓力？
-3. CS II 在 Lv.3 後顯示 `PRICE TBD`，是否比讓玩家在 Hydra II 一口氣買完整九階更符合「跨世代養成」？
-4. Hydra III 第一次寶解後，CS III 1/9 以 **891 HE = 9U3** 開價是否足夠像一個低門檻 bridge？
-5. 玩家是否能理解 81 秒只是當前已實作效果，不是整條第二令咒的終點？
+1. Hydra II 第一刀後，在**零隻 Hydra II 擊殺**狀態，只要人類惡足夠，是否能順利連買 Lv.1 → Lv.2 → Lv.3？
+2. 進 Hydra III 後是否能立刻看懂 `NP TO REVEAL`，而不再誤以為購買權限壞掉？
+3. 第一次 Hydra III NP release 後，若持有 >=891 HE，CS III Lv.1 是否立即變成可購買？
+4. Tree Scene 從右滑入時是否完整覆蓋戰鬥區，但底部 NP / 人類惡 / 令咒列完全不動？
+5. Tree Scene 內點空白處是否能安全操作而不把 drawer 關掉？
+6. 81 APS / 243 APS 與 CS II 297 / 198 / 891 是否仍形成想要的資源分配壓力？
 
 ## 12. Still intentionally unresolved
 
@@ -390,4 +436,4 @@ Save schema 維持 **1**。
 - Prestige / Offline Progress。
 - 真正 Kirby–Paris Hydra 完整規則的登場世代。
 
-原則：**用 `U_n` 維持跨世代可讀的購買壓力；用 raw price 不重算來自然產生 catch-up；range 沒定案就真的保持 TBD。**
+原則：**一次性揭露條件只負責教玩家新系統，不得偷偷變成每級購買 gate；Scene 2 可以完全換掉畫面，但全域操作列與邏輯邊界必須保持穩定。**
