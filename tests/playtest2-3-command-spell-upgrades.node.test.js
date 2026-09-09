@@ -7,14 +7,14 @@ import { HYDRA_I_PROGRESSION } from '../js/data/progression.js';
 
 const LEVELS = HYDRA_I_PROGRESSION.commandSpellI.levels;
 
-test('Command Spell I uses the revised affordability-driven APS and price curve', () => {
+test('Command Spell I uses the normalized onboarding and mature APS price curve', () => {
   assert.deepEqual(
     LEVELS.map((entry) => entry.requiredHydraKills),
     [null, null, null, null, null, null, null],
   );
   assert.deepEqual(
     LEVELS.map((entry) => entry.cost),
-    [99n, 33n, 66n, 99n, 1782n, 2178n, null],
+    [99n, 33n, 66n, 99n, 1188n, 1782n, null],
   );
   assert.deepEqual(
     LEVELS.map((entry) => entry.attacksPerSecond),
@@ -22,7 +22,7 @@ test('Command Spell I uses the revised affordability-driven APS and price curve'
   );
 
   const formalCostThrough243 = LEVELS.slice(0, 6).reduce((sum, entry) => sum + entry.cost, 0n);
-  assert.equal(formalCostThrough243, 4257n);
+  assert.equal(formalCostThrough243, 3267n);
   assert.equal(LEVELS.at(-1).purchasePending, true);
   assert.equal(LEVELS.at(-1).intendedGeneration, 3);
 });
@@ -81,7 +81,7 @@ test('legacy 128 APS upgrade save migrates conservatively to 81 APS instead of r
 
 test('formal Humanity Evil purchases can reach 243 APS but 729 remains price-pending', () => {
   const initialState = createInitialState();
-  initialState.master.humanityEvil = 4257n;
+  initialState.master.humanityEvil = 3267n;
 
   const runtime = createHydraIGameRuntime({ initialState });
 
