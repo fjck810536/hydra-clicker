@@ -23,7 +23,6 @@ const generationTransitionRoot = document.querySelector('[data-generation-transi
 const npPhaseRoot = document.querySelector('[data-np-phase]');
 const npTimerRoot = document.querySelector('[data-np-timer]');
 const treeViewToggle = document.querySelector('[data-tree-view-toggle]');
-const treeViewOverlay = document.querySelector('[data-tree-view-overlay]');
 const treeViewCloseButton = document.querySelector('[data-tree-view-close]');
 const testToolsToggle = document.querySelector('[data-test-tools-toggle]');
 const testToolsPanel = document.querySelector('[data-test-tools-panel]');
@@ -50,7 +49,6 @@ if (
   || !npPhaseRoot
   || !npTimerRoot
   || !treeViewToggle
-  || !treeViewOverlay
   || !treeViewCloseButton
   || !testToolsToggle
   || !testToolsPanel
@@ -250,6 +248,7 @@ const renderSnapshot = () => {
     npActive,
     hydraIIIntroPending: introPending,
     generationProgress,
+    autoNpStatus: spellIII,
   });
   commandSpellPanel.render({
     commandSpellI: spellI,
@@ -343,7 +342,6 @@ const handleTreeViewClose = () => {
 };
 const unbindTreeViewToggle = bindFixedControl(treeViewToggle, handleTreeViewOpen);
 const unbindTreeViewClose = bindFixedControl(treeViewCloseButton, handleTreeViewClose);
-const unbindTreeViewBackdrop = bindModalBackdropClose(treeViewOverlay, handleTreeViewClose);
 
 const handleTestToolsToggle = () => {
   testToolsPanel.hidden = !testToolsPanel.hidden;
@@ -632,7 +630,6 @@ window.addEventListener('pagehide', () => {
   unbindCommandSpellPurchase();
   unbindTreeViewToggle();
   unbindTreeViewClose();
-  unbindTreeViewBackdrop();
   unbindTestToolsToggle();
   unbindTestCommandSpellMax();
   unbindTestHumanityEvil999();
