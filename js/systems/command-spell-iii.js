@@ -36,8 +36,12 @@ function assertDefinition(definition) {
     if (!(fraction > previousFraction) || fraction > 1) {
       throw new RangeError('Command Spell III Auto-in-NP fractions must strictly increase up to 1.');
     }
-    if (level.cost != null && (typeof level.cost !== 'bigint' || level.cost < 0n)) {
-      throw new TypeError('Command Spell III cost must be null or a non-negative BigInt.');
+    if (level.cost == null) {
+      if (level.purchasePending !== true) {
+        throw new TypeError('A Command Spell III level without a price must be marked purchasePending.');
+      }
+    } else if (typeof level.cost !== 'bigint' || level.cost < 0n) {
+      throw new TypeError('Command Spell III cost must be a non-negative BigInt or null.');
     }
     previousLevel = level.level;
     previousFraction = fraction;
@@ -81,6 +85,8 @@ export function createCommandSpellIIISystem({ state, events, definition } = {}) 
   }
   assertDefinition(definition);
 
+  let announcedLevel = null;
+
   function getStatus(snapshot = state.read()) {
     const level = getCurrentLevel(snapshot, definition);
     const effect = currentEffect(definition, level);
@@ -117,22 +123,52 @@ export function createCommandSpellIIISystem({ state, events, definition } = {}) 
     });
   }
 
+  function announceIfAvailable(atMs) {
+    const status = getStatus();
+    if (status.available && announcedLevel !== status.nextLevel) {
+      announcedLevel = status.nextLevel;
+      events.emit('command-spell:available', {
+        atMs,
+        id: definition.id,
+        level: status.nextLevel,
+        cost: status.cost,
+        generation: definition.unlockGeneration,
+        rewardLabel: status.nextRewardLabel,
+        autoNpNumerator: status.nextAutoNpNumerator,
+        autoNpDenominator: status.nextAutoNpDenominator,
+      });
+    }
+    if (!status.available) announcedLevel = null;
+    return status;
+  }
+
   const offNpReleased = events.on('np:released', ({ payload }) => {
     const snapshot = state.read();
     if (snapshot.hydra.generation !== definition.unlockGeneration) return;
-    if (snapshot.progression.milestones.includes(definition.firstEligibilityMilestone)) return;
+    if (snapshot.progression.milestones.includes(definition.firstEligibilityMilestone)) {
+      announceIfAvailable(payload.atMs);
+      return;
+    }
 
     state.update((draft) => {
       draft.progression.milestones.push(definition.firstEligibilityMilestone);
     });
 
+    const status = getStatus();
     events.emit('command-spell:eligible', {
       atMs: payload.atMs,
       id: definition.id,
       generation: definition.unlockGeneration,
       milestone: definition.firstEligibilityMilestone,
-      pricePending: getStatus().pricePending,
+      cost: status.cost,
+      pricePending: status.pricePending,
+      canAfford: status.canAfford,
     });
+    announceIfAvailable(payload.atMs);
+  });
+
+  const offCurrency = events.on('currency:gain', ({ payload }) => {
+    if (payload.currency === 'humanity-evil') announceIfAvailable(payload.atMs);
   });
 
   function purchase() {
@@ -152,6 +188,7 @@ export function createCommandSpellIIISystem({ state, events, definition } = {}) 
       if (!draft.progression.milestones.includes(id)) draft.progression.milestones.push(id);
     });
 
+    announcedLevel = null;
     events.emit('currency:spend', {
       atMs,
       currency: 'humanity-evil',
@@ -177,6 +214,7 @@ export function createCommandSpellIIISystem({ state, events, definition } = {}) 
     purchase,
     destroy() {
       offNpReleased();
+      offCurrency();
     },
   });
 }
