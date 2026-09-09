@@ -127,6 +127,25 @@ test('Command Spell III keeps the finite 1/9 -> 1/3 -> full bridge and prices on
   assert.deepEqual(definition.levels.map((level) => level.purchasePending === true), [false, true, true]);
 });
 
+test('entering Hydra III exposes the Command Spell III chapter but first NP release remains the one-time reveal', () => {
+  const runtime = createHydraIGameRuntime({ initialState: createHydraIIIState({ humanityEvil: 9999n }) });
+  const status = runtime.commandSpellIIIStatus();
+
+  assert.equal(status.chapterReached, true);
+  assert.equal(status.eligible, false);
+  assert.equal(status.available, false);
+  assert.equal(runtime.buyCommandSpellIII().reason, 'eligibility-required');
+
+  assert.deepEqual(projectCommandSpellIIISlot(status), {
+    state: 'preview',
+    level: '—',
+    meta: 'NP TO REVEAL',
+    clickable: false,
+  });
+
+  runtime.destroy();
+});
+
 test('first NP release while fighting Hydra III reveals a priced but possibly unaffordable Command Spell III', () => {
   const initialState = createHydraIIIState({ np: 1 });
   const runtime = createHydraIGameRuntime({ initialState });
@@ -134,6 +153,7 @@ test('first NP release while fighting Hydra III reveals a priced but possibly un
   const offEligible = runtime.events.on('command-spell:eligible', ({ payload }) => eligibleEvents.push(payload));
 
   let status = runtime.commandSpellIIIStatus();
+  assert.equal(status.chapterReached, true);
   assert.equal(status.eligible, false);
   assert.equal(status.unlocked, false);
   assert.equal(status.autoNpFraction, 0);
@@ -290,8 +310,26 @@ test('Command Spell III TEST progression changes no Humanity Evil, kill count, o
   runtime.destroy();
 });
 
-test('Command Spell III fixed slot distinguishes revealed-poor from actually affordable', () => {
+test('Command Spell III fixed slot distinguishes reveal preview, revealed-poor and actually affordable', () => {
+  const preview = projectCommandSpellIIISlot({
+    chapterReached: true,
+    eligible: false,
+    unlocked: false,
+    level: 0,
+    maxed: false,
+    pricePending: false,
+    available: false,
+    cost: 891n,
+  });
+  assert.deepEqual(preview, {
+    state: 'preview',
+    level: '—',
+    meta: 'NP TO REVEAL',
+    clickable: false,
+  });
+
   const common = {
+    chapterReached: true,
     eligible: true,
     unlocked: false,
     level: 0,
@@ -318,28 +356,45 @@ test('Command Spell III fixed slot distinguishes revealed-poor from actually aff
   assert.equal(ready.meta, '891 人類惡');
 });
 
-test('Hydra III player shell exposes Tree View plus session-only CS III and 99-head test paths', async () => {
+test('Tree View is a right-side Scene 2 drawer above the globally fixed bottom action bar', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../css/style.css', import.meta.url), 'utf8');
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const treeSource = await readFile(new URL('../js/view/tree-view.js', import.meta.url), 'utf8');
+  const hudSource = await readFile(new URL('../js/view/hud-view.js', import.meta.url), 'utf8');
   const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
 
   assert.match(html, /data-tree-view-toggle/);
   assert.match(html, /data-tree-view-overlay/);
+  assert.match(html, /data-tree-view-scene/);
+  assert.match(html, /data-tree-view-close/);
+  assert.match(html, /TREE[\s\S]*◀/);
+  assert.match(html, /▶[\s\S]*TREE/);
+  assert.match(html, /data-bottom-hud/);
   assert.match(html, /data-tree-view-logical/);
   assert.match(html, /data-tree-view-overflow/);
+  assert.match(html, /data-np-button-label/);
   assert.match(html, /data-test-command-spell-iii/);
   assert.match(html, /data-test-hydra-iii-99/);
   assert.match(html, /THE NUMBER ESCAPED THE MONSTER/);
 
-  assert.match(appSource, /createTreeView/);
-  assert.match(appSource, /runtime\.commandSpellIIIStatus\(\)/);
-  assert.match(appSource, /runtime\.buyCommandSpellIII\(\)/);
-  assert.match(appSource, /runtime\.testPresets\.setCommandSpellIIILevel/);
-  assert.match(appSource, /runtime\.testPresets\.startHydraIIIAt99/);
-  assert.match(panelSource, /「這裡怎麼沒有 SKIP\?\?\?」/);
+  assert.match(css, /\.tree-view-overlay\s*\{[\s\S]*transform:\s*translateX\(100%\)/);
+  assert.match(css, /\.tree-view-overlay\[data-open="true"\]\s*\{[\s\S]*transform:\s*translateX\(0\)/);
+  assert.match(css, /bottom:\s*calc\(var\(--bottom-hud-height\) \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(css, /\.bottom-hud\s*\{[\s\S]*z-index:\s*100/);
 
+  assert.match(appSource, /createTreeView/);
+  assert.match(appSource, /autoNpStatus:\s*spellIII/);
+  assert.doesNotMatch(appSource, /unbindTreeViewBackdrop/);
+  assert.doesNotMatch(appSource, /bindModalBackdropClose\(treeView/);
+  assert.match(treeSource, /overlay\.dataset\.open/);
+  assert.match(treeSource, /root\.classList\.toggle\('tree-open'/);
   assert.doesNotMatch(treeSource, /from ['"]\.\.\/systems\//);
   assert.doesNotMatch(treeSource, /from ['"]\.\.\/core\//);
   assert.doesNotMatch(treeSource, /state\.update/);
+
+  assert.match(hudSource, /npButtonLabel\.textContent/);
+  assert.doesNotMatch(hudSource, /npButton\.textContent\s*=/);
+  assert.match(panelSource, /NP TO REVEAL/);
+  assert.match(panelSource, /「這裡怎麼沒有 SKIP\?\?\?」/);
 });
