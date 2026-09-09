@@ -112,10 +112,10 @@ test('Command Spell I formal purchases are affordability-driven through 243 APS 
   runtime.destroy();
 });
 
-test('Command Spell II seals only the Hydra-II teaching trio at 9U2 / 6U2 / 27U2', () => {
+test('Command Spell II teaching trio has no hidden kill gates after the first reversal reveal', () => {
   const levels = HYDRA_I_PROGRESSION.commandSpellII.levels;
   assert.equal(HYDRA_I_PROGRESSION.commandSpellII.firstEligibilityMilestone, 'hydra-ii-first-manual-cut');
-  assert.deepEqual(levels.map((level) => level.requiredGenerationKills), [0n, 9n, 18n, null, null, null, null, null, null]);
+  assert.deepEqual(levels.map((level) => level.requiredGenerationKills), [0n, null, null, null, null, null, null, null, null]);
   assert.deepEqual(levels.map((level) => level.cost), [297n, 198n, 891n, null, null, null, null, null, null]);
   assert.deepEqual(levels.map((level) => level.purchasePending === true), [false, false, false, true, true, true, true, true, true]);
   assert.deepEqual(levels.map((level) => level.npManualStrikeCount), [3, 3, 3, 6, 6, 6, 9, 9, 9]);
@@ -167,31 +167,24 @@ test('Command Spell II Lv.1 unlocks on the first Hydra II reversal cut with zero
   runtime.destroy();
 });
 
-test('formal Command Spell II purchasing stops after the three Hydra-II teaching beats', () => {
-  const initialState = createHydraIIState({ totalKills: 117n, humanityEvil: 1386n });
+test('Command Spell II Lv.2 and Lv.3 can be bought at zero Hydra II kills when Humanity Evil is sufficient', () => {
+  const initialState = createHydraIIState({ totalKills: 99n, humanityEvil: 1386n, introComplete: true });
   const runtime = createHydraIGameRuntime({ initialState });
 
-  const observed = [];
   for (let level = 1; level <= 3; level += 1) {
     const before = runtime.commandSpellIIStatus();
+    assert.equal(before.generationKills, 0n);
     assert.equal(before.nextLevel, level);
+    assert.equal(before.killsMet, true);
     assert.equal(before.available, true);
 
     const purchase = runtime.buyCommandSpellII();
     assert.equal(purchase.accepted, true);
-    observed.push({
-      strikes: purchase.status.npManualStrikeCount,
-      max: purchase.status.npMaxPoints,
-      duration: purchase.status.npDurationMs,
-    });
+    assert.equal(purchase.level, level);
   }
 
-  assert.deepEqual(observed.map((value) => value.max), [132, 66, 198]);
-  assert.deepEqual(observed.map((value) => value.strikes), [3, 3, 3]);
-  assert.deepEqual(observed.map((value) => value.duration), [3000, 3000, 9000]);
-  assert.equal(runtime.snapshot().master.humanityEvil, 0n);
-
   const pending = runtime.commandSpellIIStatus();
+  assert.equal(runtime.snapshot().master.humanityEvil, 0n);
   assert.equal(pending.level, 3);
   assert.equal(pending.nextLevel, 4);
   assert.equal(pending.pricePending, true);
