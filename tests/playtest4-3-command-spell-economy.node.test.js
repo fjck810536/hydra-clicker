@@ -6,6 +6,7 @@ import { createHydraIGameRuntime } from '../js/core/game.js';
 import { createInitialState } from '../js/core/state.js';
 import {
   HYDRA_I_PROGRESSION,
+  getHumanityEvilCostForGenerationUnits,
   getHumanityEvilRewardForGeneration,
 } from '../js/data/progression.js';
 
@@ -37,6 +38,18 @@ test('Humanity Evil true-kill rewards scale by x3 each Hydra generation', () => 
   );
 });
 
+test('normalized U_n costs convert exactly into raw Humanity Evil', () => {
+  assert.equal(getHumanityEvilCostForGenerationUnits(1, 9n), 99n);
+  assert.equal(getHumanityEvilCostForGenerationUnits(2, 36n), 1188n);
+  assert.equal(getHumanityEvilCostForGenerationUnits(2, 54n), 1782n);
+  assert.equal(getHumanityEvilCostForGenerationUnits(3, 9n), 891n);
+
+  // Catch-up is natural purchasing-power inflation, not price rescaling.
+  assert.equal(getHumanityEvilCostForGenerationUnits(4, 54n), 16038n);
+  assert.equal(16038n / getHumanityEvilRewardForGeneration(5), 18n);
+  assert.equal(16038n / getHumanityEvilRewardForGeneration(6), 6n);
+});
+
 test('a true Hydra II kill awards 33 Humanity Evil instead of the Hydra I 11', () => {
   const initialState = createHydraIIState({ heads: 1n });
   initialState.berserker.np = 1;
@@ -59,19 +72,19 @@ test('a true Hydra II kill awards 33 Humanity Evil instead of the Hydra I 11', (
   runtime.destroy();
 });
 
-test('Command Spell I Data uses the revised Hydra I / II economy and leaves 729 APS price pending', () => {
+test('Command Spell I Data uses onboarding U1 costs then the mature 36U2 / 54U2 pair', () => {
   const levels = HYDRA_I_PROGRESSION.commandSpellI.levels;
   assert.deepEqual(levels.map((level) => level.attacksPerSecond), [1, 3, 9, 27, 81, 243, 729]);
-  assert.deepEqual(levels.map((level) => level.cost), [99n, 33n, 66n, 99n, 1782n, 2178n, null]);
+  assert.deepEqual(levels.map((level) => level.cost), [99n, 33n, 66n, 99n, 1188n, 1782n, null]);
   assert.deepEqual(levels.map((level) => level.requiredHydraKills), [null, null, null, null, null, null, null]);
   assert.deepEqual(levels.map((level) => level.purchasePending === true), [false, false, false, false, false, false, true]);
   assert.equal(levels.at(-1).intendedGeneration, 3);
 });
 
-test('Command Spell I formal purchases are affordability-driven through 243 APS and stop before unpriced 729 APS', () => {
+test('Command Spell I formal purchases are affordability-driven through 243 APS and stop before ranged 729 pricing', () => {
   const initialState = createInitialState();
   initialState.statistics.totalHydrasKilled = 0n;
-  initialState.master.humanityEvil = 4257n;
+  initialState.master.humanityEvil = 3267n;
   const runtime = createHydraIGameRuntime({ initialState });
 
   for (let targetLevel = 1; targetLevel <= 6; targetLevel += 1) {
@@ -99,14 +112,16 @@ test('Command Spell I formal purchases are affordability-driven through 243 APS 
   runtime.destroy();
 });
 
-test('Command Spell II Data locks first-cut eligibility plus the remaining kill, cost and NP curves', () => {
+test('Command Spell II seals only the Hydra-II teaching trio at 9U2 / 6U2 / 27U2', () => {
   const levels = HYDRA_I_PROGRESSION.commandSpellII.levels;
   assert.equal(HYDRA_I_PROGRESSION.commandSpellII.firstEligibilityMilestone, 'hydra-ii-first-manual-cut');
-  assert.deepEqual(levels.map((level) => level.requiredGenerationKills), [0n, 9n, 18n, 27n, 39n, 54n, 66n, 81n, 99n]);
-  assert.deepEqual(levels.map((level) => level.cost), [297n, 198n, 396n, 396n, 330n, 495n, 594n, 495n, 693n]);
+  assert.deepEqual(levels.map((level) => level.requiredGenerationKills), [0n, 9n, 18n, null, null, null, null, null, null]);
+  assert.deepEqual(levels.map((level) => level.cost), [297n, 198n, 891n, null, null, null, null, null, null]);
+  assert.deepEqual(levels.map((level) => level.purchasePending === true), [false, false, false, true, true, true, true, true, true]);
   assert.deepEqual(levels.map((level) => level.npManualStrikeCount), [3, 3, 3, 6, 6, 6, 9, 9, 9]);
-  assert.deepEqual(levels.map((level) => level.npMaxPoints), [132, 66, 198, 396, 198, 594, 792, 396, 1188]);
   assert.deepEqual(levels.map((level) => level.npDurationMs), [3000, 3000, 9000, 9000, 9000, 27000, 27000, 27000, 81000]);
+  assert.deepEqual(levels.slice(3).map((level) => level.intendedGeneration), [3, 3, 3, 4, 4, 4]);
+  assert.equal(HYDRA_I_PROGRESSION.commandSpellII.futureExtensionPending, true);
 });
 
 test('Command Spell II Lv.1 unlocks on the first Hydra II reversal cut with zero Hydra II kills', () => {
@@ -152,12 +167,12 @@ test('Command Spell II Lv.1 unlocks on the first Hydra II reversal cut with zero
   runtime.destroy();
 });
 
-test('buying all nine Command Spell II beats produces the canonical sawtooth gauge and 81-second MAX', () => {
-  const initialState = createHydraIIState({ totalKills: 198n, humanityEvil: 3894n });
+test('formal Command Spell II purchasing stops after the three Hydra-II teaching beats', () => {
+  const initialState = createHydraIIState({ totalKills: 117n, humanityEvil: 1386n });
   const runtime = createHydraIGameRuntime({ initialState });
 
   const observed = [];
-  for (let level = 1; level <= 9; level += 1) {
+  for (let level = 1; level <= 3; level += 1) {
     const before = runtime.commandSpellIIStatus();
     assert.equal(before.nextLevel, level);
     assert.equal(before.available, true);
@@ -171,28 +186,43 @@ test('buying all nine Command Spell II beats produces the canonical sawtooth gau
     });
   }
 
-  assert.deepEqual(observed.map((value) => value.max), [132, 66, 198, 396, 198, 594, 792, 396, 1188]);
-  assert.deepEqual(observed.map((value) => value.strikes), [3, 3, 3, 6, 6, 6, 9, 9, 9]);
-  assert.deepEqual(observed.map((value) => value.duration), [3000, 3000, 9000, 9000, 9000, 27000, 27000, 27000, 81000]);
+  assert.deepEqual(observed.map((value) => value.max), [132, 66, 198]);
+  assert.deepEqual(observed.map((value) => value.strikes), [3, 3, 3]);
+  assert.deepEqual(observed.map((value) => value.duration), [3000, 3000, 9000]);
   assert.equal(runtime.snapshot().master.humanityEvil, 0n);
-  assert.equal(runtime.commandSpellIIStatus().maxed, true);
 
-  runtime.state.update((draft) => {
-    draft.berserker.np = 1;
-  });
-  assert.deepEqual(
-    { points: runtime.npStatus().points, maxPoints: runtime.npStatus().maxPoints },
-    { points: 1188, maxPoints: 1188 },
-  );
-  const release = runtime.releaseNp();
-  assert.equal(release.accepted, true);
-  assert.equal(release.durationMs, 81000);
-  assert.equal(release.endsAt - release.atMs, 81000);
+  const pending = runtime.commandSpellIIStatus();
+  assert.equal(pending.level, 3);
+  assert.equal(pending.nextLevel, 4);
+  assert.equal(pending.pricePending, true);
+  assert.equal(pending.available, false);
+  assert.equal(pending.cost, null);
+  assert.equal(runtime.buyCommandSpellII().reason, 'price-pending');
 
   runtime.destroy();
 });
 
-test('formal player UI routes both Command Spell lines through fixed slots and one purchase modal', async () => {
+test('legacy / TEST-owned later Command Spell II milestones keep their effects but 81 seconds is not conceptual MAX', () => {
+  const initialState = createHydraIIState({ totalKills: 198n });
+  for (let level = 1; level <= 9; level += 1) {
+    initialState.progression.milestones.push(`command-spell-2-lv${level}`);
+  }
+  const runtime = createHydraIGameRuntime({ initialState });
+
+  const status = runtime.commandSpellIIStatus();
+  assert.equal(status.level, 9);
+  assert.equal(status.npManualStrikeCount, 9);
+  assert.equal(status.npDurationMs, 81000);
+  assert.equal(status.maxed, false);
+  assert.equal(status.extensionPending, true);
+  assert.equal(status.pricePending, true);
+  assert.equal(status.nextLevel, null);
+  assert.equal(runtime.buyCommandSpellII().reason, 'price-pending');
+
+  runtime.destroy();
+});
+
+test('formal player UI routes all three Command Spell lines through fixed slots and one purchase modal', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const appSource = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const panelSource = await readFile(new URL('../js/view/command-spell-panel.js', import.meta.url), 'utf8');
@@ -202,12 +232,11 @@ test('formal player UI routes both Command Spell lines through fixed slots and o
   assert.match(html, /data-command-spell-slot="3"/);
   assert.match(html, /data-command-spell-modal/);
   assert.match(html, /data-command-spell-purchase/);
-  assert.doesNotMatch(html, /data-command-spell-button/);
-  assert.doesNotMatch(html, /data-command-spell-ii-button/);
 
   assert.match(appSource, /commandSpellPanel\.currentOpenSpellId\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellI\(\)/);
   assert.match(appSource, /runtime\.buyCommandSpellII\(\)/);
+  assert.match(appSource, /runtime\.buyCommandSpellIII\(\)/);
   assert.match(appSource, /runtime\.commandSpellIIStatus\(\)/);
   assert.doesNotMatch(appSource, /state\.update/);
   assert.doesNotMatch(panelSource, /from ['"]\.\.\/systems\//);
