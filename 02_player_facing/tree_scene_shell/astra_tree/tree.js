@@ -11,7 +11,7 @@
         </select></label>
         <div class="tree-total"><strong></strong><span> logical heads</span></div>
       </section>
-      <svg class="hydra-tree" viewBox="-185 -35 370 340" aria-label="Hydra branching structure; drag to pan, pinch to zoom" tabindex="0">
+      <svg class="hydra-tree" viewBox="-220 -70 440 380" aria-label="Hydra branching structure; drag to pan, pinch to zoom" tabindex="0">
         <g class="tree-world"></g>
       </svg>
       <div class="tree-inspect" role="status" aria-live="polite"></div>

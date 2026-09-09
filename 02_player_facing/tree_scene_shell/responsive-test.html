@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>Tree responsive verification</title>
-<style>body{margin:16px;background:#222;color:#eee;font:14px system-ui}button{padding:10px;margin:4px}iframe{display:block;border:1px solid #777}pre{white-space:pre-wrap}label{display:block;margin:8px}</style>
+<style>body{margin:16px;background:#222;color:#eee;font:14px system-ui}button{padding:10px;margin:4px}iframe{display:block;border:1px solid #777}pre{white-space:pre-wrap;max-height:120px;overflow:auto}label{display:block;margin:8px}</style>
 <button data-size="390,844">390 × 844</button><button data-size="430,932">430 × 932</button><button data-size="1280,900">1280 × 900</button><button id="run">Run regression checks</button>
 <label>Exact CSS viewport in iframe. This checks responsive layout, not real Safari hardware.</label><pre id="results">Ready</pre>
-<iframe title="Hydra prototype viewport" width="390" height="844" src="./index.html"></iframe>
+<iframe title="Hydra prototype viewport" width="390" height="844" src="./index.html?v=tree-v2"></iframe>
 <script>
 const frame=document.querySelector('iframe'),results=document.querySelector('#results');
 const errors=[];

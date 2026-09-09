@@ -29,3 +29,10 @@ test('Tree presentation rejects lossy counts',()=>{
   assert.throws(()=>project(729));
   assert.throws(()=>project(-1n));
 });
+
+test('Compressed terminal hit areas remain separated at the overview scale',()=>{
+ const nodes=project(6561n).clusters;
+ for(let i=0;i<nodes.length;i++) for(let j=i+1;j<nodes.length;j++) {
+   assert.ok(Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y)>16);
+ }
+});

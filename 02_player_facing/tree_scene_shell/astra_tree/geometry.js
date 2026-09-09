@@ -20,10 +20,10 @@
         }).join(' ');
         clusters.push({ id, x: ex, y: ey, count, twigs });
       } else {
-        [-1, 0, 1].forEach((side, i) => grow(ex, ey, angle + side * (.77 - depth*.07) + Math.sin((i+depth)*2)*.04, length * .65, depth+1, `${id}.${i+1}`));
+        [-1, 0, 1].forEach((side, i) => grow(ex, ey, angle + side * (1.0 * .6**depth), length * .74, depth+1, `${id}.${i+1}`));
       }
     }
-    grow(0, 280, -Math.PI/2, 132, 0, 'root');
+    grow(0, 280, -Math.PI/2, 120, 0, 'root');
     // 40 branch curves + 81 silhouette curves + 28 circles + 27 text labels.
     return { total, branches, clusters, primitiveCount: 176 };
   }

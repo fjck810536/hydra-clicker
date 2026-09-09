@@ -23,3 +23,7 @@
 .tree-zoom {font-size:11px;color:#9db5ad;margin-left:6px;}
 .tree-hint {position:absolute;left:18px;bottom:7px;margin:0;font-size:10px;line-height:1.5;color:#8ca39b;pointer-events:none;}
 @media (min-width:700px) {.hydra-tree {top:105px;height:calc(100% - 260px);}.tree-inspect {right:auto;max-width:440px;}}
+
+/* Keep dense tips readable: show one summary per triad until inspected. */
+.tree-cluster .cluster-count {opacity:0;}
+.tree-cluster[data-node$=".2"] .cluster-count,.tree-cluster.selected .cluster-count,.tree-cluster:focus .cluster-count {opacity:1;}
