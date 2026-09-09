@@ -28,6 +28,13 @@ function formatGenerationProgress(progress) {
   return { eyebrow: `${completed}/${target}`, kills: `${completed}/${target}` };
 }
 
+function formatAps(value) {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
 export function createHudView({ root } = {}) {
   if (!(root instanceof HTMLElement)) {
     throw new TypeError('createHudView requires a root element.');
@@ -40,11 +47,12 @@ export function createHudView({ root } = {}) {
   const humanityEvil = root.querySelector('[data-hud="humanity-evil"]');
   const npValue = root.querySelector('[data-hud="np"]');
   const npButton = root.querySelector('[data-np-button]');
+  const npButtonLabel = root.querySelector('[data-np-button-label]');
   const autoSlash = root.querySelector('[data-hud="auto-slash"]');
   const status = root.querySelector('[data-stage-status]');
 
   if (!generation || !headCount || !cutCount || !killCount || !humanityEvil
-    || !npValue || !npButton || !autoSlash || !status) {
+    || !npValue || !npButton || !npButtonLabel || !autoSlash || !status) {
     throw new Error('HUD markup is incomplete.');
   }
 
@@ -54,6 +62,7 @@ export function createHudView({ root } = {}) {
       npActive = false,
       hydraIIIntroPending = false,
       generationProgress = null,
+      autoNpStatus = null,
     } = {}) {
       const npGauge = formatNpGauge(np);
       const progress = formatGenerationProgress(generationProgress);
@@ -64,18 +73,20 @@ export function createHudView({ root } = {}) {
       killCount.textContent = progress.kills;
       humanityEvil.textContent = formatInteger(snapshot.master.humanityEvil);
       npValue.textContent = npGauge.label;
-      npButton.textContent = npGauge.button;
+      npButtonLabel.textContent = npGauge.button;
       npButton.disabled = !npGauge.ready;
 
-      autoSlash.textContent = snapshot.hydra.generation >= 3
-        ? 'PAUSED'
-        : npActive && snapshot.master.commandSpells.autoSlash
-          ? 'PAUSED · NP'
-          : hydraIIIntroPending
-            ? 'PAUSED · TAP'
-            : snapshot.master.commandSpells.autoSlash
-              ? `${snapshot.berserker.baseAttacksPerSecond} APS`
-              : 'LOCKED';
+      if (!snapshot.master.commandSpells.autoSlash) {
+        autoSlash.textContent = 'LOCKED';
+      } else if (hydraIIIntroPending) {
+        autoSlash.textContent = 'PAUSED · TAP';
+      } else if (npActive) {
+        autoSlash.textContent = autoNpStatus?.autoNpFraction > 0
+          ? `${formatAps(autoNpStatus.autoNpAps)} APS`
+          : 'PAUSED · NP';
+      } else {
+        autoSlash.textContent = `${formatAps(snapshot.berserker.baseAttacksPerSecond)} APS`;
+      }
     },
     setStatus(message) {
       status.textContent = message;
