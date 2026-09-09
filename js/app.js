@@ -560,7 +560,10 @@ const offTreeViewUnlocked = runtime.events.on('tree-view:unlocked', ({ payload }
 const offSpellEligible = runtime.events.on('command-spell:eligible', ({ payload }) => {
   if (payload.id === 'command-spell-3') {
     persistNow();
-    hud.setStatus('COMMAND SPELL III REVEALED · AUTO IN NP · PRICE TBD');
+    const price = payload.pricePending
+      ? 'PRICE TBD'
+      : `${payload.cost.toString()} 人類惡`;
+    hud.setStatus(`COMMAND SPELL III REVEALED · AUTO IN NP · ${price}`);
     renderSnapshot();
   }
 });
@@ -569,6 +572,11 @@ const offSpellAvailable = runtime.events.on('command-spell:available', ({ payloa
     hud.setStatus(`COMMAND SPELL II Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.rewardLabel}`);
   } else if (payload.id === 'command-spell-1') {
     hud.setStatus(`COMMAND SPELL I Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · ${payload.attacksPerSecond} APS`);
+  } else if (payload.id === 'command-spell-3') {
+    const fraction = payload.autoNpNumerator === payload.autoNpDenominator
+      ? 'FULL'
+      : `${payload.autoNpNumerator}/${payload.autoNpDenominator}`;
+    hud.setStatus(`COMMAND SPELL III Lv.${payload.level} AVAILABLE · ${payload.cost.toString()} 人類惡 · NP AUTO ${fraction}`);
   }
   renderSnapshot();
 });
