@@ -52,29 +52,60 @@
       <span data-np-timer-technique>MANUAL ×1</span>
     </div>
 
-    <button class="tree-view-toggle" type="button" data-tree-view-toggle data-fixed-control hidden>
-      TREE VIEW
+    <button
+      class="tree-view-toggle tree-tab tree-tab-open"
+      type="button"
+      data-tree-view-toggle
+      data-fixed-control
+      aria-controls="tree-scene"
+      aria-expanded="false"
+      hidden
+    >
+      <span>TREE</span><span class="tree-tab-arrow">◀</span>
     </button>
 
-    <section class="tree-view-overlay" data-tree-view-overlay hidden aria-modal="true" role="dialog" aria-label="Hydra structure view">
-      <div class="tree-view-card">
-        <button class="tree-view-close" style="width:44px;height:44px" type="button" data-tree-view-close data-fixed-control aria-label="Close Tree View">×</button>
-        <span class="tree-view-kicker">STRUCTURE VIEW · OBSERVATION ONLY</span>
-        <strong>THE NUMBER ESCAPED THE MONSTER</strong>
-        <p>畫面最多只投影 99 顆頭。從這裡開始，怪物的外觀不再等於它真正的數量。</p>
-        <dl class="tree-view-stats">
-          <div><dt>LOGICAL HEADS</dt><dd data-tree-view-logical>100</dd></div>
-          <div><dt>VISIBLE PROXY</dt><dd data-tree-view-visible>99 / 99</dd></div>
-          <div><dt>BEYOND IMAGE</dt><dd data-tree-view-overflow>+1</dd></div>
-          <div><dt>CURRENT CAP</dt><dd data-tree-view-cap>729</dd></div>
-        </dl>
-        <div class="tree-view-diagram" aria-hidden="true">
-          <span>ROOT</span>
-          <span>└─ 9¹ · HYDRA I</span>
-          <span>&nbsp;&nbsp;└─ 9² · HYDRA II</span>
-          <span>&nbsp;&nbsp;&nbsp;&nbsp;└─ 9³ · HYDRA III · 729</span>
+    <section
+      class="tree-view-overlay tree-drawer"
+      data-tree-view-overlay
+      data-open="false"
+      aria-hidden="true"
+      aria-label="Hydra structure scene"
+      hidden
+    >
+      <button
+        class="tree-view-close tree-tab tree-tab-close"
+        type="button"
+        data-tree-view-close
+        data-fixed-control
+        aria-label="收起 Tree Scene"
+      >
+        <span class="tree-tab-arrow">▶</span><span>TREE</span>
+      </button>
+
+      <div class="tree-view-scene" id="tree-scene" data-tree-view-scene>
+        <div class="tree-scene-header">
+          <span>SCENE 2</span>
+          <strong>TREE VIEW</strong>
         </div>
-        <small>NODE TARGETING · NOT YET AVAILABLE</small>
+
+        <div class="tree-view-card">
+          <span class="tree-view-kicker">STRUCTURE VIEW · OBSERVATION ONLY</span>
+          <strong>THE NUMBER ESCAPED THE MONSTER</strong>
+          <p>畫面最多只投影 99 顆頭。從這裡開始，怪物的外觀不再等於它真正的數量。</p>
+          <dl class="tree-view-stats">
+            <div><dt>LOGICAL HEADS</dt><dd data-tree-view-logical>100</dd></div>
+            <div><dt>VISIBLE PROXY</dt><dd data-tree-view-visible>99 / 99</dd></div>
+            <div><dt>BEYOND IMAGE</dt><dd data-tree-view-overflow>+1</dd></div>
+            <div><dt>CURRENT CAP</dt><dd data-tree-view-cap>729</dd></div>
+          </dl>
+          <div class="tree-view-diagram" aria-hidden="true">
+            <span>ROOT</span>
+            <span>└─ 9¹ · HYDRA I</span>
+            <span>&nbsp;&nbsp;└─ 9² · HYDRA II</span>
+            <span>&nbsp;&nbsp;&nbsp;&nbsp;└─ 9³ · HYDRA III · 729</span>
+          </div>
+          <small>NODE TARGETING · NOT YET AVAILABLE</small>
+        </div>
       </div>
     </section>
 
@@ -135,11 +166,21 @@
       HYDRA<br />ANCHOR
     </div>
 
-    <footer class="bottom-hud">
-      <div class="meta-strip" aria-label="Master progression">
-        <span>KILLS <strong data-hud="kills">0/99</strong></span>
-        <span>人類惡 <strong data-hud="humanity-evil">0</strong></span>
-      </div>
+    <p class="status-line stage-status" data-stage-status>Initializing battle stage…</p>
+    <p class="tap-hint stage-tap-hint">TAP STAGE · MANUAL CUT</p>
+
+    <footer class="bottom-hud bottom-action-bar" data-bottom-hud>
+      <button class="np-button np-card" type="button" data-np-button data-fixed-control disabled>
+        <span class="np-kicker" data-np-button-label>NP · 0/66</span>
+        <strong>ナインライブズ</strong>
+        <small>射殺す百頭</small>
+      </button>
+
+      <section class="resource-panel" aria-label="Humanity Evil">
+        <span>人類惡</span>
+        <strong data-hud="humanity-evil">0</strong>
+        <small>KILLS <b data-hud="kills">0/99</b></small>
+      </section>
 
       <section class="command-spell-panel" data-command-spell-panel aria-label="令咒">
         <span class="command-spell-panel-title">令咒</span>
@@ -161,13 +202,6 @@
           </button>
         </div>
       </section>
-
-      <button class="np-button" type="button" data-np-button data-fixed-control disabled>
-        NP · 0/66
-      </button>
-      <p class="status-line" data-stage-status>Initializing battle stage…</p>
-      <p class="tap-hint">TAP STAGE · MANUAL CUT</p>
-      <p class="subtitle">拔—灑卡，幹死那頭海德拉！</p>
     </footer>
 
     <section class="command-spell-modal" data-command-spell-modal hidden aria-modal="true" role="dialog" aria-labelledby="command-spell-modal-title">
