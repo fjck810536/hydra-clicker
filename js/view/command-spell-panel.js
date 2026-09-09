@@ -75,15 +75,18 @@ export function projectCommandSpellIISlot(status) {
   }
 
   if (!status.unlocked) {
-    if (status.available) {
-      return Object.freeze({
-        state: 'available',
-        level: 'NEW',
-        meta: `${formatInteger(status.cost)} 人類惡`,
-        clickable: true,
-      });
+    if (!status.chapterReached) {
+      return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
     }
-    return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
+    if (!status.eligibilityMet) {
+      return Object.freeze({ state: 'preview', level: '—', meta: 'CUT TO REVEAL', clickable: false });
+    }
+    return Object.freeze({
+      state: status.available ? 'available' : 'owned-dim',
+      level: 'NEW',
+      meta: status.pricePending ? 'PRICE TBD' : `${formatInteger(status.cost)} 人類惡`,
+      clickable: true,
+    });
   }
 
   if (status.maxed) {
@@ -122,8 +125,11 @@ export function projectCommandSpellIIISlot(status) {
   }
 
   if (!status.unlocked) {
-    if (!status.eligible) {
+    if (!status.chapterReached) {
       return Object.freeze({ state: 'dormant', level: '—', meta: 'EMPTY', clickable: false });
+    }
+    if (!status.eligible) {
+      return Object.freeze({ state: 'preview', level: '—', meta: 'NP TO REVEAL', clickable: false });
     }
     return Object.freeze({
       state: status.available ? 'available' : 'owned-dim',
@@ -199,7 +205,7 @@ function modalModel(number, status) {
       current,
       next,
       cost,
-      description: '普通時間的 Auto Slash。寶具時停期間是否能運作，交給令咒 III。',
+      description: '普通時間的 Auto Slash。正式等級沒有隱藏擊殺門檻：前級已買且人類惡足夠即可升級。',
       action,
       canPurchase: status.available,
     };
@@ -240,7 +246,7 @@ function modalModel(number, status) {
       current,
       next,
       cost,
-      description: '手動連斬會在 ×9 封頂；長期成長主軸轉向 NP 時停尺度與效率。',
+      description: '蛇二第一刀揭露一次即可。之後已定價等級只看前級與當前人類惡；不再要求額外蛇二擊殺。',
       action,
       canPurchase: status.available,
     };
@@ -265,7 +271,7 @@ function modalModel(number, status) {
     current,
     next,
     cost,
-    description: '把令咒 I 的 Auto Slash 帶進寶具／時停。此 bridge 最終會在 FULL 封頂。',
+    description: '進入蛇三後先寶解一次才完成揭露；揭露後首級只看 891 人類惡。它把令咒 I 的 Auto 帶進時停。',
     action: status.maxed ? 'MAX' : status.pricePending ? 'PRICE TBD' : status.unlocked ? 'LV UP' : 'PURCHASE',
     canPurchase: status.available,
   };
